@@ -1,0 +1,6 @@
+@ESCE_SYSTEM_HostAddress = http://localhost:5002
+
+GET {{ESCE_SYSTEM_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
