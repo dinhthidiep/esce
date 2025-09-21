@@ -6,7 +6,11 @@
 
 body {
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(rgba(9, 95, 70, 0.35), rgba(9, 95, 70, 0.35)),
+    url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -19,27 +23,7 @@ body {
 }
 
 /* Animation cho background */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
-  animation: backgroundMove 20s ease-in-out infinite;
-  z-index: -1;
-}
-
-@keyframes backgroundMove {
-  0%, 100% { transform: translateX(0) translateY(0); }
-  25% { transform: translateX(-20px) translateY(-10px); }
-  50% { transform: translateX(20px) translateY(10px); }
-  75% { transform: translateX(-10px) translateY(20px); }
-}
+/* Remove animated radial backgrounds to keep plain white UI */
 
 /* Responsive */
 @media (max-width: 768px) {
