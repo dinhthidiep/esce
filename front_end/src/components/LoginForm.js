@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
+import googleAuthService from '../services/googleAuth';
 
 const LoginForm = () => {
   const [formData, setFormData] = useState({
@@ -8,6 +9,7 @@ const LoginForm = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -69,29 +71,50 @@ const LoginForm = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    
+    try {
+      const result = await googleAuthService.signIn();
+      
+      if (result.success) {
+        console.log('Google Login Success:', result.user);
+        alert(`Đăng nhập Google thành công! Chào mừng ${result.user.name}!`);
+        // Here you would typically send the user data to your backend
+        // to create/login the user account
+      } else {
+        alert(`Đăng nhập Google thất bại: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Google Login Error:', error);
+      alert('Có lỗi xảy ra khi đăng nhập Google. Vui lòng thử lại!');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
-        <div className="login-header">
-          <div className="logo">
-            <div className="logo-icon">✈️</div>
-            <h1>Travel Login</h1>
-          </div>
-          <p className="subtitle">Khám phá thế giới cùng chúng tôi</p>
+        <div className="brand">
+          <h2 className="brand-name">ESCE</h2>
+          <p className="brand-sub">Du lịch sinh thái</p>
         </div>
+
+        <h3 className="title">Đăng nhập</h3>
+        <p className="subtitle">Nhập thông tin tài khoản để đăng nhập</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <div className="input-wrapper">
-              <span className="input-icon">📧</span>
               <input
                 type="email"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="Nhập email của bạn"
+                placeholder="nhập email của bạn"
                 className={errors.email ? 'error' : ''}
               />
             </div>
@@ -100,17 +123,17 @@ const LoginForm = () => {
 
           <div className="form-group">
             <label htmlFor="password">Mật khẩu</label>
-            <div className="input-wrapper">
-              <span className="input-icon">🔒</span>
+            <div className="input-wrapper with-toggle">
               <input
                 type="password"
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Nhập mật khẩu"
+                placeholder="nhập mật khẩu"
                 className={errors.password ? 'error' : ''}
               />
+              <span className="toggle-icon" aria-hidden>👁️</span>
             </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
@@ -121,11 +144,11 @@ const LoginForm = () => {
               <span className="checkmark"></span>
               Ghi nhớ đăng nhập
             </label>
-            <a href="#" className="forgot-password">Quên mật khẩu?</a>
+            <a href="/forgot-password" className="forgot-password">Quên mật khẩu?</a>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className={`login-button ${isLoading ? 'loading' : ''}`}
             disabled={isLoading}
           >
@@ -140,23 +163,28 @@ const LoginForm = () => {
           </button>
         </form>
 
-        <div className="divider">
-          <span>hoặc</span>
-        </div>
+        <div className="divider"><span>HOẶC</span></div>
 
-        <div className="social-login">
-          <button className="social-button google">
-            <span className="social-icon">🔍</span>
-            Đăng nhập với Google
-          </button>
-          <button className="social-button facebook">
-            <span className="social-icon">📘</span>
-            Đăng nhập với Facebook
-          </button>
-        </div>
+        <button 
+          className="google-button"
+          onClick={handleGoogleLogin}
+          disabled={isGoogleLoading}
+        >
+          {isGoogleLoading ? (
+            <>
+              <div className="spinner"></div>
+              Đang đăng nhập...
+            </>
+          ) : (
+            <>
+              <span className="g-icon">G</span>
+              Đăng nhập bằng Google
+            </>
+          )}
+        </button>
 
         <div className="signup-link">
-          <p>Chưa có tài khoản? <a href="#">Đăng ký ngay</a></p>
+          <p>Chưa có tài khoản? <a href="/register">Đăng ký ngay</a></p>
         </div>
       </div>
     </div>
