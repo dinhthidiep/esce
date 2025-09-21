@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './OTPVerification.css';
 
@@ -6,11 +6,32 @@ const OTPVerification = () => {
   const navigate = useNavigate();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef([]);
+
+  // Đếm ngược thời gian gửi lại mã
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+    } else {
+      setCanResend(true);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer]);
 
   const handleInputChange = (index, value) => {
     // Chỉ cho phép nhập số
     if (!/^\d*$/.test(value)) return;
+
+    // Xóa thông báo lỗi khi người dùng nhập lại
+    if (error) {
+      setError('');
+    }
 
     const newOtp = [...otp];
     newOtp[index] = value;
@@ -34,17 +55,47 @@ const OTPVerification = () => {
 
     const otpString = otp.join('');
     if (otpString.length !== 6) {
+      setError('Vui lòng nhập đầy đủ 6 số OTP');
       return;
     }
 
     setLoading(true);
+    setError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Simulate API call với validation
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Chuyển sang màn hình reset password
-    navigate('/reset-password');
+    // Giả lập kiểm tra OTP (trong thực tế sẽ gọi API)
+    const correctOTP = '123456'; // Mã OTP đúng để test
+    
+    if (otpString === correctOTP) {
+      // Chuyển sang màn hình reset password
+      navigate('/reset-password');
+    } else {
+      setError('Mã OTP không chính xác. Vui lòng thử lại.');
+      // Reset OTP inputs
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    }
+    
     setLoading(false);
+  };
+
+  const handleResend = async () => {
+    if (!canResend) return;
+    
+    setCanResend(false);
+    setResendTimer(60);
+    setError('');
+    setOtp(['', '', '', '', '', '']);
+    
+    // Simulate gửi lại mã OTP
+    console.log('Đang gửi lại mã OTP...');
+    
+    // Focus vào ô đầu tiên
+    setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 100);
   };
 
   return (
@@ -72,11 +123,17 @@ const OTPVerification = () => {
                 value={digit}
                 onChange={(e) => handleInputChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className="otp-input"
+                className={`otp-input ${error ? 'error' : ''}`}
                 autoComplete="off"
               />
             ))}
           </div>
+
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
 
           <button 
             type="submit" 
@@ -86,6 +143,22 @@ const OTPVerification = () => {
             {loading ? <><div className="spinner"></div>Đang xác thực...</> : 'Xác thực OTP'}
           </button>
         </form>
+
+        <div className="resend-section">
+          {canResend ? (
+            <button 
+              type="button" 
+              className="resend-button"
+              onClick={handleResend}
+            >
+              Gửi lại mã OTP
+            </button>
+          ) : (
+            <p className="resend-timer">
+              Gửi lại mã sau {resendTimer}s
+            </p>
+          )}
+        </div>
 
         <a href="/forgot-password" className="fp-back">← Quay lại</a>
       </div>
