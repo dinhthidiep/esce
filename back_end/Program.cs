@@ -31,6 +31,24 @@ builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
+// Đăng ký Service, ServiceCombo, ServiceComboDetail
+builder.Services.AddScoped<ServiceRepository>();
+builder.Services.AddScoped<ServiceService>();
+builder.Services.AddScoped<ServiceComboRepository>();
+builder.Services.AddScoped<ServiceComboService>();
+builder.Services.AddScoped<ServiceComboDetailRepository>();
+builder.Services.AddScoped<ServiceComboDetailService>();
+
+// Đăng ký Booking và Review
+builder.Services.AddScoped<BookingRepository>();
+builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<ReviewRepository>();
+builder.Services.AddScoped<ReviewService>();
+
+// Đăng ký News
+builder.Services.AddScoped<NewsRepository>();
+builder.Services.AddScoped<NewsService>();
+
 // Đăng ký các helper
 builder.Services.AddScoped<JwtHelper>();   // đổi Singleton -> Scoped
 builder.Services.AddSingleton<EmailHelper>();

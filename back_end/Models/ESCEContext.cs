@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace Learnasp.Models
+namespace ESCE_SYSTEM.Models
 {
     public class ESCEContext:DbContext
     {
