@@ -3,16 +3,15 @@ using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models
 {
-    public partial class Tour
+    public partial class Servicecombo
     {
-        public Tour()
+        public Servicecombo()
         {
             Bookings = new HashSet<Booking>();
-            Complaints = new HashSet<Complaint>();
-            GroupBookings = new HashSet<GroupBooking>();
+            Coupons = new HashSet<Coupon>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
-            TourPromotions = new HashSet<TourPromotion>();
+            ServicecomboDetails = new HashSet<ServicecomboDetail>();
         }
 
         public int Id { get; set; }
@@ -20,22 +19,19 @@ namespace ESCE_SYSTEM.Models
         public string Address { get; set; } = null!;
         public string? Description { get; set; }
         public decimal Price { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public int Capacity { get; set; }
         public int AvailableSlots { get; set; }
         public string? Image { get; set; }
         public string? Status { get; set; }
+        public string? CancellationPolicy { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int HostId { get; set; }
 
         public virtual Account Host { get; set; } = null!;
         public virtual ICollection<Booking> Bookings { get; set; }
-        public virtual ICollection<Complaint> Complaints { get; set; }
-        public virtual ICollection<GroupBooking> GroupBookings { get; set; }
+        public virtual ICollection<Coupon> Coupons { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }
-        public virtual ICollection<TourPromotion> TourPromotions { get; set; }
+        public virtual ICollection<ServicecomboDetail> ServicecomboDetails { get; set; }
     }
 }

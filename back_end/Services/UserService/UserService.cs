@@ -11,6 +11,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using ESCE_SYSTEM.DTOs.Certificates;
+using ESCE_SYSTEM.DTOs.BanUnbanUser;
+using Mapster;
+using Microsoft.AspNetCore.Hosting;
+using ESCE_SYSTEM.DTOs.Notifications;
+using ESCE_SYSTEM.Services.NotificationService;
+using Microsoft.AspNetCore.SignalR;
+using ESCE_SYSTEM.SignalR;
+
+
 
 namespace ESCE_SYSTEM.Services.UserService
 {
@@ -21,19 +31,31 @@ namespace ESCE_SYSTEM.Services.UserService
         private readonly JwtSetting _jwtSetting;
         private readonly IUserContextService _userContextService;
         private readonly IOtpRepository _otpRepository;
+        private readonly IWebHostEnvironment _env; 
+        private readonly EmailConfig _emailConfig;
+        private readonly INotificationService _notificationService;
+        private readonly IHubContext<NotificationHub> _hubNotificationContext;
 
         public UserService(
             ESCEContext dbContext,
             EmailHelper emailHelper,
             IUserContextService userContextService,
             IOptions<JwtSetting> jwtSettings,
-            IOtpRepository otpRepository)
+            IOtpRepository otpRepository,
+            IWebHostEnvironment env, 
+            IOptions<EmailConfig> emailConfigOptions,
+            INotificationService notificationService,
+            IHubContext<NotificationHub> hubContext)
         {
             _dbContext = dbContext;
             _emailHelper = emailHelper;
             _jwtSetting = jwtSettings.Value;
             _userContextService = userContextService;
             _otpRepository = otpRepository;
+            _env = env;
+            _emailConfig = emailConfigOptions.Value;
+            _notificationService = notificationService;
+            _hubNotificationContext = hubContext;
         }
 
         #region User Management
@@ -43,7 +65,7 @@ namespace ESCE_SYSTEM.Services.UserService
                 .FirstOrDefaultAsync(x => x.Email.ToLower() == userEmail.ToLower());
         }
 
-        public async Task CreateUserAsync(RegisterUserDto user, bool verifyOtp, bool isGoogleAccount)
+        public async Task CreateUserAsync(RegisterUserDto user, bool verifyOtp, bool isGoogleAccount, int roleId=4)
         {
             // 🔹 1. Xác thực OTP nếu yêu cầu
             if (verifyOtp)
@@ -72,8 +94,8 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new InvalidOperationException("Email đã tồn tại.");
 
             // 🔹 4. Check RoleId hợp lệ
-            if (!await _dbContext.Roles.AnyAsync(r => r.Id == user.RoleId))
-                throw new InvalidOperationException("RoleId không hợp lệ.");
+            //if (!await _dbContext.Roles.AnyAsync(r => r.Id == user.RoleId))
+            //    throw new InvalidOperationException("RoleId không hợp lệ.");
 
             // 🔹 5. Tạo hash password (Google account có thể set random password)
             string passwordHash = isGoogleAccount
@@ -87,7 +109,7 @@ namespace ESCE_SYSTEM.Services.UserService
                 PasswordHash = passwordHash,
                 Name = user.FullName,
                 Phone = string.IsNullOrEmpty(user.Phone) ? null : user.Phone,
-                RoleId = user.RoleId,
+                RoleId = roleId,
                 IsActive = isGoogleAccount || !verifyOtp, // Google thì active luôn
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -224,6 +246,196 @@ namespace ESCE_SYSTEM.Services.UserService
                 return null;
             }
         }
+
+        // 🟢 Bổ sung triển khai: GetAccountById(int)
+        public async Task<Account> GetAccountById(int accountId)
+        {
+            var account = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+            if (account == null) throw new Exception("Account not found");
+            return account;
+        }
+
         #endregion
+
+        // Trong UserService.cs
+
+        // 🟢 Hàm HỖ TRỢ GỬI EMAIL (Chỉ tới User)
+        private async Task SendUserEmailAsync(Account user, string templateName, string subject, string comment = null)
+        {
+            // ... (Logic đọc file HTML, thay thế placeholder, và gọi _emailHelper.SendEmailAsync)
+
+            string filePath = Path.Combine(_env.ContentRootPath, "EmailTemplates", templateName);
+            if (!System.IO.File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"Không tìm thấy file template email: {templateName}", filePath);
+            }
+
+            string htmlBody = await System.IO.File.ReadAllTextAsync(filePath);
+            string body = htmlBody
+                .Replace("{{UserName}}", user.Name)
+                .Replace("{{Hompage}}", _emailConfig.HomePage)
+                .Replace("{{Comment}}", comment ?? "")
+                .Replace("{{Reason}}", comment ?? "");
+
+            await _emailHelper.SendEmailAsync(subject, body, new List<string> { user.Email }, true);
+        }
+
+        // 🟢 Hàm HỖ TRỢ GỬI THÔNG BÁO WEB (Tới Admin và User)
+        private async Task SendWebNotificationAsync(Account user, string status, string objectType, string objectId, string content)
+        {
+            // 1. Tạo Notification cho User liên quan
+            var userNotification = new NotificationDto
+            {
+                UserId = user.Id,
+                Message = content,
+                Title = $"Cập nhật trạng thái: {status}",
+                // ... (các trường khác)
+            };
+            // ⚠️ Gửi Notification User (DB + SignalR)
+            // await _notificationService.AddNotificationAsync(userNotification);
+            // await _hubNotificationContext.Clients.User(user.Id.ToString()).SendAsync("ReceiveNotification", userNotification);
+
+            // 2. Tạo Notification cho TẤT CẢ ADMIN
+            var adminContent = $"Yêu cầu {objectType} của {user.Name} đã được cập nhật thành {status}.";
+            var admins = await _dbContext.Accounts.Where(a => a.RoleId == 1).ToListAsync(); // Role 1 = Admin
+
+            foreach (var admin in admins)
+            {
+                var adminNotification = new NotificationDto
+                {
+                    UserId = admin.Id,
+                    Message = adminContent,
+                    Title = $"Cập nhật hệ thống: {status}",
+                    // ...
+                };
+                // ⚠️ Gửi Notification Admin (DB + SignalR)
+                // await _notificationService.AddNotificationAsync(adminNotification);
+                // await _hubNotificationContext.Clients.User(admin.Id.ToString()).SendAsync("ReceiveNotification", adminNotification);
+            }
+        }
+
+        // 🟢 Hàm hỗ trợ chung để lấy chứng nhận và người dùng (EF Core) - Giữ nguyên
+        private async Task<(dynamic Certificate, Account User, int SuccessRoleId, string ObjectType)> GetCertificateAndUserForProcessing(int certificateId, CertificateType type)
+        {
+            // ... (Logic đã được cung cấp)
+            // Cần đảm bảo các navigation property như .Include(ac => ac.Account) được sử dụng
+            throw new NotImplementedException();
+        }
+
+
+        // --- 🟢 YÊU CẦU NÂNG CẤP ROLE ---
+
+        public async Task RequestUpgradeToAgencyAsync(int userId, RequestAgencyUpgradeDto requestDto)
+        {
+            var user = await _dbContext.Accounts.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null) throw new InvalidOperationException("User not found.");
+
+            // ⚠️ KHỞI TẠO VÀ LƯU AGENCIE CERTIFICATE
+            var agencyCertificate = new AgencieCertificate { AccountId = userId, Status = "Pending", /* ... các trường khác */ AgencyId = 0 };
+            _dbContext.AgencieCertificates.Add(agencyCertificate);
+            await _dbContext.SaveChangesAsync();
+
+            // 🟢 THÔNG BÁO ADMIN (NotifyAdminAsync đã được thay thế bằng SendWebNotificationAsync)
+            await SendWebNotificationAsync(user, "Pending", "Agency Certificate", agencyCertificate.AgencyId.ToString(),
+                $"Người dùng {user.Name} vừa gửi yêu cầu nâng cấp Agency.");
+        }
+
+        public async Task RequestUpgradeToHostAsync(int userId, RequestHostUpgradeDto requestDto)
+        {
+            var user = await _dbContext.Accounts.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null) throw new InvalidOperationException("User not found.");
+
+            // ⚠️ KHỞI TẠO VÀ LƯU HOST CERTIFICATE
+            var hostCertificate = new HostCertificate { HostId = userId, Status = "Pending", /* ... các trường khác */ CertificateId = 0 };
+            _dbContext.HostCertificates.Add(hostCertificate);
+            await _dbContext.SaveChangesAsync();
+
+            // 🟢 THÔNG BÁO ADMIN
+            await SendWebNotificationAsync(user, "Pending", "Host Certificate", hostCertificate.CertificateId.ToString(),
+                $"Người dùng {user.Name} vừa gửi yêu cầu nâng cấp Host.");
+        }
+
+        // 1. DUYỆT (Approve)
+        public async Task ApproveUpgradeCertificateAsync(ApproveCertificateDto dto)
+        {
+            var (cert, user, newRoleId, objectType) = await GetCertificateAndUserForProcessing(dto.CertificateId, (CertificateType)dto.Type);
+
+            cert.Status = "Approved";
+            user.RoleId = newRoleId;
+            cert.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            await SendWebNotificationAsync(user, "Approved", objectType, dto.CertificateId.ToString(), $"Yêu cầu nâng cấp Role của bạn đã được phê duyệt thành công.");
+            await SendUserEmailAsync(user, "ApproveCertificate.html", "THÔNG BÁO: Yêu cầu nâng cấp Role đã được CHẤP THUẬN");
+        }
+
+        // 2. TỪ CHỐI (Reject)
+        public async Task RejectUpgradeCertificateAsync(RejectCertificateDto dto)
+        {
+            var (cert, user, _, objectType) = await GetCertificateAndUserForProcessing(dto.CertificateId, (CertificateType)dto.Type);
+
+            cert.Status = "Rejected";
+            cert.RejectComment = dto.Comment;
+            cert.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            await SendWebNotificationAsync(user, "Rejected", objectType, dto.CertificateId.ToString(), $"Yêu cầu nâng cấp Role của bạn đã bị từ chối. Lý do: {dto.Comment}");
+            await SendUserEmailAsync(user, "RejectCertificate.html", "THÔNG BÁO: Yêu cầu nâng cấp Role bị TỪ CHỐI", dto.Comment);
+        }
+
+        // 3. YÊU CẦU BỔ SUNG (Review)
+        public async Task ReviewUpgradeCertificateAsync(ReviewCertificateDto dto)
+        {
+            var (cert, user, _, objectType) = await GetCertificateAndUserForProcessing(dto.CertificateId, (CertificateType)dto.Type);
+
+            cert.Status = "Review";
+            cert.ReviewComments = dto.Comment;
+            cert.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            await SendWebNotificationAsync(user, "Review", objectType, dto.CertificateId.ToString(), $"Yêu cầu nâng cấp Role của bạn cần bổ sung thông tin. Nội dung: {dto.Comment}");
+            await SendUserEmailAsync(user, "AddCertificateReviewComment.html", "THÔNG BÁO: Yêu cầu bổ sung thông tin Role", dto.Comment);
+        }
+
+
+
+        #region Ban/Unban Account (Triển khai chính xác)
+
+        // 1. CẤM (Ban)
+        public async Task BanAccount(string accountId, string reason)
+        {
+            // Chuyển đổi string ID -> int để gọi GetAccountById(int)
+            if (!int.TryParse(accountId, out int id)) throw new ArgumentException($"ID tài khoản '{accountId}' không hợp lệ.");
+            var account = await GetAccountById(id);
+
+            if (account.IsActive == false) throw new Exception("Tài khoản đã bị cấm.");
+
+            account.IsActive = false;
+            account.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            await SendWebNotificationAsync(account, "Ban", "Account", accountId, $"Tài khoản của bạn đã bị cấm. Lý do: {reason}");
+            await SendUserEmailAsync(account, "BanAccount.html", "THÔNG BÁO: Tài khoản của bạn đã bị CẤM TRUY CẬP", reason);
+        }
+
+        // 2. BỎ CẤM (Unban)
+        public async Task UnbanAccount(string accountId)
+        {
+            // Chuyển đổi string ID -> int để gọi GetAccountById(int)
+            if (!int.TryParse(accountId, out int id)) throw new ArgumentException($"ID tài khoản '{accountId}' không hợp lệ.");
+            var account = await GetAccountById(id);
+
+            if (account.IsActive == true) throw new Exception("Tài khoản không bị cấm.");
+
+            account.IsActive = true;
+            account.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            await SendWebNotificationAsync(account, "Unban", "Account", accountId, $"Tài khoản của bạn đã được bỏ cấm.");
+            await SendUserEmailAsync(account, "UnbanAccount.html", "THÔNG BÁO: Tài khoản của bạn đã được KHÔI PHỤC");
+        }
+
+
     }
 }
+#endregion

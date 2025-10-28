@@ -12,7 +12,6 @@ namespace ESCE_SYSTEM.Models
         public DateTime? CreatedAt { get; set; }
         public bool? IsRead { get; set; }
 
-        public virtual Account Receiver { get; set; } = null!;
         public virtual Account Sender { get; set; } = null!;
     }
 }

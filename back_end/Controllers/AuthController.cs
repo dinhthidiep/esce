@@ -56,8 +56,8 @@ namespace ESCE_SYSTEM.Controllers
         [HttpPost("logingoogle")]
         public async Task<IActionResult> LoginGoogle([FromBody] LoginGoogleDto loginGoogleRequest)
         {
-            if (string.IsNullOrEmpty(loginGoogleRequest.IdToken))
-                return Unauthorized("Invalid credentials.");
+            // ... (Xác thực Google Token)
+
             var payload = await _userService.VerifyGoogleTokenAsync(loginGoogleRequest.IdToken);
             if (payload == null || string.IsNullOrEmpty(payload.Email))
                 return Unauthorized("Invalid credentials.");
@@ -65,31 +65,26 @@ namespace ESCE_SYSTEM.Controllers
             var user = await _userService.GetUserByUsernameAsync(payload.Email);
             if (user == null)
             {
-                if (loginGoogleRequest.RoleId == null || (loginGoogleRequest.RoleId != 3 && loginGoogleRequest.RoleId != 4))
+                // 🟢 Logic: Đăng ký Google mới luôn là Role 4
+                var registerUserDto = new RegisterUserDto
                 {
-                    return Ok(new LoginResponseDto());
-                }
-                else
-                {
-                    var registerUserDto = new RegisterUserDto
-                    {
-                        FullName = payload.Name ?? payload.Email,
-                        UserEmail = payload.Email,
-                        Password = Guid.NewGuid().ToString(),
-                        RoleId = loginGoogleRequest.RoleId ?? 0,
-                        Phone = loginGoogleRequest.PhoneNumber ?? ""
-                    };
-                    await _userService.CreateUserAsync(registerUserDto, false, true);
-                    user = await _userService.GetUserByUsernameAsync(payload.Email);
-                }
+                    FullName = payload.Name ?? payload.Email,
+                    UserEmail = payload.Email,
+                    Password = Guid.NewGuid().ToString(),
+            
+                    Phone = loginGoogleRequest.PhoneNumber ?? ""
+                };
+                await _userService.CreateUserAsync(registerUserDto, false, true);
+                user = await _userService.GetUserByUsernameAsync(payload.Email);
             }
 
-            var role = await _roleService.GetRoleById(user.RoleId);
+            // ... (tạo token và trả về)
+     /*       var role = await _roleService.GetRoleById(user.RoleId);*/
             var token = _jwtHelper.GenerateToken(new UserTokenDto
             {
                 Id = user.Id.ToString(),
                 UserEmail = user.Email,
-                Role = role.Name
+               /* Role = role.Name*/
             });
 
             return Ok(new LoginResponseDto { Token = token, UserInfo = user.Adapt<UserProfileDto>() });
@@ -101,10 +96,10 @@ namespace ESCE_SYSTEM.Controllers
             var existingUser = await _userService.GetUserByUsernameAsync(user.UserEmail);
             if (existingUser != null) return BadRequest("Username already exists.");
 
-            if (user.RoleId != 3 && user.RoleId != 4) // Kiểm tra Host (3) hoặc Customer (4)
-            {
-                return BadRequest("Invalid role. Only Host or Customer roles are allowed.");
-            }
+            // 🔴 Thay đổi quan trọng: Gán RoleId mặc định là 4 (Customer) khi đăng ký thường
+           // user.RoleId = 4;
+
+            // ❌ Bỏ qua kiểm tra role cũ: if (user.RoleId != 3 && user.RoleId != 4) {...}
 
             try
             {

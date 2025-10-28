@@ -10,6 +10,7 @@ namespace ESCE_SYSTEM.Models
         public string? Message { get; set; }
         public bool? IsRead { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public string? Title { get; set; }
 
         public virtual Account User { get; set; } = null!;
     }

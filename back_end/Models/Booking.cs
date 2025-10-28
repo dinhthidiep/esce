@@ -7,14 +7,13 @@ namespace ESCE_SYSTEM.Models
     {
         public Booking()
         {
-            BookingPromotions = new HashSet<BookingPromotion>();
-            Complaints = new HashSet<Complaint>();
+            BookingCoupons = new HashSet<BookingCoupon>();
             Payments = new HashSet<Payment>();
         }
 
         public int Id { get; set; }
         public int UserId { get; set; }
-        public int TourId { get; set; }
+        public int ComboId { get; set; }
         public DateTime? BookingDate { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
@@ -23,10 +22,9 @@ namespace ESCE_SYSTEM.Models
         public string? Notes { get; set; }
         public string? Status { get; set; }
 
-        public virtual Tour Tour { get; set; } = null!;
+        public virtual Servicecombo Combo { get; set; } = null!;
         public virtual Account User { get; set; } = null!;
-        public virtual ICollection<BookingPromotion> BookingPromotions { get; set; }
-        public virtual ICollection<Complaint> Complaints { get; set; }
+        public virtual ICollection<BookingCoupon> BookingCoupons { get; set; }
         public virtual ICollection<Payment> Payments { get; set; }
     }
 }
