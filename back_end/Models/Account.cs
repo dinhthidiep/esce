@@ -7,56 +7,58 @@ namespace ESCE_SYSTEM.Models
     {
         public Account()
         {
+            AgencieCertificates = new HashSet<AgencieCertificate>();
             Bookings = new HashSet<Booking>();
             Comments = new HashSet<Comment>();
-            ComplaintActions = new HashSet<ComplaintAction>();
-            Complaints = new HashSet<Complaint>();
-            GroupBookings = new HashSet<GroupBooking>();
-            GroupMembers = new HashSet<GroupMember>();
-            MessageReceivers = new HashSet<Message>();
-            MessageSenders = new HashSet<Message>();
+            Coupons = new HashSet<Coupon>();
+            HostCertificates = new HashSet<HostCertificate>();
+            Messages = new HashSet<Message>();
+            News = new HashSet<News>();
             Notifications = new HashSet<Notification>();
             Otps = new HashSet<Otp>();
+            PostSaves = new HashSet<PostSave>();
             Posts = new HashSet<Post>();
-            Promotions = new HashSet<Promotion>();
             Reactions = new HashSet<Reaction>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
-            Tours = new HashSet<Tour>();
+            Servicecombos = new HashSet<Servicecombo>();
+            Services = new HashSet<Service>();
+            SupportResponses = new HashSet<SupportResponse>();
         }
 
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string PasswordHash { get; set; } = null!;
-        public string? PasswordSalt { get; set; }
+        public string? Password { get; set; }
         public string? Avatar { get; set; }
         public string? Phone { get; set; }
         public DateTime? Dob { get; set; }
         public string? Gender { get; set; }
         public string? Address { get; set; }
-        public bool? IsActive { get; set; }
+        public bool IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int RoleId { get; set; }
-        public string? Name2 { get; set; }
+        public bool IsBanned { get; set; }
 
         public virtual Role Role { get; set; } = null!;
+        public virtual ICollection<AgencieCertificate> AgencieCertificates { get; set; }
         public virtual ICollection<Booking> Bookings { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
-        public virtual ICollection<ComplaintAction> ComplaintActions { get; set; }
-        public virtual ICollection<Complaint> Complaints { get; set; }
-        public virtual ICollection<GroupBooking> GroupBookings { get; set; }
-        public virtual ICollection<GroupMember> GroupMembers { get; set; }
-        public virtual ICollection<Message> MessageReceivers { get; set; }
-        public virtual ICollection<Message> MessageSenders { get; set; }
+        public virtual ICollection<Coupon> Coupons { get; set; }
+        public virtual ICollection<HostCertificate> HostCertificates { get; set; }
+        public virtual ICollection<Message> Messages { get; set; }
+        public virtual ICollection<News> News { get; set; }
         public virtual ICollection<Notification> Notifications { get; set; }
         public virtual ICollection<Otp> Otps { get; set; }
+        public virtual ICollection<PostSave> PostSaves { get; set; }
         public virtual ICollection<Post> Posts { get; set; }
-        public virtual ICollection<Promotion> Promotions { get; set; }
         public virtual ICollection<Reaction> Reactions { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }
-        public virtual ICollection<Tour> Tours { get; set; }
+        public virtual ICollection<Servicecombo> Servicecombos { get; set; }
+        public virtual ICollection<Service> Services { get; set; }
+        public virtual ICollection<SupportResponse> SupportResponses { get; set; }
     }
 }

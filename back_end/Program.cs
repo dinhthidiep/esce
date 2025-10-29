@@ -12,12 +12,18 @@ using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Helpers;
 using ESCE_SYSTEM.Services.UserContextService;
 using ESCE_SYSTEM.Repositories.OtpRepository;
+using ESCE_SYSTEM.Services.NotificationService;
+using ESCE_SYSTEM.Repositories.NotificationRepository;
+using ESCE_SYSTEM.Repositories.MessageRepository;
+using ESCE_SYSTEM.Services.MessageService;
+using ESCE_SYSTEM.SignalR;
+using ESCE_SYSTEM.SeedData;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
-
+builder.Services.AddSignalR();
 // Configure DbContext with SQL Server
 builder.Services.AddDbContext<ESCEContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -25,6 +31,10 @@ builder.Services.AddDbContext<ESCEContext>(options =>
 // Đăng ký các dịch vụ và repository
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<NotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<MessageRepository, MessageRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
@@ -135,6 +145,18 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+//Default data
+using (var scope = app.Services.CreateScope())
+{
+    var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+
+    var roleService = scope.ServiceProvider.GetRequiredService<IRoleService>();
+    var roleRepository = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
+    var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+    await SeedData.Initialize(userService, roleService, roleRepository, userRepository);
+}
+
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -152,5 +174,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// 🟢 MAP CÁC SIGNALR HUBS
+app.MapHub<NotificationHub>("/hubs/notification");
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
