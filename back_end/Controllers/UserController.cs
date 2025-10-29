@@ -1,172 +1,299 @@
 ﻿using ESCE_SYSTEM.DTOs.BanUnbanUser;
 using ESCE_SYSTEM.DTOs.Certificates;
-using ESCE_SYSTEM.Services.RoleService;
 using ESCE_SYSTEM.Services.UserService;
 using ESCE_SYSTEM.DTOs.Users;
-using ESCE_SYSTEM.Helpers;
-using ESCE_SYSTEM.Models;
-using ESCE_SYSTEM.Repositories.UserRepository;
 using ESCE_SYSTEM.Services.UserContextService;
-using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
-using System.Security.Claims;
-
 
 namespace ESCE_SYSTEM.Controllers
 {
     [Route("api/user")]
     [ApiController]
-    public class UserController : ControllerBase // Đã sửa lại thành ControllerBase cho phù hợp
+    public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IUserContextService _userContextService;
-        // Thêm các dependencies khác nếu cần (ví dụ: IConfiguration, ICampaignService từ code cũ)
-        // private readonly IConfiguration _configuration;
-        // private readonly ICampaignService _campaignService; 
 
-        public UserController(IUserService userService, IUserContextService userContextService /*, ...*/)
+        public UserController(IUserService userService, IUserContextService userContextService)
         {
             _userService = userService;
             _userContextService = userContextService;
-            // ...
         }
 
-        // ---------- 🟢 CHỨC NĂNG YÊU CẦU NÂNG CẤP ROLE (CUSTOMER/ROLE 4 ONLY) 🟢 ----------
+        #region Certificate Endpoints
+        [HttpGet("agency-certificates")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAgencyCertificates([FromQuery] string status = null)
+        {
+            try
+            {
+                var certificates = await _userService.GetAllAgencyCertificatesAsync(status);
+                return Ok(certificates);
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
 
-        [HttpPost("RequestUpgradeToAgency")]
-        [Authorize(Roles = "Customer")] // Role 4
+        [HttpGet("host-certificates")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetHostCertificates([FromQuery] string status = null)
+        {
+            try
+            {
+                var certificates = await _userService.GetAllHostCertificatesAsync(status);
+                return Ok(certificates);
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpPost("request-upgrade-to-agency")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> RequestUpgradeToAgency([FromBody] RequestAgencyUpgradeDto requestDto)
         {
             try
             {
-                // Lấy User ID từ UserContextService hoặc Claims
                 var userIdString = _userContextService.UserId;
-                if (!int.TryParse(userIdString, out var userId))
-                    return Unauthorized("Thông tin người dùng không hợp lệ.");
+                if (!int.TryParse(userIdString, out int userId))
+                {
+                    return Unauthorized("Invalid user information");
+                }
 
                 await _userService.RequestUpgradeToAgencyAsync(userId, requestDto);
-                return Ok("Yêu cầu nâng cấp lên Agency (Role 3) đã được gửi thành công. Vui lòng chờ Admin duyệt.");
+                return Ok("Agency upgrade request has been submitted successfully. Please wait for admin approval.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
             }
         }
 
-        [HttpPost("RequestUpgradeToHost")]
-        [Authorize(Roles = "Customer")] // Role 4
+        [HttpPost("request-upgrade-to-host")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> RequestUpgradeToHost([FromBody] RequestHostUpgradeDto requestDto)
         {
             try
             {
-                // Lấy User ID từ UserContextService hoặc Claims
                 var userIdString = _userContextService.UserId;
-                if (!int.TryParse(userIdString, out var userId))
-                    return Unauthorized("Thông tin người dùng không hợp lệ.");
+                if (!int.TryParse(userIdString, out int userId))
+                {
+                    return Unauthorized("Invalid user information");
+                }
 
                 await _userService.RequestUpgradeToHostAsync(userId, requestDto);
-                return Ok("Yêu cầu nâng cấp lên Host (Role 2) đã được gửi thành công. Vui lòng chờ Admin duyệt.");
+                return Ok("Host upgrade request has been submitted successfully. Please wait for admin approval.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
             }
         }
 
-        // ---
-
-        // ---------- 🟢 CHỨC NĂNG DUYỆT ROLE (ADMIN/ROLE 1 ONLY) 🟢 ----------
-
-        // 1. PHÊ DUYỆT (Approve)
-        [HttpPut("ApproveCertificate")]
-        [Authorize(Roles = "Admin")] // 🔴 Phân quyền chỉ Admin
+        [HttpPut("approve-certificate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ApproveCertificate([FromBody] ApproveCertificateDto dto)
         {
             try
             {
                 await _userService.ApproveUpgradeCertificateAsync(dto);
-                return Ok("Chứng nhận đã được phê duyệt thành công.");
+                return Ok("Certificate has been approved successfully.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
             }
         }
 
-        // 2. TỪ CHỐI (Reject)
-        [HttpPut("RejectCertificate")]
-        [Authorize(Roles = "Admin")] // 🔴 Phân quyền chỉ Admin
+        [HttpPut("reject-certificate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RejectCertificate([FromBody] RejectCertificateDto dto)
         {
             try
             {
                 await _userService.RejectUpgradeCertificateAsync(dto);
-                return Ok("Chứng nhận đã bị từ chối.");
+                return Ok("Certificate has been rejected.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
             }
         }
 
-        // 3. YÊU CẦU BỔ SUNG (Review)
-        [HttpPut("ReviewCertificate")]
-        [Authorize(Roles = "Admin")] // 🔴 Phân quyền chỉ Admin
+        [HttpPut("review-certificate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ReviewCertificate([FromBody] ReviewCertificateDto dto)
         {
             try
             {
                 await _userService.ReviewUpgradeCertificateAsync(dto);
-                return Ok("Yêu cầu bổ sung thông tin đã được gửi.");
+                return Ok("Additional information request has been sent.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
+            }
+        }
+        #endregion
+
+        #region User Management Endpoints
+        [HttpGet("users")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            try
+            {
+                var users = await _userService.GetAllUsersAsync();
+                return Ok(users);
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
             }
         }
 
-        // ---
+        [HttpGet("{id}")]
+        [Authorize]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            try
+            {
+                var user = await _userService.GetAccountByIdAsync(id);
+                return Ok(user);
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
 
-        // ---------- 🟢 CHỨC NĂNG CẤM/BỎ CẤM TÀI KHOẢN (ADMIN/ROLE 1 ONLY) 🟢 ----------
+        [HttpPut("profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateDto)
+        {
+            try
+            {
+                var userIdString = _userContextService.UserId;
+                if (!int.TryParse(userIdString, out int userId))
+                {
+                    return Unauthorized("Invalid user information");
+                }
+
+                var updatedUser = await _userService.UpdateProfileAsync(userId, updateDto);
+                return Ok(new { message = "Profile updated successfully", user = updatedUser });
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
 
         [HttpPut("ban-account")]
-        [Authorize(Roles = "Admin")] // 🔴 Phân quyền chỉ Admin
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> BanAccount([FromBody] BanAccountDto banAccountDto)
         {
             try
             {
-                // AccountId trong DTO được giả định là int
                 await _userService.BanAccount(banAccountDto.AccountId, banAccountDto.Reason);
-                return Ok("Tài khoản đã bị cấm.");
+                return Ok("Account has been banned.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
             }
         }
 
         [HttpPut("unban-account")]
-        [Authorize(Roles = "Admin")] // 🔴 Phân quyền chỉ Admin
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UnbanAccount([FromBody] UnbanAccountDto unbanAccountDto)
         {
             try
             {
                 await _userService.UnbanAccount(unbanAccountDto.AccountId);
-                return Ok("Tài khoản đã được bỏ cấm.");
+                return Ok("Account has been unbanned.");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(exception.Message);
+            }
+        }
+        #endregion
+
+        #region Authentication Endpoints
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePassword)
+        {
+            try
+            {
+                await _userService.ChangePassword(changePassword);
+                return Ok("Password has been changed successfully.");
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
             }
         }
 
-        // ---
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPassword)
+        {
+            try
+            {
+                await _userService.ResetPassword(resetPassword);
+                return Ok("Password has been reset successfully.");
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
 
-        // ***************************************************************
-        // CÁC ENDPOINT KHÁC TỪ DỰ ÁN CŨ CẦN ĐƯỢC THÊM VÀO ĐÂY (NẾU CẦN)
-        // Ví dụ: GetAllUser, GetAccountById, AddUser, UpdateProfile, vv.
-        // ***************************************************************
+        [HttpPost("request-otp")]
+        public async Task<IActionResult> RequestOtp([FromBody] RequestOtpDto requestOtpDto)
+        {
+            try
+            {
+                await _userService.RequestOtp(requestOtpDto);
+                return Ok("OTP has been sent to your email.");
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto verifyOtpDto)
+        {
+            try
+            {
+                var result = await _userService.VerifyOtp(verifyOtpDto);
+                return Ok(new { message = "OTP verified successfully", verified = result });
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpPost("request-otp-forget-password")]
+        public async Task<IActionResult> RequestOtpForgetPassword([FromBody] RequestOtpDto requestOtpDto)
+        {
+            try
+            {
+                await _userService.RequestOtpForgetPassword(requestOtpDto);
+                return Ok("Password reset OTP has been sent to your email.");
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+        #endregion
     }
 }

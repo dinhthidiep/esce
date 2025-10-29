@@ -12,11 +12,10 @@ namespace ESCE_SYSTEM.Models
         public string Phone { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string? Status { get; set; }
-        public string RejectComment { get; set; } = null!;
-        public string ReviewComments { get; set; } = null!;
+        public string? RejectComment { get; set; }
+        public string? ReviewComments { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public string Image { get; set; } = null!;
 
         public virtual Account Host { get; set; } = null!;
     }

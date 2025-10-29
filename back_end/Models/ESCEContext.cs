@@ -85,6 +85,7 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnName("GENDER");
 
                 entity.Property(e => e.IsActive)
+                    .IsRequired()
                     .HasColumnName("IS_ACTIVE")
                     .HasDefaultValueSql("((1))");
 
@@ -138,15 +139,9 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.Email).HasMaxLength(100);
 
-                entity.Property(e => e.Image).HasDefaultValueSql("('')");
-
                 entity.Property(e => e.LicenseFile).HasMaxLength(500);
 
                 entity.Property(e => e.Phone).HasMaxLength(20);
-
-                entity.Property(e => e.RejectComment).HasMaxLength(1000);
-
-                entity.Property(e => e.ReviewComments).HasMaxLength(1000);
 
                 entity.Property(e => e.Status)
                     .HasMaxLength(50)
@@ -362,13 +357,7 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.Email).HasMaxLength(100);
 
-                entity.Property(e => e.Image).HasDefaultValueSql("('')");
-
                 entity.Property(e => e.Phone).HasMaxLength(20);
-
-                entity.Property(e => e.RejectComment).HasMaxLength(1000);
-
-                entity.Property(e => e.ReviewComments).HasMaxLength(1000);
 
                 entity.Property(e => e.Status)
                     .HasMaxLength(50)

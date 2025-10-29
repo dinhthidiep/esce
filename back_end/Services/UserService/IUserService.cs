@@ -7,6 +7,7 @@ namespace ESCE_SYSTEM.Services.UserService
 {
     public interface IUserService
     {
+        // Authentication & Basic User Management
         Task<Account> GetUserByUsernameAsync(string userEmail);
         Task CreateUserAsync(RegisterUserDto account, bool verifyOtp, bool isGoogleAccount, int roleId = 4);
         bool VerifyPassword(string enteredPassword, string storedHash);
@@ -16,18 +17,25 @@ namespace ESCE_SYSTEM.Services.UserService
         Task RequestOtpForgetPassword(RequestOtpDto requestOtpDto);
         Task ResetPassword(ResetPasswordDto resetPassword);
         Task<GoogleJsonWebSignature.Payload> VerifyGoogleTokenAsync(string idToken);
-        // Yêu cầu nâng cấp
+
+        // Role Upgrade Requests
         Task RequestUpgradeToAgencyAsync(int userId, RequestAgencyUpgradeDto requestDto);
         Task RequestUpgradeToHostAsync(int userId, RequestHostUpgradeDto requestDto);
 
-        // Duyệt Role
+        // Certificate Management
+        Task<List<AgencyCertificateResponseDto>> GetAllAgencyCertificatesAsync(string status = null);
+        Task<List<HostCertificateResponseDto>> GetAllHostCertificatesAsync(string status = null);
         Task ApproveUpgradeCertificateAsync(ApproveCertificateDto dto);
         Task RejectUpgradeCertificateAsync(RejectCertificateDto dto);
         Task ReviewUpgradeCertificateAsync(ReviewCertificateDto dto);
 
-        // Quản lý Account
+        // User Management
+        Task<List<Account>> GetAllUsersAsync();
+        Task<Account> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
         Task BanAccount(string accountId, string reason);
         Task UnbanAccount(string accountId);
         Task<Account> GetAccountById(int accountId);
+        Task<Account> GetAccountByIdAsync(int accountId);
+
     }
 }

@@ -36,6 +36,17 @@ namespace ESCE_SYSTEM.Controllers
                 if (user == null || !_userService.VerifyPassword(loginRequest.Password, user.PasswordHash))
                     return Unauthorized("Email hoặc mật khẩu không đúng.");
 
+                //  QUAN TRỌNG: THÊM KIỂM TRA TRẠNG THÁI TÀI KHOẢN
+                if (user.IsBanned)
+                {
+                    return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+                }
+
+                if (!user.IsActive)
+                {
+                    return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
+                }
+
                 var role = await _roleService.GetRoleById(user.RoleId);
 
                 var token = _jwtHelper.GenerateToken(new UserTokenDto
@@ -56,38 +67,52 @@ namespace ESCE_SYSTEM.Controllers
         [HttpPost("logingoogle")]
         public async Task<IActionResult> LoginGoogle([FromBody] LoginGoogleDto loginGoogleRequest)
         {
-            // ... (Xác thực Google Token)
-
-            var payload = await _userService.VerifyGoogleTokenAsync(loginGoogleRequest.IdToken);
-            if (payload == null || string.IsNullOrEmpty(payload.Email))
-                return Unauthorized("Invalid credentials.");
-
-            var user = await _userService.GetUserByUsernameAsync(payload.Email);
-            if (user == null)
+            try
             {
-                // 🟢 Logic: Đăng ký Google mới luôn là Role 4
-                var registerUserDto = new RegisterUserDto
+                var payload = await _userService.VerifyGoogleTokenAsync(loginGoogleRequest.IdToken);
+                if (payload == null || string.IsNullOrEmpty(payload.Email))
+                    return Unauthorized("Invalid credentials.");
+
+                var user = await _userService.GetUserByUsernameAsync(payload.Email);
+                if (user == null)
                 {
-                    FullName = payload.Name ?? payload.Email,
-                    UserEmail = payload.Email,
-                    Password = Guid.NewGuid().ToString(),
-            
-                    Phone = loginGoogleRequest.PhoneNumber ?? ""
-                };
-                await _userService.CreateUserAsync(registerUserDto, false, true);
-                user = await _userService.GetUserByUsernameAsync(payload.Email);
+                    // 🟢 Logic: Đăng ký Google mới luôn là Role 4
+                    var registerUserDto = new RegisterUserDto
+                    {
+                        FullName = payload.Name ?? payload.Email,
+                        UserEmail = payload.Email,
+                        Password = Guid.NewGuid().ToString(),
+                        Phone = loginGoogleRequest.PhoneNumber ?? ""
+                    };
+                    await _userService.CreateUserAsync(registerUserDto, false, true);
+                    user = await _userService.GetUserByUsernameAsync(payload.Email);
+                }
+
+                //  QUAN TRỌNG: THÊM KIỂM TRA TRẠNG THÁI TÀI KHOẢN CHO GOOGLE LOGIN
+                if (user.IsBanned)
+                {
+                    return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+                }
+
+                if (!user.IsActive)
+                {
+                    return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
+                }
+
+                var role = await _roleService.GetRoleById(user.RoleId);
+                var token = _jwtHelper.GenerateToken(new UserTokenDto
+                {
+                    Id = user.Id.ToString(),
+                    UserEmail = user.Email,
+                    Role = role.Name
+                });
+
+                return Ok(new LoginResponseDto { Token = token, UserInfo = user.Adapt<UserProfileDto>() });
             }
-
-            // ... (tạo token và trả về)
-     /*       var role = await _roleService.GetRoleById(user.RoleId);*/
-            var token = _jwtHelper.GenerateToken(new UserTokenDto
+            catch (Exception ex)
             {
-                Id = user.Id.ToString(),
-                UserEmail = user.Email,
-               /* Role = role.Name*/
-            });
-
-            return Ok(new LoginResponseDto { Token = token, UserInfo = user.Adapt<UserProfileDto>() });
+                return StatusCode(500, ex.Message);
+            }
         }
 
         [HttpPost("register")]
