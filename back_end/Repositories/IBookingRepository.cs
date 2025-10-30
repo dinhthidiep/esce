@@ -1,6 +1,6 @@
-using Learnasp.Models;
+using ESCE_SYSTEM.Models;
 
-namespace Learnasp.Repositories
+namespace ESCE_SYSTEM.Repositories
 {
     public interface IBookingRepository
     {

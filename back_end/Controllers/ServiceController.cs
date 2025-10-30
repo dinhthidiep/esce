@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Learnasp.Services;
-using Learnasp.Models;
+using ESCE_SYSTEM.Services;
+using ESCE_SYSTEM.Models;
 using Microsoft.VisualBasic;
 using System.Data.Common;
 
-namespace Learnasp.Controllers
+namespace ESCE_SYSTEM.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]

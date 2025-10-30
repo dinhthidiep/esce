@@ -1,6 +1,6 @@
-using Learnasp.Models;
+using ESCE_SYSTEM.Models;
 
-namespace Learnasp.Services
+namespace ESCE_SYSTEM.Services
 {
     public interface IBookingService
     {

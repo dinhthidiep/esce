@@ -1,14 +1,13 @@
-﻿using Learnasp.Models;
-using Learnasp.Repositories;
+﻿using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
 
 
-namespace Learnasp.Repositories
+namespace ESCE_SYSTEM.Repositories
 {
     public class ServiceComboRepository: IServiceComboRepository
     {
-        private readonly ApplicationDbContext _context;
-        public ServiceComboRepository(ApplicationDbContext context)
+        private readonly ESCEContext _context;
+        public ServiceComboRepository(ESCEContext context)
         {
             _context = context;
         }
@@ -16,14 +15,14 @@ namespace Learnasp.Repositories
         {
             return await _context.ServiceCombos.ToListAsync();
         }
-        public async Task<ServiceCombo> GetByIdAsync(int id)
+        public async Task<ServiceCombo?> GetByIdAsync(int id)
         {
             return await _context.ServiceCombos.FindAsync(id);
         }
 
-        public async Task<ServiceCombo> GetByNameAsync(string name)
+        public async Task<ServiceCombo?> GetByNameAsync(string name)
         {
-            return _context.ServiceCombos.Find(name);
+            return _context.ServiceCombos.FirstOrDefault(sc => sc.Name == name);
             
         }
         public async Task CreateAsync(ServiceCombo serviceCombo)

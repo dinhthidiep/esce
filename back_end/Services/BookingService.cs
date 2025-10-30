@@ -1,28 +1,25 @@
-using Learnasp.Models;
-using Learnasp.Repositories;
+using ESCE_SYSTEM.Models;
+using ESCE_SYSTEM.Repositories;
 using Microsoft.EntityFrameworkCore;
 
-namespace Learnasp.Services
+namespace ESCE_SYSTEM.Services
 {
     public class BookingService : IBookingService
     {
         private readonly IBookingRepository _repository;
         private readonly IServiceRepository _serviceRepository;
         private readonly IServiceComboRepository _serviceComboRepository;
-        private readonly ICouponService _couponService;
         private readonly ESCEContext _context;
 
         public BookingService(
             IBookingRepository repository,
             IServiceRepository serviceRepository,
             IServiceComboRepository serviceComboRepository,
-            ICouponService couponService,
             ESCEContext context)
         {
             _repository = repository;
             _serviceRepository = serviceRepository;
             _serviceComboRepository = serviceComboRepository;
-            _couponService = couponService;
             _context = context;
         }
 
@@ -175,16 +172,7 @@ namespace Learnasp.Services
                 totalAmount = totalAmount * 0.97m; // Giảm 3%
             }
 
-            // Áp dụng tất cả coupon đã được áp dụng
-            foreach (var bookingCoupon in booking.BookingCoupons)
-            {
-                var coupon = await _couponService.GetByIdAsync(bookingCoupon.CouponId);
-                if (coupon != null)
-                {
-                    var discount = await _couponService.CalculateDiscountAsync(coupon.Code, totalAmount);
-                    totalAmount -= discount;
-                }
-            }
+            // Áp dụng coupon: tạm thời bỏ qua tính giảm trực tiếp (có thể bổ sung sau)
 
             return Math.Max(totalAmount, 0); // Đảm bảo không âm
         }

@@ -1,8 +1,8 @@
-using Learnasp.Models;
-using Learnasp.Repositories;
+using ESCE_SYSTEM.Models;
+using ESCE_SYSTEM.Repositories;
 using Microsoft.EntityFrameworkCore;
 
-namespace Learnasp.Services
+namespace ESCE_SYSTEM.Services
 {
     public class ReviewService : IReviewService
     {

@@ -1,13 +1,13 @@
-using Learnasp.Models;
+using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace Learnasp.Repositories
+namespace ESCE_SYSTEM.Repositories
 {
     public class ServiceComboDetailRepository : IServiceComboDetailRepository
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ESCEContext _context;
 
-        public ServiceComboDetailRepository(ApplicationDbContext context)
+        public ServiceComboDetailRepository(ESCEContext context)
         {
             _context = context;
         }

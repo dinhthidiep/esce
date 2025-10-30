@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Learnasp.Models
+namespace ESCE_SYSTEM.Models
 {
     public class News
     {

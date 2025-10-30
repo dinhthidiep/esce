@@ -1,49 +1,67 @@
 ﻿using ESCE_SYSTEM.Helper; // Namespace cho JwtHelper, EmailHelper, SMSHelper, OTPGenerator
 using ESCE_SYSTEM.Options; // Namespace cho JwtSetting, EmailConfig
-using ESCE_SYSTEM.Services.RoleService;
-using ESCE_SYSTEM.Services.UserService;
-using ESCE_SYSTEM.Repositories.RoleRepository;
-using ESCE_SYSTEM.Repositories.UserRepository;
+// Removed Role/User services from scope
+using ESCE_SYSTEM.Repositories;
+using ESCE_SYSTEM.Services;
+using ESCE_SYSTEM.Services.PaymentService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Helpers;
-using ESCE_SYSTEM.Services.UserContextService;
-using ESCE_SYSTEM.Repositories.OtpRepository;
+using System.Text.Json.Serialization;
+// Removed UserContext and Otp namespaces
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure DbContext with SQL Server
+// Configure DbContext: use InMemory in Development, or when USE_INMEMORY_DB=1
+var useInMemoryDb = builder.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("USE_INMEMORY_DB") == "1";
 builder.Services.AddDbContext<ESCEContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (useInMemoryDb)
+    {
+        options.UseInMemoryDatabase("ESCE_Test");
+    }
+    else
+    {
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    }
+});
 
-// Đăng ký các dịch vụ và repository
-builder.Services.AddScoped<IRoleService, RoleService>();
-builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserContextService, UserContextService>();
-builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+// Đăng ký các dịch vụ và repository (trimmed to required domains)
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
-// Đăng ký Service, ServiceCombo, ServiceComboDetail
-builder.Services.AddScoped<ServiceRepository>();
-builder.Services.AddScoped<ServiceService>();
-builder.Services.AddScoped<ServiceComboRepository>();
-builder.Services.AddScoped<ServiceComboService>();
-builder.Services.AddScoped<ServiceComboDetailRepository>();
-builder.Services.AddScoped<ServiceComboDetailService>();
+builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
+builder.Services.AddScoped<IServiceService, ServiceService>();
+
+builder.Services.AddScoped<IServiceComboRepository, ServiceComboRepository>();
+builder.Services.AddScoped<IServiceComboService, ServiceComboService>();
+
+builder.Services.AddScoped<IServiceComboDetailRepository, ServiceComboDetailRepository>();
+builder.Services.AddScoped<IServiceComboDetailService, ServiceComboDetailService>();
+
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<ICouponService, CouponService>();
 
 // Đăng ký Booking và Review
 builder.Services.AddScoped<BookingRepository>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<ReviewRepository>();
 builder.Services.AddScoped<ReviewService>();
+// Repository
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<INewsRepository, NewsRepository>();
+
+// Register missing service interfaces
+builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<INewsService, NewsService>();
 
 // Đăng ký News
 builder.Services.AddScoped<NewsRepository>();
@@ -59,6 +77,8 @@ builder.Services.AddSingleton<OTPGenerator>();
 builder.Services.Configure<JwtSetting>(builder.Configuration.GetSection("Jwt"));
 /*builder.Services.Configure<EmailConfig>(builder.Configuration.GetSection("Email"));*/
 builder.Services.Configure<SmtpSetting>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<PayOSOptions>(builder.Configuration.GetSection("PayOS"));
+builder.Services.AddHttpClient<IPaymentService, PayOSPaymentService>();
 
 // Cấu hình Authentication với JWT
 //builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -99,6 +119,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = null; // giữ nguyên PascalCase
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 // (Tùy chọn) Cấu hình CORS nếu API được gọi từ frontend
@@ -170,5 +191,80 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed minimal data when using in-memory DB
+if (useInMemoryDb)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ESCEContext>();
+    db.Database.EnsureCreated();
+
+    if (!db.Roles.Any())
+    {
+        db.Roles.Add(new Role { Name = "user" });
+        db.SaveChanges();
+    }
+
+    if (!db.Accounts.Any())
+    {
+        var roleId = db.Roles.Select(r => r.Id).First();
+        db.Accounts.Add(new Account
+        {
+            Name = "Test User",
+            Email = "test@example.com",
+            PasswordHash = "x",
+            RoleId = roleId,
+            CreatedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+    }
+
+    var userId = db.Accounts.Select(a => a.Id).First();
+
+    if (!db.Services.Any())
+    {
+        db.Services.Add(new Service
+        {
+            Name = "Test Service",
+            Description = "Sample service",
+            Price = 100000,
+            HostId = userId
+        });
+        db.SaveChanges();
+    }
+
+    if (!db.ServiceCombos.Any())
+    {
+        db.ServiceCombos.Add(new ServiceCombo
+        {
+            Name = "Test Combo",
+            Address = "123 Test St",
+            Description = "Sample combo",
+            Price = 200000,
+            AvailableSlots = 10,
+            HostId = userId,
+            Status = "open"
+        });
+        db.SaveChanges();
+    }
+
+    if (!db.Bookings.Any())
+    {
+        var serviceId = db.Services.Select(s => s.Id).First();
+        db.Bookings.Add(new Booking
+        {
+            UserId = userId,
+            ServiceId = serviceId,
+            Quantity = 2,
+            UnitPrice = 100000,
+            TotalAmount = 200000,
+            ItemType = "service",
+            BookingNumber = "SEED1",
+            Status = "pending",
+            Notes = "seed"
+        });
+        db.SaveChanges();
+    }
+}
 
 app.Run();

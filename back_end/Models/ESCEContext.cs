@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -26,8 +26,7 @@ namespace ESCE_SYSTEM.Models
         public DbSet<News> News { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<Review> Reviews { get; set; }
-        // Payment sẽ được xử lý bởi người khác
-        // public DbSet<Payment> Payments { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -67,12 +66,11 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(scd => scd.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Configure Coupon relationships
             modelBuilder.Entity<Coupon>()
-                .HasOne(c => c.Host)
-                .WithMany(a => a.Coupons)
-                .HasForeignKey(c => c.HostId)
-                .OnDelete(DeleteBehavior.Restrict);
+                 .HasOne(c => c.Host)
+                 .WithMany(a => a.Coupons)
+                 .HasForeignKey(c => c.HostId)
+                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Coupon>()
                 .HasOne(c => c.ServiceCombo)
@@ -120,6 +118,7 @@ namespace ESCE_SYSTEM.Models
                 .WithMany(a => a.News)
                 .HasForeignKey(n => n.AccountId)
                 .OnDelete(DeleteBehavior.Restrict);
+
 
             // Configure SystemLog relationships
             modelBuilder.Entity<SystemLog>()

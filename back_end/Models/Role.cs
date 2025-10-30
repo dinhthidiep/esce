@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ESCE_SYSTEM.Models;
+using System;
 using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models

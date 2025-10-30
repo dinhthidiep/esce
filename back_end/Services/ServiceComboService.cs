@@ -1,7 +1,7 @@
-﻿using Learnasp.Repositories;
-using Learnasp.Models;
+﻿using ESCE_SYSTEM.Repositories;
+using ESCE_SYSTEM.Models;
 
-namespace Learnasp.Services
+namespace ESCE_SYSTEM.Services
 {
     public class ServiceComboService: IServiceComboService
     {

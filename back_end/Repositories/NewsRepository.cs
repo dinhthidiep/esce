@@ -1,7 +1,7 @@
-using Learnasp.Models;
+using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace Learnasp.Repositories
+namespace ESCE_SYSTEM.Repositories
 {
     public class NewsRepository : INewsRepository
     {
