@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import FilterSidebar, { TourFilters } from '../components/tours/FilterSidebar'
 import ResultsToolbar from '../components/tours/ResultsToolbar'
@@ -6,8 +7,10 @@ import TourGrid from '../components/tours/TourGrid'
 import Pagination from '../components/tours/Pagination'
 import { popularTours } from '../data/tours'
 import { motion } from 'framer-motion'
+import { searchVietnamese } from '../lib/utils'
 
 const Tours: React.FC = () => {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState<TourFilters>({
     search: '',
     categories: [],
@@ -28,13 +31,12 @@ const Tours: React.FC = () => {
   const filteredTours = useMemo(() => {
     let filtered = [...popularTours]
 
-    // Search filter
+    // Search filter - supports Vietnamese accents
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
       filtered = filtered.filter(tour =>
-        tour.name.toLowerCase().includes(searchLower) ||
-        tour.area.toLowerCase().includes(searchLower) ||
-        tour.description.toLowerCase().includes(searchLower)
+        searchVietnamese(filters.search, tour.name) ||
+        searchVietnamese(filters.search, tour.area) ||
+        searchVietnamese(filters.search, tour.description)
       )
     }
 
@@ -107,8 +109,8 @@ const Tours: React.FC = () => {
   }
 
   const handleViewDetails = (slug: string) => {
-    // Navigate to tour detail page
-    console.log('View tour details:', slug)
+    // Navigate to tour detail page using slug as ID
+    navigate(`/tours/${slug}`)
   }
 
   const handleToggleFavorite = (id: string) => {

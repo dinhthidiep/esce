@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test PayOS API - ESCE</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+        }
+        button:hover { background: #5a6fd8; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-box">
+        <h2>🧪 Test PayOS API</h2>
+        
+        <!-- Test Create Payment Link -->
+        <div class="test-section">
+            <h3>1. Test tạo Payment Link</h3>
+            <div>
+                <label>Order Code:</label>
+                <input type="number" id="orderCode" value="123456">
+                
+                <label>Amount (VNĐ):</label>
+                <input type="number" id="amount" value="2000000">
+                
+                <label>Description:</label>
+                <input type="text" id="description" value="Thanh toán tour du lịch sinh thái">
+                
+                <label>Item Name:</label>
+                <input type="text" id="itemName" value="Tour du lịch sinh thái">
+                
+                <label>Quantity:</label>
+                <input type="number" id="quantity" value="1">
+                
+                <label>Price (VNĐ):</label>
+                <input type="number" id="price" value="2000000">
+                
+                <button onclick="testCreatePayment()">Test Create Payment</button>
+            </div>
+            <div id="createResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Test Verify Payment -->
+        <div class="test-section">
+            <h3>2. Test Verify Payment</h3>
+            <div>
+                <label>Payment Code:</label>
+                <input type="text" id="verifyCode" placeholder="Nhập code từ response trên">
+                <button onclick="testVerifyPayment()">Test Verify Payment</button>
+            </div>
+            <div id="verifyResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Test Cancel Payment -->
+        <div class="test-section">
+            <h3>3. Test Cancel Payment</h3>
+            <div>
+                <label>Payment Code:</label>
+                <input type="text" id="cancelCode" placeholder="Nhập code từ response trên">
+                
+                <label>Cancellation Reason:</label>
+                <input type="text" id="cancelReason" value="Khách hàng hủy đơn hàng">
+                
+                <button onclick="testCancelPayment()">Test Cancel Payment</button>
+            </div>
+            <div id="cancelResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- Test Error Handling -->
+        <div class="test-section">
+            <h3>4. Test Error Handling</h3>
+            <button onclick="testErrorHandling()">Test với dữ liệu không hợp lệ</button>
+            <div id="errorResult" class="test-result" style="display: none;"></div>
+        </div>
+
+        <!-- API Status -->
+        <div class="test-section">
+            <h3>5. API Status</h3>
+            <button onclick="checkApiStatus()">Kiểm tra API Status</button>
+            <div id="statusResult" class="test-result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/payment';
+
+        function showResult(elementId, data, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `test-result ${type}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function testCreatePayment() {
+            try {
+                const response = await fetch(`${API_BASE}/create-payment-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderCode: parseInt(document.getElementById('orderCode').value),
+                        amount: parseInt(document.getElementById('amount').value),
+                        description: document.getElementById('description').value,
+                        items: [{
+                            name: document.getElementById('itemName').value,
+                            quantity: parseInt(document.getElementById('quantity').value),
+                            price: parseInt(document.getElementById('price').value)
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('createResult', data, 'success');
+                    // Auto-fill verify and cancel forms
+                    document.getElementById('verifyCode').value = data.checkoutUrl || '';
+                    document.getElementById('cancelCode').value = data.checkoutUrl || '';
+                } else {
+                    showResult('createResult', data, 'error');
+                }
+            } catch (error) {
+                showResult('createResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function testVerifyPayment() {
+            const code = document.getElementById('verifyCode').value;
+            if (!code) {
+                showResult('verifyResult', { error: 'Vui lòng nhập payment code' }, 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/verify-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+
+                const data = await response.json();
+                showResult('verifyResult', data, response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('verifyResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function testCancelPayment() {
+            const code = document.getElementById('cancelCode').value;
+            const reason = document.getElementById('cancelReason').value;
+            
+            if (!code) {
+                showResult('cancelResult', { error: 'Vui lòng nhập payment code' }, 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/cancel-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, cancellationReason: reason })
+                });
+
+                const data = await response.json();
+                showResult('cancelResult', data, response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('cancelResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function testErrorHandling() {
+            try {
+                const response = await fetch(`${API_BASE}/create-payment-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderCode: "invalid",
+                        amount: -1000,
+                        description: "",
+                        items: []
+                    })
+                });
+
+                const data = await response.json();
+                showResult('errorResult', data, response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('errorResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function checkApiStatus() {
+            try {
+                const response = await fetch('/api/payment/create-payment-link', {
+                    method: 'OPTIONS'
+                });
+                
+                const status = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    timestamp: new Date().toISOString()
+                };
+                
+                showResult('statusResult', status, 'info');
+            } catch (error) {
+                showResult('statusResult', { error: error.message }, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Link thanh toán - ESCE</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-box">
+        <h2 class="page-title">Tạo Link thanh toán</h2>
+        
+        <div class="checkout">
+            <div class="product">
+                <h3>Thông tin sản phẩm</h3>
+                <div class="product-info">
+                    <p><strong>Tên sản phẩm:</strong> <span id="product-name">Tour du lịch sinh thái</span></p>
+                    <p><strong>Giá tiền:</strong> <span id="product-price">2000000</span> VNĐ</p>
+                    <p><strong>Số lượng:</strong> <span id="product-quantity">1</span></p>
+                </div>
+            </div>
+
+            <form id="payment-form">
+                <div class="form-group">
+                    <label for="description">Mô tả thanh toán:</label>
+                    <input type="text" id="description" name="description" value="Thanh toán tour du lịch sinh thái" required>
+                </div>
+                
+                <button type="submit" id="create-payment-link-btn" class="btn btn-primary">
+                    Tạo Link thanh toán
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // PayOS đang được tắt tạm thời
+        document.getElementById('payment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Tính năng thanh toán (PayOS) đang được tắt tạm thời.');
+        });
+    </script>
+</body>
+</html>

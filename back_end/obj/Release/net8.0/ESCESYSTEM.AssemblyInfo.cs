@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ESCESYSTEM")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7a19df91ba35cc9144bb60739f866da0f4b7afb1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1ecde1d976c346642bfa6600cf11d702ed5aac8f")]
 [assembly: System.Reflection.AssemblyProductAttribute("ESCESYSTEM")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ESCESYSTEM")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

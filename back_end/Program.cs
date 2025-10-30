@@ -1,7 +1,6 @@
 ﻿
 using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
-; // Thay ESCE_SYSTEM bằng tên namespace của dự án
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,8 +26,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Enable static files serving
+app.UseStaticFiles();
+
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Redirect root to index.html
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/index.html");
+    return Task.CompletedTask;
+});
 
 app.Run();
