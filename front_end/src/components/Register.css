@@ -97,7 +97,7 @@
 .google-button:hover { border-color: #d1d5db; box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
 .g-icon { width: 22px; height: 22px; border-radius: 50%; background: #ffffff; color: #ea4335; border: 2px solid #ea4335; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
 .signup-link { text-align: center; margin-top: 10px; color: #000000; }
-.signup-link a { color: #fbff00; text-decoration: none; font-weight: 600; }
+.signup-link a { color: #10b981; text-decoration: none; font-weight: 600; }
 .signup-link a:hover { color: #059669; text-decoration: underline; }
 .login-button { width: 100%; padding: 14px; margin-top: 8px; background: #16a34a; color: #fff; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .login-button:hover { box-shadow: 0 8px 20px rgba(22,163,74,0.35); transform: translateY(-1px); }

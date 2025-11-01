@@ -8,7 +8,6 @@ namespace ESCE_SYSTEM.Models
         public Post()
         {
             Comments = new HashSet<Comment>();
-            PostSaves = new HashSet<PostSave>();
         }
 
         public int Id { get; set; }
@@ -21,6 +20,5 @@ namespace ESCE_SYSTEM.Models
 
         public virtual Account Author { get; set; } = null!;
         public virtual ICollection<Comment> Comments { get; set; }
-        public virtual ICollection<PostSave> PostSaves { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using ESCE_SYSTEM.Models;
+﻿/*using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 
@@ -16,4 +16,4 @@ namespace ESCE_SYSTEM.Repositories.PostSaveRepository
         public async Task AddAsync(PostSave postSave) { _dbContext.PostSaves.Add(postSave); await _dbContext.SaveChangesAsync(); }
         public async Task DeleteAsync(PostSave postSave) { _dbContext.PostSaves.Remove(postSave); await _dbContext.SaveChangesAsync(); }
     }
-}
+}*/

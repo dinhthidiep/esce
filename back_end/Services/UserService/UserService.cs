@@ -202,10 +202,26 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new InvalidOperationException("User does not exist");
             }
 
+            // Ensure entity is tracked by DbContext
+            if (_dbContext.Entry(user).State == EntityState.Detached)
+            {
+                _dbContext.Accounts.Attach(user);
+            }
+
+            // Update password
             user.PasswordHash = HashPassword(resetPassword.NewPassword);
             user.UpdatedAt = DateTime.UtcNow;
 
-            await _dbContext.SaveChangesAsync();
+            // Mark entity as modified to ensure changes are saved
+            _dbContext.Entry(user).State = EntityState.Modified;
+
+            // Save changes to database
+            var rowsAffected = await _dbContext.SaveChangesAsync();
+            
+            if (rowsAffected == 0)
+            {
+                throw new InvalidOperationException("Failed to save password changes to database");
+            }
         }
 
         public async Task<List<Account>> GetAllUsersAsync()
@@ -434,6 +450,7 @@ namespace ESCE_SYSTEM.Services.UserService
             var otpCode = new Otp
             {
                 UserId = user.Id,
+                Email = requestOtpDto.Email.Trim().ToLower(),
                 Code = OTPGenerator.GenerateOTP(),
                 ExpirationTime = DateTime.UtcNow.AddMinutes(5),
                 IsVerified = false,
@@ -443,9 +460,18 @@ namespace ESCE_SYSTEM.Services.UserService
             _dbContext.Otps.Add(otpCode);
             await _dbContext.SaveChangesAsync();
 
-            string subject = "Password Reset OTP";
-            string content = $"Your password reset OTP code is: {otpCode.Code}";
-            await _emailHelper.SendEmailAsync(subject, content, new List<string> { requestOtpDto.Email });
+            try
+            {
+                string subject = "Password Reset OTP";
+                string content = $"Your password reset OTP code is: {otpCode.Code}";
+                await _emailHelper.SendEmailAsync(subject, content, new List<string> { requestOtpDto.Email });
+                Console.WriteLine($"OTP code {otpCode.Code} has been sent to {requestOtpDto.Email}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending email to {requestOtpDto.Email}: {ex.Message}");
+                throw new InvalidOperationException($"Failed to send OTP email. Please try again later. Error: {ex.Message}", ex);
+            }
         }
 
         public async Task<bool> VerifyOtp(VerifyOtpDto verifyOtpDto)
@@ -459,6 +485,19 @@ namespace ESCE_SYSTEM.Services.UserService
                 .Where(otp => otp.Email != null && otp.Email.ToLower() == verifyOtpDto.Email.ToLower())
                 .OrderByDescending(otp => otp.CreatedAt)
                 .FirstOrDefaultAsync();
+
+            // Fallback: nếu OTP quên mật khẩu trước đây không lưu Email, tìm theo UserId
+            if (latestOtp == null)
+            {
+                var user = await GetUserByUsernameAsync(verifyOtpDto.Email);
+                if (user != null)
+                {
+                    latestOtp = await _dbContext.Otps
+                        .Where(otp => otp.UserId == user.Id)
+                        .OrderByDescending(otp => otp.CreatedAt)
+                        .FirstOrDefaultAsync();
+                }
+            }
 
             if (latestOtp == null)
             {
@@ -763,12 +802,23 @@ namespace ESCE_SYSTEM.Services.UserService
 
         public bool VerifyPassword(string enteredPassword, string storedHash)
         {
-            if (string.IsNullOrWhiteSpace(enteredPassword) || string.IsNullOrWhiteSpace(storedHash))
+            try
             {
+                if (string.IsNullOrWhiteSpace(enteredPassword) || string.IsNullOrWhiteSpace(storedHash))
+                {
+                    return false;
+                }
+
+                // BCrypt.Verify có thể throw exception nếu hash không hợp lệ
+                // Đảm bảo luôn return false trong trường hợp có lỗi
+                return BCrypt.Net.BCrypt.Verify(enteredPassword, storedHash);
+            }
+            catch (Exception)
+            {
+                // Nếu có bất kỳ exception nào (hash không hợp lệ, format sai, etc.)
+                // Luôn trả về false để từ chối đăng nhập
                 return false;
             }
-
-            return BCrypt.Net.BCrypt.Verify(enteredPassword, storedHash);
         }
 
         public async Task<GoogleJsonWebSignature.Payload> VerifyGoogleTokenAsync(string idToken)

@@ -12,11 +12,11 @@ namespace ESCE_SYSTEM.Models
             Comments = new HashSet<Comment>();
             Coupons = new HashSet<Coupon>();
             HostCertificates = new HashSet<HostCertificate>();
-            Messages = new HashSet<Message>();
+            MessageReceivers = new HashSet<Message>();
+            MessageSenders = new HashSet<Message>();
             News = new HashSet<News>();
             Notifications = new HashSet<Notification>();
             Otps = new HashSet<Otp>();
-            PostSaves = new HashSet<PostSave>();
             Posts = new HashSet<Post>();
             Reactions = new HashSet<Reaction>();
             RequestSupports = new HashSet<RequestSupport>();
@@ -48,11 +48,11 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Coupon> Coupons { get; set; }
         public virtual ICollection<HostCertificate> HostCertificates { get; set; }
-        public virtual ICollection<Message> Messages { get; set; }
+        public virtual ICollection<Message> MessageReceivers { get; set; }
+        public virtual ICollection<Message> MessageSenders { get; set; }
         public virtual ICollection<News> News { get; set; }
         public virtual ICollection<Notification> Notifications { get; set; }
         public virtual ICollection<Otp> Otps { get; set; }
-        public virtual ICollection<PostSave> PostSaves { get; set; }
         public virtual ICollection<Post> Posts { get; set; }
         public virtual ICollection<Reaction> Reactions { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
