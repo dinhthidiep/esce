@@ -56,8 +56,15 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized(new { message = "Email hoặc mật khẩu không đúng." });
                 }
 
-                // Kiểm tra mật khẩu
-                if (!_userService.VerifyPassword(loginRequest.Password, user.PasswordHash))
+                // Kiểm tra xem user có password hash hợp lệ không
+                if (string.IsNullOrWhiteSpace(user.PasswordHash))
+                {
+                    return Unauthorized(new { message = "Tài khoản chưa được thiết lập mật khẩu." });
+                }
+
+                // Kiểm tra mật khẩu - QUAN TRỌNG: Phải kiểm tra trước khi tiếp tục
+                bool isPasswordValid = _userService.VerifyPassword(loginRequest.Password, user.PasswordHash);
+                if (!isPasswordValid)
                 {
                     return Unauthorized(new { message = "Email hoặc mật khẩu không đúng." });
                 }

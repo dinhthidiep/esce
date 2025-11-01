@@ -802,12 +802,23 @@ namespace ESCE_SYSTEM.Services.UserService
 
         public bool VerifyPassword(string enteredPassword, string storedHash)
         {
-            if (string.IsNullOrWhiteSpace(enteredPassword) || string.IsNullOrWhiteSpace(storedHash))
+            try
             {
+                if (string.IsNullOrWhiteSpace(enteredPassword) || string.IsNullOrWhiteSpace(storedHash))
+                {
+                    return false;
+                }
+
+                // BCrypt.Verify có thể throw exception nếu hash không hợp lệ
+                // Đảm bảo luôn return false trong trường hợp có lỗi
+                return BCrypt.Net.BCrypt.Verify(enteredPassword, storedHash);
+            }
+            catch (Exception)
+            {
+                // Nếu có bất kỳ exception nào (hash không hợp lệ, format sai, etc.)
+                // Luôn trả về false để từ chối đăng nhập
                 return false;
             }
-
-            return BCrypt.Net.BCrypt.Verify(enteredPassword, storedHash);
         }
 
         public async Task<GoogleJsonWebSignature.Payload> VerifyGoogleTokenAsync(string idToken)

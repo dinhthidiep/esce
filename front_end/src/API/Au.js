@@ -1,5 +1,55 @@
 export const backend_url = "https://localhost:7267";
 
+export const login = async (userEmail, password) => {
+  try {
+    const response = await fetch(
+      `${backend_url}/api/Auth/login`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          UserEmail: userEmail,
+          Password: password 
+        }),
+      }
+    );
+
+    const contentType = response.headers.get("content-type") || "";
+    
+    if (!response.ok) {
+      let errorMessage = "Đăng nhập thất bại. Vui lòng thử lại.";
+      
+      if (contentType.includes("application/json")) {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } else {
+        const errorText = await response.text();
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      return data;
+    }
+    
+    const text = await response.text();
+    throw new Error("Response không hợp lệ từ server.");
+  } catch (error) {
+    console.error("Login failed:", error);
+    throw error;
+  }
+};
+
 export const forgotPassword = async (email, phoneNumber) => {
     console.log("🌐 [API] forgotPassword được gọi với:", { email, phoneNumber });
     console.log("🌐 [API] URL:", `${backend_url}/api/Auth/RequestOtpForgetPassword`);
