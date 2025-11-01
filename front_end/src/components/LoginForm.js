@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
-import googleAuthService from '../services/googleAuth';
 
 const LoginForm = () => {
   const [formData, setFormData] = useState({
@@ -9,7 +8,6 @@ const LoginForm = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -68,28 +66,6 @@ const LoginForm = () => {
       alert('Đăng nhập thất bại. Vui lòng thử lại!');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    
-    try {
-      const result = await googleAuthService.signIn();
-      
-      if (result.success) {
-        console.log('Google Login Success:', result.user);
-        alert(`Đăng nhập Google thành công! Chào mừng ${result.user.name}!`);
-        // Here you would typically send the user data to your backend
-        // to create/login the user account
-      } else {
-        alert(`Đăng nhập Google thất bại: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Google Login Error:', error);
-      alert('Có lỗi xảy ra khi đăng nhập Google. Vui lòng thử lại!');
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -165,22 +141,9 @@ const LoginForm = () => {
 
         <div className="divider"><span>HOẶC</span></div>
 
-        <button 
-          className="google-button"
-          onClick={handleGoogleLogin}
-          disabled={isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <>
-              <div className="spinner"></div>
-              Đang đăng nhập...
-            </>
-          ) : (
-            <>
-              <span className="g-icon">G</span>
-              Đăng nhập bằng Google
-            </>
-          )}
+        <button className="google-button">
+          <span className="g-icon">G</span>
+          Đăng nhập bằng Google
         </button>
 
         <div className="signup-link">
