@@ -17,5 +17,23 @@ namespace ESCE_SYSTEM.Services.PostService
         Task DeleteAsync(int id);
         Task ApproveAsync(ApprovePostDto approvePostDto);
         Task RejectAsync(RejectPostDto rejectPostDto);
+
+        // Tour-related methods
+        Task<int> CreateTourAsync(CreateTourDto createTourDto);
+        Task<List<TourResponseDto>> GetAllToursAsync();
+
+        // Tour Combo methods
+        Task<int> CreateTourComboAsync(CreateTourComboDto createTourComboDto);
+        Task<List<TourComboResponseDto>> GetAllTourCombosAsync();
+
+        // Coupon methods
+        Task<int> CreateCouponAsync(CreateCouponDto createCouponDto);
+        Task<List<CouponResponseDto>> GetAllCouponsAsync();
+
+        // Social Media methods
+        Task<int> CreateSocialPostAsync(CreatePostDto createPostDto);
+        Task<List<PostResponseDto>> GetAllSocialPostsAsync();
+        Task<int> CreateCommentAsync(CreateCommentDto createCommentDto);
+        Task<int> CreateReactionAsync(CreateReactionDto createReactionDto);
     }
 }
