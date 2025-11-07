@@ -156,6 +156,27 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentUserProfile()
+        {
+            try
+            {
+                var userIdString = _userContextService.UserId;
+                if (!int.TryParse(userIdString, out int userId))
+                {
+                    return Unauthorized("Invalid user information");
+                }
+
+                var user = await _userService.GetAccountByIdAsync(userId);
+                return Ok(user);
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetUserById(int id)

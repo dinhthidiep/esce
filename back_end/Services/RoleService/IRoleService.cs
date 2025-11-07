@@ -8,5 +8,6 @@ namespace ESCE_SYSTEM.Services.RoleService
     {
         Task<List<RoleDto>> GetPublicRole();
         Task<Role> GetRoleById(int roleId);
+        Task<Role> GetRoleByName(string roleName);
     }
 }

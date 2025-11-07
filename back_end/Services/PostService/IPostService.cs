@@ -25,6 +25,8 @@ namespace ESCE_SYSTEM.Services.PostService
         // Tour Combo methods
         Task<int> CreateTourComboAsync(CreateTourComboDto createTourComboDto);
         Task<List<TourComboResponseDto>> GetAllTourCombosAsync();
+        Task<PaginatedTourComboResponseDto> SearchTourCombosAsync(TourComboSearchDto searchDto);
+        Task<TourComboDetailResponseDto?> GetTourComboByIdAsync(int id);
 
         // Coupon methods
         Task<int> CreateCouponAsync(CreateCouponDto createCouponDto);
