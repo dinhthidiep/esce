@@ -36,6 +36,10 @@ namespace ESCE_SYSTEM.Services.UserService
         Task UnbanAccount(string accountId);
         Task<Account> GetAccountById(int accountId);
         Task<Account> GetAccountByIdAsync(int accountId);
+        // **BỔ SUNG: Phương thức lấy ID của tất cả Admin và Host**
+        Task<List<int>> GetAllAdminAndHostId();
+        Task<List<int>> GetAllAdminAndAgencyId();
+        Task<List<int>> GetAllAdminAndCustomerId();
 
     }
 }

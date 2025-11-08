@@ -21,6 +21,7 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Booking> Bookings { get; set; } = null!;
         public virtual DbSet<BookingCoupon> BookingCoupons { get; set; } = null!;
         public virtual DbSet<Comment> Comments { get; set; } = null!;
+        public virtual DbSet<Commentreaction> Commentreactions { get; set; } = null!;
         public virtual DbSet<Coupon> Coupons { get; set; } = null!;
         public virtual DbSet<HostCertificate> HostCertificates { get; set; } = null!;
         public virtual DbSet<Message> Messages { get; set; } = null!;
@@ -29,8 +30,10 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Otp> Otps { get; set; } = null!;
         public virtual DbSet<Payment> Payments { get; set; } = null!;
         public virtual DbSet<Post> Posts { get; set; } = null!;
-        public virtual DbSet<PostSave> PostSaves { get; set; } = null!;
+        public virtual DbSet<Postreaction> Postreactions { get; set; } = null!;
+        public virtual DbSet<Postsave> Postsaves { get; set; } = null!;
         public virtual DbSet<Reaction> Reactions { get; set; } = null!;
+        public virtual DbSet<ReactionType> ReactionTypes { get; set; } = null!;
         public virtual DbSet<RequestSupport> RequestSupports { get; set; } = null!;
         public virtual DbSet<Review> Reviews { get; set; } = null!;
         public virtual DbSet<Role> Roles { get; set; } = null!;
@@ -246,6 +249,10 @@ namespace ESCE_SYSTEM.Models
             {
                 entity.ToTable("COMMENTS");
 
+                entity.HasIndex(e => e.AuthorId, "IX_Comments_AuthorID");
+
+                entity.HasIndex(e => e.PostId, "IX_Comments_PostID");
+
                 entity.Property(e => e.Id).HasColumnName("ID");
 
                 entity.Property(e => e.AuthorId).HasColumnName("AUTHOR_ID");
@@ -265,6 +272,10 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.PostId).HasColumnName("POST_ID");
 
+                entity.Property(e => e.UpdatedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
                 entity.HasOne(d => d.Author)
                     .WithMany(p => p.Comments)
                     .HasForeignKey(d => d.AuthorId)
@@ -276,6 +287,37 @@ namespace ESCE_SYSTEM.Models
                     .HasForeignKey(d => d.PostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK__COMMENTS__POST_I__778AC167");
+            });
+
+            modelBuilder.Entity<Commentreaction>(entity =>
+            {
+                entity.ToTable("COMMENTREACTIONS");
+
+                entity.HasIndex(e => e.CommentId, "IX_CommentReactions_CommentID");
+
+                entity.HasIndex(e => new { e.UserId, e.CommentId }, "UQ__COMMENTR__ABB381B18C8E7178")
+                    .IsUnique();
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
+                entity.HasOne(d => d.Comment)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.CommentId)
+                    .HasConstraintName("FK__COMMENTRE__Comme__74794A92");
+
+                entity.HasOne(d => d.ReactionType)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.ReactionTypeId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__COMMENTRE__React__756D6ECB");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__COMMENTRE__UserI__73852659");
             });
 
             modelBuilder.Entity<Coupon>(entity =>
@@ -527,6 +569,8 @@ namespace ESCE_SYSTEM.Models
             {
                 entity.ToTable("POSTS");
 
+                entity.HasIndex(e => e.AuthorId, "IX_Posts_AuthorID");
+
                 entity.Property(e => e.Id).HasColumnName("ID");
 
                 entity.Property(e => e.AuthorId).HasColumnName("AUTHOR_ID");
@@ -541,6 +585,10 @@ namespace ESCE_SYSTEM.Models
                 entity.Property(e => e.Image)
                     .HasMaxLength(500)
                     .HasColumnName("IMAGE");
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(50)
+                    .HasDefaultValueSql("('Pending')");
 
                 entity.Property(e => e.Title)
                     .HasMaxLength(255)
@@ -558,26 +606,58 @@ namespace ESCE_SYSTEM.Models
                     .HasConstraintName("FK__POSTS__AUTHOR_ID__73BA3083");
             });
 
-            modelBuilder.Entity<PostSave>(entity =>
+            modelBuilder.Entity<Postreaction>(entity =>
             {
-                entity.ToTable("PostSave");
+                entity.ToTable("POSTREACTIONS");
 
-                entity.HasIndex(e => new { e.PostId, e.AccountId }, "UQ_PostSave_UserPost")
+                entity.HasIndex(e => e.PostId, "IX_PostReactions_PostID");
+
+                entity.HasIndex(e => new { e.UserId, e.PostId }, "UQ__POSTREAC__8D29EA4C21AF919E")
                     .IsUnique();
 
                 entity.Property(e => e.CreatedAt)
                     .HasColumnType("datetime")
                     .HasDefaultValueSql("(getdate())");
 
+                entity.HasOne(d => d.Post)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.PostId)
+                    .HasConstraintName("FK__POSTREACT__PostI__6DCC4D03");
+
+                entity.HasOne(d => d.ReactionType)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.ReactionTypeId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTREACT__React__6EC0713C");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTREACT__UserI__6CD828CA");
+            });
+
+            modelBuilder.Entity<Postsave>(entity =>
+            {
+                entity.ToTable("POSTSAVES");
+
+                entity.HasIndex(e => new { e.AccountId, e.PostId }, "UQ_PostSave_UserPost")
+                    .IsUnique();
+
+                entity.Property(e => e.SavedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
                 entity.HasOne(d => d.Account)
-                    .WithMany(p => p.PostSaves)
+                    .WithMany(p => p.Postsaves)
                     .HasForeignKey(d => d.AccountId)
-                    .HasConstraintName("FK_PostSave_Account");
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTSAVES__Accou__671F4F74");
 
                 entity.HasOne(d => d.Post)
-                    .WithMany(p => p.PostSaves)
+                    .WithMany(p => p.Postsaves)
                     .HasForeignKey(d => d.PostId)
-                    .HasConstraintName("FK_PostSave_Post");
+                    .HasConstraintName("FK__POSTSAVES__PostI__681373AD");
             });
 
             modelBuilder.Entity<Reaction>(entity =>
@@ -608,6 +688,18 @@ namespace ESCE_SYSTEM.Models
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK__REACTIONS__USER___7D439ABD");
+            });
+
+            modelBuilder.Entity<ReactionType>(entity =>
+            {
+                entity.ToTable("REACTION_TYPES");
+
+                entity.HasIndex(e => e.Name, "UQ__REACTION__737584F61492C36B")
+                    .IsUnique();
+
+                entity.Property(e => e.Id).HasColumnName("ID");
+
+                entity.Property(e => e.Name).HasMaxLength(20);
             });
 
             modelBuilder.Entity<RequestSupport>(entity =>

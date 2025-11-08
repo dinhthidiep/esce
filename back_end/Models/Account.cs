@@ -9,6 +9,7 @@ namespace ESCE_SYSTEM.Models
         {
             AgencieCertificates = new HashSet<AgencieCertificate>();
             Bookings = new HashSet<Booking>();
+            Commentreactions = new HashSet<Commentreaction>();
             Comments = new HashSet<Comment>();
             Coupons = new HashSet<Coupon>();
             HostCertificates = new HashSet<HostCertificate>();
@@ -16,8 +17,9 @@ namespace ESCE_SYSTEM.Models
             News = new HashSet<News>();
             Notifications = new HashSet<Notification>();
             Otps = new HashSet<Otp>();
-            PostSaves = new HashSet<PostSave>();
+            Postreactions = new HashSet<Postreaction>();
             Posts = new HashSet<Post>();
+            Postsaves = new HashSet<Postsave>();
             Reactions = new HashSet<Reaction>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
@@ -45,6 +47,7 @@ namespace ESCE_SYSTEM.Models
         public virtual Role Role { get; set; } = null!;
         public virtual ICollection<AgencieCertificate> AgencieCertificates { get; set; }
         public virtual ICollection<Booking> Bookings { get; set; }
+        public virtual ICollection<Commentreaction> Commentreactions { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Coupon> Coupons { get; set; }
         public virtual ICollection<HostCertificate> HostCertificates { get; set; }
@@ -52,8 +55,9 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<News> News { get; set; }
         public virtual ICollection<Notification> Notifications { get; set; }
         public virtual ICollection<Otp> Otps { get; set; }
-        public virtual ICollection<PostSave> PostSaves { get; set; }
+        public virtual ICollection<Postreaction> Postreactions { get; set; }
         public virtual ICollection<Post> Posts { get; set; }
+        public virtual ICollection<Postsave> Postsaves { get; set; }
         public virtual ICollection<Reaction> Reactions { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }

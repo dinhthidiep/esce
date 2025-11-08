@@ -11,24 +11,24 @@ using ESCE_SYSTEM.Services.UserContextService;
 
 namespace ESCE_SYSTEM.Services
 {
-    public class PostSaveService : IPostSaveService
+    public class PostReactionService : IPostReactionService
     {
-        private readonly IPostSaveRepository _postSaveRepository;
+        private readonly IPostReactionRepository _postReactionRepository;
         private readonly IPostRepository _postRepository;
         private readonly IUserContextService _userContextService;
         private readonly IUserService _userService;
         private readonly INotificationService _notificationService;
         private readonly IHubContext<NotificationHub> _hubNotificationContext;
 
-        public PostSaveService(
-            IPostSaveRepository postSaveRepository,
+        public PostReactionService(
+            IPostReactionRepository postReactionRepository,
             IPostRepository postRepository,
             IUserContextService userContextService,
             IUserService userService,
             INotificationService notificationService,
             IHubContext<NotificationHub> hubNotificationContext)
         {
-            _postSaveRepository = postSaveRepository;
+            _postReactionRepository = postReactionRepository;
             _postRepository = postRepository;
             _userContextService = userContextService;
             _userService = userService;
@@ -36,14 +36,14 @@ namespace ESCE_SYSTEM.Services
             _hubNotificationContext = hubNotificationContext;
         }
 
-        public async Task SavePost(int postId)
+        public async Task LikePost(int postId)
         {
             var currentUserId = _userContextService.GetCurrentUserId();
-            var existingSave = await _postSaveRepository.GetByUserAndPostAsync(currentUserId, postId);
+            var existingReaction = await _postReactionRepository.GetByUserAndPostAsync(currentUserId, postId);
 
-            if (existingSave != null)
+            if (existingReaction != null)
             {
-                throw new Exception("Bạn đã lưu bài viết này rồi");
+                throw new Exception("Bạn đã thích bài viết này rồi");
             }
 
             var post = await _postRepository.GetByIdAsync(postId);
@@ -52,50 +52,60 @@ namespace ESCE_SYSTEM.Services
                 throw new Exception("Không tìm thấy bài viết");
             }
 
-            var postSave = new Postsave
+            var postReaction = new Postreaction
             {
-                AccountId = currentUserId,
+                UserId = currentUserId,
                 PostId = postId,
-                SavedAt = DateTime.Now
+                ReactionTypeId = 1, // Like
+                CreatedAt = DateTime.Now
             };
 
-            await _postSaveRepository.AddAsync(postSave);
+            await _postReactionRepository.AddAsync(postReaction);
 
-            // Update save count in post
-            post.SavesCount++;
+            // Update reaction count in post
+            post.ReactionsCount++;
             await _postRepository.UpdateAsync(post);
 
-            // Gửi thông báo cho tác giả của bài viết (trừ khi tác giả là người lưu)
+            // Gửi thông báo cho tác giả của bài viết (trừ khi tác giả là người like)
             if (post.AuthorId != currentUserId)
             {
                 var currentUser = await _userService.GetAccountByIdAsync(currentUserId);
-                await GuiThongBaoSave(post.AuthorId, "Bài viết của bạn được lưu",
-                    $"{currentUser.Name} đã lưu bài viết: {post.Title}");
+                await GuiThongBaoReaction(post.AuthorId, "Có người thích bài viết của bạn",
+                    $"{currentUser.Name} đã thích bài viết: {post.Title}");
             }
         }
 
-        public async Task UnsavePost(int postId)
+        public async Task UnlikePost(int postReactionId)
         {
-            var currentUserId = _userContextService.GetCurrentUserId();
-            var existingSave = await _postSaveRepository.GetByUserAndPostAsync(currentUserId, postId);
-
-            if (existingSave == null)
+            var postReaction = await _postReactionRepository.GetByIdAsync(postReactionId);
+            if (postReaction == null)
             {
-                throw new Exception("Bài viết chưa được lưu");
+                throw new Exception("Không tìm thấy lượt thích");
             }
 
-            await _postSaveRepository.DeleteAsync(existingSave.Id);
-
-            // Update save count in post
-            var post = await _postRepository.GetByIdAsync(postId);
-            if (post != null && post.SavesCount > 0)
+            var currentUserId = _userContextService.GetCurrentUserId();
+            if (postReaction.UserId != currentUserId)
             {
-                post.SavesCount--;
+                throw new UnauthorizedAccessException("Bạn không có quyền bỏ lượt thích này");
+            }
+
+            await _postReactionRepository.DeleteAsync(postReactionId);
+
+            // Update reaction count in post
+            var post = await _postRepository.GetByIdAsync(postReaction.PostId);
+            if (post != null && post.ReactionsCount > 0)
+            {
+                post.ReactionsCount--;
                 await _postRepository.UpdateAsync(post);
             }
         }
 
-        private async Task GuiThongBaoSave(int userId, string tieuDe, string noiDung)
+        public async Task<int> GetLikeCount(int postId)
+        {
+            return await _postReactionRepository.GetCountByPostIdAsync(postId);
+        }
+
+        private async Task GuiThongBaoReaction(int userId, string tieuDe, string noiDung)
         {
             var notificationDto = new NotificationDto
             {

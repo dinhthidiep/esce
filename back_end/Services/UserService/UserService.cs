@@ -750,6 +750,44 @@ namespace ESCE_SYSTEM.Services.UserService
         }
         #endregion
 
+        public async Task<List<int>> GetAllAdminAndHostId()
+        {
+            // Giả định Role Admin có RoleId = 1 và Role Host có RoleId = 2
+            // Nếu bạn có nhiều Role cần nhận thông báo, hãy thêm RoleId vào điều kiện Where
+            var adminHostIds = await _dbContext.Accounts
+                .Where(a => a.RoleId == 1 || a.RoleId == 2) // Lọc Admin (1) và Host (2)
+                .Select(a => a.Id)
+                .ToListAsync();
+
+            return adminHostIds;
+        }
+
+        public async Task<List<int>> GetAllAdminAndAgencyId()
+        {
+            // Giả định Role Admin có RoleId = 1 và Role Host có RoleId = 2
+            // Nếu bạn có nhiều Role cần nhận thông báo, hãy thêm RoleId vào điều kiện Where
+            var adminHostIds = await _dbContext.Accounts
+                .Where(a => a.RoleId == 1 || a.RoleId == 3) // Lọc Admin (1) và Host (2)
+                .Select(a => a.Id)
+                .ToListAsync();
+
+            return adminHostIds;
+        }
+
+        public async Task<List<int>> GetAllAdminAndCustomerId()
+        {
+            // Giả định Role Admin có RoleId = 1 và Role Host có RoleId = 2
+            // Nếu bạn có nhiều Role cần nhận thông báo, hãy thêm RoleId vào điều kiện Where
+            var adminHostIds = await _dbContext.Accounts
+                .Where(a => a.RoleId == 1 || a.RoleId == 4) // Lọc Admin (1) và Host (2)
+                .Select(a => a.Id)
+                .ToListAsync();
+
+            return adminHostIds;
+        }
+
+
+
         #region Helper Methods
         private static string HashPassword(string password)
         {

@@ -1,10 +1,25 @@
-﻿namespace ESCE_SYSTEM.DTOs.Post
+﻿using System.Collections.Generic;
+
+namespace ESCE_SYSTEM.DTOs
 {
     public class PostCommentDto
     {
-        public int PostId { get; set; } // ID của bài viết (int)
-        public int? ParentCommentId { get; set; } // ID của bình luận cha (int?)
-        public string Content { get; set; } = null!;
-        public string? Image { get; set; } // Image URL/Path
+        public required string PostId { get; set; }
+        public string? PostCommentId { get; set; }
+        public string? Content { get; set; }
+        public List<string>? Images { get; set; }
+    }
+
+    public class UpdatePostCommentDto
+    {
+        public string? ReplyPostCommentId { get; set; }
+        public string? Content { get; set; }
+        public List<string>? Images { get; set; }
+    }
+
+    public class PostCommentLikeDto
+    {
+        public string PostCommentId { get; set; } = null!;
+        public string? ReplyPostCommentId { get; set; }
     }
 }
