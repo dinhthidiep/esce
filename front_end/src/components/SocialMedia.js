@@ -1,0 +1,1566 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './SocialMedia.css';
+import { getAllPosts, createPost as apiCreatePost, createComment as apiCreateComment, createReaction as apiCreateReaction, deleteReaction as apiDeleteReaction, getCurrentUser, getCommentsByPostId, deleteComment as apiDeleteComment } from '../API/SocialMediaApi';
+import Header from './Header';
+
+const SocialMedia = () => {
+  const navigate = useNavigate();
+  // State management
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+
+  const [newPostText, setNewPostText] = useState('');
+  const [pendingImages, setPendingImages] = useState([]);
+  const [commentInputs, setCommentInputs] = useState({}); // Key: postId
+  const [commentImages, setCommentImages] = useState({}); // Store images for each comment input by postId
+  const [replyInputs, setReplyInputs] = useState({}); // Key: `${postId}-${commentId}`
+  const [replyImages, setReplyImages] = useState({}); // Key: `${postId}-${commentId}`
+  const [visibleReplies, setVisibleReplies] = useState({}); // Key: `${postId}-${commentId}`
+  const [visibleComments, setVisibleComments] = useState({});
+  const [hoverTimeouts, setHoverTimeouts] = useState({});
+  const [commentHoverTimeouts, setCommentHoverTimeouts] = useState({}); // For comment reaction menus
+  const [commentHideTimeouts, setCommentHideTimeouts] = useState({}); // For delayed hiding of comment reaction menus
+  const [loadedComments, setLoadedComments] = useState({}); // Store loaded comments for each post
+  const [userId, setUserId] = useState(3); // Default user ID for testing
+  const [userInfo, setUserInfo] = useState(null); // Current user info
+  const [filterType, setFilterType] = useState('newest'); // Filter type: 'newest', 'oldest', 'hottest'
+
+  const fileInputRef = useRef(null);
+  const commentFileInputRefs = useRef({}); // Store refs for each comment input by postId
+  const replyFileInputRefs = useRef({}); // Store refs for each reply input by `${postId}-${commentId}`
+
+  // Format reaction counts in Vietnamese
+  const formatReactionCounts = (reactionCounts) => {
+    if (!reactionCounts || Object.keys(reactionCounts).length === 0) {
+      return null;
+    }
+
+    const reactionLabels = {
+      'like': 'thích',
+      'dislike': 'không thích',
+      'love': 'thương',
+      'haha': 'haha',
+      'wow': 'wow',
+      'angry': 'tức giận'
+    };
+
+    const parts = [];
+    const order = ['like', 'dislike', 'love', 'haha', 'wow', 'angry'];
+    
+    for (const type of order) {
+      if (reactionCounts[type] && reactionCounts[type] > 0) {
+        const label = reactionLabels[type] || type;
+        parts.push(`${reactionCounts[type]} ${label}`);
+      }
+    }
+
+    return parts.length > 0 ? parts.join(', ') : null;
+  };
+
+
+  // Fetch posts from backend
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const postsData = await getAllPosts();
+
+      // Transform backend data to frontend format
+      const transformedPosts = postsData.map(post => ({
+        id: post.Id,
+        username: post.AuthorName,
+        authorId: post.AuthorId,
+        avatar: (post.AuthorAvatar && post.AuthorAvatar.trim() !== '') 
+          ? post.AuthorAvatar 
+          : '/img/stock_nimg.jpg', // Default avatar
+        image: post.Image,
+        text: post.Content,
+        title: post.Title,
+        reaction: post.CurrentUserReaction || null, // User's current reaction (null if none)
+        comments: [], // TODO: Fetch actual comments
+        createdAt: post.CreatedAt,
+        commentsCount: post.CommentsCount,
+        reactionsCount: post.ReactionsCount || 0,
+        reactionCounts: post.ReactionCounts || {} // Dictionary of reaction type -> count
+      }));
+
+      // Sort posts based on filter type
+      const sortedPosts = sortPosts(transformedPosts, filterType);
+      setPosts(sortedPosts);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load posts');
+      console.error('Error fetching posts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sort posts based on filter type
+  const sortPosts = (posts, filter) => {
+    const sorted = [...posts];
+    switch (filter) {
+      case 'newest':
+        return sorted.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          return dateB - dateA; // Newest first
+        });
+      case 'oldest':
+        return sorted.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          return dateA - dateB; // Oldest first
+        });
+      case 'hottest':
+        return sorted.sort((a, b) => {
+          const reactionsA = a.reactionsCount || 0;
+          const reactionsB = b.reactionsCount || 0;
+          return reactionsB - reactionsA; // Most reactions first
+        });
+      default:
+        return sorted;
+    }
+  };
+
+  // Handle filter change
+  const handleFilterChange = (newFilter) => {
+    setFilterType(newFilter);
+    const sortedPosts = sortPosts(posts, newFilter);
+    setPosts(sortedPosts);
+  };
+
+  // Create new post
+  const createPost = async (postData) => {
+    try {
+      await apiCreatePost({
+        text: postData.text,
+        image: postData.image
+      });
+
+      // Refresh posts after creating new one
+      await fetchPosts();
+      return true;
+    } catch (err) {
+      console.error('Error creating post:', err);
+      alert(`Không thể đăng bài: ${err.message || 'Có lỗi xảy ra'}`);
+      return false;
+    }
+  };
+
+  // Create comment (top-level or reply)
+  const createComment = async (postId, commentText, parentCommentId = null) => {
+    const text = commentText?.trim() || '';
+    const images = parentCommentId 
+      ? (replyImages[`${postId}-${parentCommentId}`] || [])
+      : (commentImages[postId] || []);
+    
+    if (!text && images.length === 0) {
+      alert('Vui lòng nhập nội dung hoặc chọn ảnh!');
+      return false;
+    }
+
+    try {
+      const newComment = await apiCreateComment({
+        postId: postId,
+        parentCommentId: parentCommentId,
+        content: text,
+        image: images.length > 0 ? images[0] : null // Only send first image for now
+      });
+
+      // Transform the new comment to match our format
+      const transformedComment = {
+        id: newComment.Id,
+        authorId: newComment.AuthorId,
+        authorName: newComment.AuthorName,
+        authorAvatar: (newComment.AuthorAvatar && newComment.AuthorAvatar.trim() !== '') 
+          ? newComment.AuthorAvatar 
+          : '/img/stock_nimg.jpg',
+        content: newComment.Content,
+        image: newComment.Image,
+        parentCommentId: newComment.ParentCommentId,
+        createdAt: newComment.CreatedAt,
+        reactionsCount: 0,
+        reactionCounts: {},
+        currentUserReaction: null,
+        replies: []
+      };
+
+      // Clear inputs and images
+      if (parentCommentId) {
+        // Clear reply input and images
+        setReplyInputs(prev => {
+          const updated = { ...prev };
+          delete updated[`${postId}-${parentCommentId}`];
+          return updated;
+        });
+        setReplyImages(prev => {
+          const updated = { ...prev };
+          delete updated[`${postId}-${parentCommentId}`];
+          return updated;
+        });
+        
+        // Clear file input
+        const ref = replyFileInputRefs.current[`${postId}-${parentCommentId}`];
+        if (ref) {
+          ref.value = '';
+        }
+      } else {
+        // Clear the input and images
+        setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+        setCommentImages(prev => ({ ...prev, [postId]: [] }));
+        
+        // Clear file input
+        const ref = commentFileInputRefs.current[postId];
+        if (ref) {
+          ref.value = '';
+        }
+      }
+
+      // Silently refresh comments from backend in background (no loading state)
+      getCommentsByPostId(postId).then(comments => {
+        const commentsArray = Array.isArray(comments) ? comments : [];
+        const transformedComments = transformComments(commentsArray);
+        
+        setLoadedComments(prev => ({
+          ...prev,
+          [postId]: transformedComments
+        }));
+      }).catch(error => {
+        console.error('Error refreshing comments after creating reply:', error);
+        // If refresh fails, try to add locally as fallback
+        if (parentCommentId) {
+          const updateParentReplies = (comments, parentId, newReply) => {
+            for (let i = 0; i < comments.length; i++) {
+              if (comments[i].id === parentId) {
+                const updated = [...comments];
+                updated[i] = {
+                  ...updated[i],
+                  replies: [...(updated[i].replies || []), newReply]
+                };
+                return updated;
+              }
+              if (comments[i].replies && comments[i].replies.length > 0) {
+                const updatedReplies = updateParentReplies(comments[i].replies, parentId, newReply);
+                if (updatedReplies) {
+                  const updated = [...comments];
+                  updated[i] = {
+                    ...updated[i],
+                    replies: updatedReplies
+                  };
+                  return updated;
+                }
+              }
+            }
+            return null;
+          };
+
+          setLoadedComments(prev => {
+            const updated = { ...prev };
+            const postComments = [...(updated[postId] || [])];
+            const updatedComments = updateParentReplies(postComments, parentCommentId, transformedComment);
+            if (updatedComments) {
+              updated[postId] = updatedComments;
+            }
+            return updated;
+          });
+        } else {
+          setLoadedComments(prev => ({
+            ...prev,
+            [postId]: [...(prev[postId] || []), transformedComment]
+          }));
+        }
+      });
+
+      // Silently refresh posts in background to update comment count (no loading state)
+      getAllPosts().then(postsData => {
+        const transformedPosts = postsData.map(post => ({
+          id: post.Id,
+          username: post.AuthorName,
+          authorId: post.AuthorId,
+          avatar: (post.AuthorAvatar && post.AuthorAvatar.trim() !== '') 
+            ? post.AuthorAvatar 
+            : '/img/stock_nimg.jpg',
+          image: post.Image,
+          text: post.Content,
+          title: post.Title,
+          reaction: post.CurrentUserReaction || null,
+          comments: [],
+          createdAt: post.CreatedAt,
+          commentsCount: post.CommentsCount,
+          reactionsCount: post.ReactionsCount || 0,
+          reactionCounts: post.ReactionCounts || {}
+        }));
+        const sortedPosts = sortPosts(transformedPosts, filterType);
+        setPosts(sortedPosts);
+      }).catch(err => {
+        console.error('Error refreshing posts after comment:', err);
+      });
+      return true;
+    } catch (err) {
+      console.error('Error creating comment:', err);
+      alert('Không thể bình luận. Vui lòng thử lại.');
+      return false;
+    }
+  };
+
+  // Create or update reaction
+  const createReaction = async (targetType, targetId, reactionType) => {
+    try {
+      await apiCreateReaction({
+        targetType: targetType,
+        targetId: targetId,
+        reactionType: reactionType
+      });
+
+      // Refresh posts to show updated reaction count
+      await fetchPosts();
+      return true;
+    } catch (err) {
+      console.error('Error creating reaction:', err);
+      return false;
+    }
+  };
+
+  // Delete reaction
+  const deleteReaction = async (targetType, targetId) => {
+    try {
+      await apiDeleteReaction(targetType, targetId);
+
+      // Refresh posts to show updated reaction count
+      await fetchPosts();
+      return true;
+    } catch (err) {
+      console.error('Error deleting reaction:', err);
+      return false;
+    }
+  };
+
+  // Load user info on component mount
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      // First try to get from localStorage (fast)
+      const storedUserInfo = localStorage.getItem('userInfo');
+      if (storedUserInfo) {
+        try {
+          const user = JSON.parse(storedUserInfo);
+          console.log('Loaded userInfo from localStorage:', user);
+          setUserInfo(user);
+          if (user.Id || user.id) {
+            setUserId(user.Id || user.id);
+          }
+        } catch (err) {
+          console.error('Error parsing user info:', err);
+        }
+      } else {
+        console.log('No userInfo found in localStorage');
+      }
+
+         // Then fetch fresh data from API to ensure we have the latest avatar
+         // Only fetch if we don't have userInfo or if we want to refresh
+         try {
+           const currentUser = await getCurrentUser();
+           if (currentUser) {
+             console.log('Fetched current user:', currentUser);
+             console.log('Avatar value:', currentUser.Avatar || currentUser.avatar);
+             setUserInfo(currentUser);
+             if (currentUser.Id || currentUser.id) {
+               setUserId(currentUser.Id || currentUser.id);
+             }
+             // Update localStorage with fresh data
+             localStorage.setItem('userInfo', JSON.stringify(currentUser));
+           }
+         } catch (err) {
+           console.error('Error fetching current user:', err);
+           // If API fails, keep using localStorage data - don't throw, just log
+           // The component will continue to work with localStorage data
+         }
+       };
+
+       loadUserInfo();
+     }, []);
+
+  // Load posts on component mount
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  // Utility functions
+  const escapeHtml = (text) => {
+    return text;
+  };
+
+  const getReactionIcon = (reaction) => {
+    const icons = {
+      'like': '👍',
+      'dislike': '👎',
+      'love': '❤️',
+      'haha': '😂',
+      'wow': '😮'
+    };
+    return reaction ? icons[reaction] : '👍';
+  };
+
+  const getReactionText = (reaction) => {
+    const texts = {
+      'like': 'Thích',
+      'dislike': 'Không thích',
+      'love': 'Thương',
+      'haha': 'Haha',
+      'wow': 'Wow'
+    };
+    return reaction ? texts[reaction] : 'Thích';
+  };
+
+  // Event handlers
+  const handleReaction = async (postId, reactionType) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const currentReaction = post.reaction;
+    
+    // Optimistically update local state
+    const updatePostReaction = (posts, postId, newReaction) => {
+      return posts.map(p => {
+        if (p.id === postId) {
+          const oldReaction = p.reaction;
+          let newReactionsCount = p.reactionsCount || 0;
+          const newReactionCounts = { ...(p.reactionCounts || {}) };
+          
+          // Calculate new counts
+          if (oldReaction) {
+            // Remove old reaction
+            newReactionsCount = Math.max(0, newReactionsCount - 1);
+            if (newReactionCounts[oldReaction]) {
+              newReactionCounts[oldReaction] = Math.max(0, newReactionCounts[oldReaction] - 1);
+            }
+          }
+          
+          if (newReaction) {
+            // Add new reaction
+            if (!oldReaction || oldReaction !== newReaction) {
+              newReactionsCount += 1;
+              newReactionCounts[newReaction] = (newReactionCounts[newReaction] || 0) + 1;
+            }
+          }
+          
+          return {
+            ...p,
+            reaction: newReaction,
+            reactionsCount: newReactionsCount,
+            reactionCounts: newReactionCounts
+          };
+        }
+        return p;
+      });
+    };
+
+    // Determine new reaction state
+    let newReaction = null;
+    if (reactionType === 'like') {
+      if (currentReaction) {
+        newReaction = null; // Delete reaction
+      } else {
+        newReaction = 'like'; // Create like
+      }
+    } else {
+      if (currentReaction === reactionType) {
+        newReaction = null; // Delete reaction
+      } else {
+        newReaction = reactionType; // Create/update reaction
+      }
+    }
+
+    // Update UI immediately
+    setPosts(prevPosts => {
+      const updated = updatePostReaction(prevPosts, postId, newReaction);
+      return sortPosts(updated, filterType);
+    });
+
+    // Make API call in background (non-blocking)
+    if (newReaction) {
+      createReaction('POST', postId, newReaction).catch(err => {
+        console.error('Error creating reaction:', err);
+        // Revert on error
+        setPosts(prevPosts => {
+          const updated = updatePostReaction(prevPosts, postId, currentReaction);
+          return sortPosts(updated, filterType);
+        });
+      });
+    } else {
+      deleteReaction('POST', postId).catch(err => {
+        console.error('Error deleting reaction:', err);
+        // Revert on error
+        setPosts(prevPosts => {
+          const updated = updatePostReaction(prevPosts, postId, currentReaction);
+          return sortPosts(updated, filterType);
+        });
+      });
+    }
+    
+    // Silently refresh in background without blocking (non-blocking)
+    getAllPosts().then(postsData => {
+      const transformedPosts = postsData.map(post => ({
+        id: post.Id,
+        username: post.AuthorName,
+        authorId: post.AuthorId,
+        avatar: (post.AuthorAvatar && post.AuthorAvatar.trim() !== '') 
+          ? post.AuthorAvatar 
+          : '/img/stock_nimg.jpg',
+        image: post.Image,
+        text: post.Content,
+        title: post.Title,
+        reaction: post.CurrentUserReaction || null,
+        comments: [],
+        createdAt: post.CreatedAt,
+        commentsCount: post.CommentsCount,
+        reactionsCount: post.ReactionsCount || 0,
+        reactionCounts: post.ReactionCounts || {}
+      }));
+      const sortedPosts = sortPosts(transformedPosts, filterType);
+      setPosts(sortedPosts);
+    }).catch(err => {
+      console.error('Error refreshing posts:', err);
+    });
+  };
+
+  // Helper function to transform comment from API response
+  const transformComment = (comment) => {
+    // Handle both PascalCase (from backend) and camelCase (from JSON serialization)
+    // Check for replies in both cases
+    let replies = comment.Replies || comment.replies;
+    if (!replies) {
+      replies = [];
+    }
+    
+    // Debug logging
+    if (replies && replies.length > 0) {
+      console.log(`Comment ${comment.Id || comment.id} has ${replies.length} replies:`, replies);
+    }
+    
+    const transformed = {
+      id: comment.Id || comment.id,
+      authorId: comment.AuthorId || comment.authorId,
+      authorName: comment.AuthorName || comment.authorName,
+      authorAvatar: ((comment.AuthorAvatar || comment.authorAvatar) && (comment.AuthorAvatar || comment.authorAvatar).trim() !== '') 
+        ? (comment.AuthorAvatar || comment.authorAvatar)
+        : '/img/stock_nimg.jpg',
+      content: comment.Content || comment.content,
+      image: comment.Image || comment.image || null,
+      parentCommentId: comment.ParentCommentId || comment.parentCommentId || null,
+      createdAt: comment.CreatedAt || comment.createdAt,
+      reactionsCount: comment.ReactionsCount || comment.reactionsCount || 0,
+      reactionCounts: comment.ReactionCounts || comment.reactionCounts || {},
+      currentUserReaction: comment.CurrentUserReaction || comment.currentUserReaction || null,
+      replies: Array.isArray(replies) ? replies.map(transformComment) : []
+    };
+    
+    return transformed;
+  };
+
+  // Helper function to transform nested comments structure
+  const transformComments = (comments) => {
+    return comments.map(transformComment);
+  };
+
+  // Handle comment reaction - same logic as post reactions
+  const handleCommentReaction = async (postId, commentId, reactionType) => {
+    // Find comment in nested structure
+    const findAndUpdateComment = (comments, id, updateFn) => {
+      for (let i = 0; i < comments.length; i++) {
+        if (comments[i].id === id) {
+          const updated = [...comments];
+          updated[i] = updateFn(updated[i]);
+          return updated;
+        }
+        if (comments[i].replies && comments[i].replies.length > 0) {
+          const updatedReplies = findAndUpdateComment(comments[i].replies, id, updateFn);
+          if (updatedReplies) {
+            const updated = [...comments];
+            updated[i] = {
+              ...updated[i],
+              replies: updatedReplies
+            };
+            return updated;
+          }
+        }
+      }
+      return null;
+    };
+
+    const comments = loadedComments[postId] || [];
+    const comment = findAndUpdateComment(comments, commentId, c => c);
+    if (!comment) return;
+
+    const currentReaction = comment.currentUserReaction;
+    
+    // Determine new reaction state
+    let newReaction = null;
+    if (reactionType === 'like') {
+      if (currentReaction) {
+        newReaction = null; // Delete reaction
+      } else {
+        newReaction = 'like'; // Create like
+      }
+    } else {
+      if (currentReaction === reactionType) {
+        newReaction = null; // Delete reaction
+      } else {
+        newReaction = reactionType; // Create/update reaction
+      }
+    }
+
+    // Update UI immediately
+    const updatedComments = findAndUpdateComment(comments, commentId, (c) => {
+      const oldReaction = c.currentUserReaction;
+      let newReactionsCount = c.reactionsCount || 0;
+      const newReactionCounts = { ...(c.reactionCounts || {}) };
+      
+      // Calculate new counts
+      if (oldReaction) {
+        newReactionsCount = Math.max(0, newReactionsCount - 1);
+        if (newReactionCounts[oldReaction]) {
+          newReactionCounts[oldReaction] = Math.max(0, newReactionCounts[oldReaction] - 1);
+        }
+      }
+      
+      if (newReaction) {
+        if (!oldReaction || oldReaction !== newReaction) {
+          newReactionsCount += 1;
+          newReactionCounts[newReaction] = (newReactionCounts[newReaction] || 0) + 1;
+        }
+      }
+      
+      return {
+        ...c,
+        currentUserReaction: newReaction,
+        reactionsCount: newReactionsCount,
+        reactionCounts: newReactionCounts
+      };
+    });
+
+    if (updatedComments) {
+      setLoadedComments(prev => ({
+        ...prev,
+        [postId]: updatedComments
+      }));
+    }
+
+    // Make API call in background (non-blocking)
+    if (newReaction) {
+      createReaction('COMMENT', commentId, newReaction).catch(err => {
+        console.error('Error creating comment reaction:', err);
+        // Revert on error
+        const revertedComments = findAndUpdateComment(comments, commentId, (c) => ({
+          ...c,
+          currentUserReaction: currentReaction
+        }));
+        if (revertedComments) {
+          setLoadedComments(prev => ({
+            ...prev,
+            [postId]: revertedComments
+          }));
+        }
+      });
+    } else {
+      deleteReaction('COMMENT', commentId).catch(err => {
+        console.error('Error deleting comment reaction:', err);
+        // Revert on error
+        const revertedComments = findAndUpdateComment(comments, commentId, (c) => ({
+          ...c,
+          currentUserReaction: currentReaction
+        }));
+        if (revertedComments) {
+          setLoadedComments(prev => ({
+            ...prev,
+            [postId]: revertedComments
+          }));
+        }
+      });
+    }
+    
+    // Silently refresh in background without blocking (non-blocking)
+    getCommentsByPostId(postId).then(freshComments => {
+      const commentsArray = Array.isArray(freshComments) ? freshComments : [];
+      const transformedComments = transformComments(commentsArray);
+      setLoadedComments(prev => ({
+        ...prev,
+        [postId]: transformedComments
+      }));
+    }).catch(err => {
+      console.error('Error refreshing comments:', err);
+    });
+  };
+
+  const showReactionMenu = (postId) => {
+    const timeoutId = setTimeout(() => {
+      const menu = document.getElementById(`reaction-menu-${postId}`);
+      if (menu) {
+        menu.classList.add('visible');
+      }
+    }, 300); // Reduced delay for better responsiveness
+
+    setHoverTimeouts(prev => ({ ...prev, [postId]: timeoutId }));
+  };
+
+  const hideReactionMenu = (postId) => {
+    const timeoutId = hoverTimeouts[postId];
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    const menu = document.getElementById(`reaction-menu-${postId}`);
+    if (menu) {
+      menu.classList.remove('visible');
+    }
+    // Clear the timeout from state
+    setHoverTimeouts(prev => {
+      const newTimeouts = { ...prev };
+      delete newTimeouts[postId];
+      return newTimeouts;
+    });
+  };
+
+  // Show comment reaction menu
+  const showCommentReactionMenu = (postId, commentId) => {
+    const menuId = `comment-reaction-menu-${postId}-${commentId}`;
+    
+    // Clear any pending hide timeout
+    const hideTimeoutId = commentHideTimeouts[menuId];
+    if (hideTimeoutId) {
+      clearTimeout(hideTimeoutId);
+      setCommentHideTimeouts(prev => {
+        const newTimeouts = { ...prev };
+        delete newTimeouts[menuId];
+        return newTimeouts;
+      });
+    }
+
+    // Clear any existing show timeout
+    const existingTimeoutId = commentHoverTimeouts[menuId];
+    if (existingTimeoutId) {
+      clearTimeout(existingTimeoutId);
+    }
+
+    // Show menu immediately if it's already visible, otherwise show after delay
+    const menu = document.getElementById(menuId);
+    if (menu && menu.classList.contains('visible')) {
+      // Already visible, do nothing
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      const menu = document.getElementById(menuId);
+      if (menu) {
+        menu.classList.add('visible');
+      }
+    }, 200); // Reduced delay for faster response
+
+    setCommentHoverTimeouts(prev => ({ ...prev, [menuId]: timeoutId }));
+  };
+
+  // Hide comment reaction menu
+  const hideCommentReactionMenu = (postId, commentId) => {
+    const menuId = `comment-reaction-menu-${postId}-${commentId}`;
+    
+    // Clear any pending show timeout
+    const showTimeoutId = commentHoverTimeouts[menuId];
+    if (showTimeoutId) {
+      clearTimeout(showTimeoutId);
+      setCommentHoverTimeouts(prev => {
+        const newTimeouts = { ...prev };
+        delete newTimeouts[menuId];
+        return newTimeouts;
+      });
+    }
+
+    // Add delay before hiding to allow moving mouse to menu
+    const hideTimeoutId = setTimeout(() => {
+      const menu = document.getElementById(menuId);
+      if (menu) {
+        menu.classList.remove('visible');
+      }
+      setCommentHideTimeouts(prev => {
+        const newTimeouts = { ...prev };
+        delete newTimeouts[menuId];
+        return newTimeouts;
+      });
+    }, 300); // Delay before hiding to allow mouse movement
+
+    setCommentHideTimeouts(prev => ({ ...prev, [menuId]: hideTimeoutId }));
+  };
+
+  // Get reaction icon for comment
+  const getCommentReactionIcon = (reaction) => {
+    if (!reaction) return '👍';
+    const icons = {
+      'like': '👍',
+      'dislike': '👎',
+      'love': '❤️',
+      'haha': '😂',
+      'wow': '😮',
+      'angry': '😠'
+    };
+    return icons[reaction] || '👍';
+  };
+
+  // Get reaction text for comment
+  const getCommentReactionText = (reaction) => {
+    if (!reaction) return 'Thích';
+    const texts = {
+      'like': 'Thích',
+      'dislike': 'Không thích',
+      'love': 'Thương thương',
+      'haha': 'Haha',
+      'wow': 'Wow',
+      'angry': 'Tức giận'
+    };
+    return texts[reaction] || 'Thích';
+  };
+
+  const toggleCommentBox = async (postId) => {
+    const isVisible = visibleComments[postId];
+
+    // If comments are not visible and not loaded yet, fetch them
+    if (!isVisible && !loadedComments[postId]) {
+      try {
+        const comments = await getCommentsByPostId(postId);
+        // Handle both array and empty/null responses
+        const commentsArray = Array.isArray(comments) ? comments : [];
+        console.log('Fetched comments from API:', commentsArray);
+        console.log('First comment structure:', commentsArray[0]);
+        if (commentsArray[0]) {
+          console.log('First comment has Replies property:', commentsArray[0].Replies);
+          console.log('First comment has replies property:', commentsArray[0].replies);
+        }
+        const transformedComments = transformComments(commentsArray);
+        console.log('Transformed comments:', transformedComments);
+        if (transformedComments[0]) {
+          console.log('First transformed comment has replies:', transformedComments[0].replies);
+        }
+
+        setLoadedComments(prev => ({
+          ...prev,
+          [postId]: transformedComments
+        }));
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        // Set empty array on error so UI doesn't break
+        setLoadedComments(prev => ({
+          ...prev,
+          [postId]: []
+        }));
+      }
+    }
+
+    setVisibleComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+  };
+
+  const handleCommentInputChange = (postId, value) => {
+    setCommentInputs(prev => ({
+      ...prev,
+      [postId]: value
+    }));
+  };
+
+  const addComment = async (postId) => {
+    const commentText = commentInputs[postId]?.trim();
+    if (commentText) {
+      const success = await createComment(postId, commentText);
+      if (success) {
+        setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      }
+    }
+  };
+
+  const handleImageUpload = (event) => {
+    const files = Array.from(event.target.files);
+    const newImages = [];
+
+    files.forEach(file => {
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newImages.push(e.target.result);
+          if (newImages.length === files.length) {
+            setPendingImages(newImages);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const removeImage = (index) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+    // Update file input
+    const dt = new DataTransfer();
+    const files = Array.from(fileInputRef.current.files);
+    files.splice(index, 1);
+    files.forEach(file => dt.items.add(file));
+    fileInputRef.current.files = dt.files;
+  };
+
+  // Handle comment image upload
+  const handleCommentImageUpload = (postId, event) => {
+    const files = Array.from(event.target.files);
+    const newImages = [];
+    files.forEach(file => {
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newImages.push(e.target.result);
+          if (newImages.length === files.length) {
+            setCommentImages(prev => ({
+              ...prev,
+              [postId]: [...(prev[postId] || []), ...newImages]
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const removeCommentImage = (postId, index) => {
+    setCommentImages(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || []).filter((_, i) => i !== index)
+    }));
+    // Update file input
+    const ref = commentFileInputRefs.current[postId];
+    if (ref) {
+      const dt = new DataTransfer();
+      const files = Array.from(ref.files);
+      files.splice(index, 1);
+      files.forEach(file => dt.items.add(file));
+      ref.files = dt.files;
+    }
+  };
+
+  // Handle reply image upload
+  const handleReplyImageUpload = (postId, commentId, event) => {
+    const files = Array.from(event.target.files);
+    const newImages = [];
+    files.forEach(file => {
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newImages.push(e.target.result);
+          if (newImages.length === files.length) {
+            setReplyImages(prev => ({
+              ...prev,
+              [`${postId}-${commentId}`]: [...(prev[`${postId}-${commentId}`] || []), ...newImages]
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const removeReplyImage = (postId, commentId, index) => {
+    setReplyImages(prev => ({
+      ...prev,
+      [`${postId}-${commentId}`]: (prev[`${postId}-${commentId}`] || []).filter((_, i) => i !== index)
+    }));
+    // Update file input
+    const ref = replyFileInputRefs.current[`${postId}-${commentId}`];
+    if (ref) {
+      const dt = new DataTransfer();
+      const files = Array.from(ref.files);
+      files.splice(index, 1);
+      files.forEach(file => dt.items.add(file));
+      ref.files = dt.files;
+    }
+  };
+
+  // Toggle reply box visibility
+  // Delete comment handler
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bình luận này?')) {
+      return;
+    }
+
+    console.log('Deleting comment:', { postId, commentId, commentIdType: typeof commentId });
+    
+    // Ensure commentId is a number
+    const numericCommentId = typeof commentId === 'string' ? parseInt(commentId, 10) : commentId;
+    if (isNaN(numericCommentId)) {
+      console.error('Invalid comment ID:', commentId);
+      alert('ID bình luận không hợp lệ');
+      return;
+    }
+
+    try {
+      // Optimistically remove from UI
+      setLoadedComments(prev => {
+        const removeComment = (comments, targetId) => {
+          return comments
+            .filter(c => {
+              // Compare both as numbers to handle string/number mismatches
+              const cId = typeof c.id === 'string' ? parseInt(c.id, 10) : c.id;
+              const tId = typeof targetId === 'string' ? parseInt(targetId, 10) : targetId;
+              return cId !== tId;
+            })
+            .map(c => ({
+              ...c,
+              replies: c.replies ? removeComment(c.replies, targetId) : []
+            }));
+        };
+
+        const updated = { ...prev };
+        if (updated[postId]) {
+          updated[postId] = removeComment(updated[postId], numericCommentId);
+        }
+        return updated;
+      });
+
+      // Delete via API
+      await apiDeleteComment(numericCommentId);
+
+      // Silently refresh comments from backend in background
+      getCommentsByPostId(postId).then(comments => {
+        const commentsArray = Array.isArray(comments) ? comments : [];
+        const transformedComments = transformComments(commentsArray);
+        setLoadedComments(prev => ({
+          ...prev,
+          [postId]: transformedComments
+        }));
+      }).catch(error => {
+        console.error('Error refreshing comments after delete:', error);
+      });
+
+      // Silently refresh posts to update comment count
+      getAllPosts().then(postsData => {
+        const transformedPosts = postsData.map(post => ({
+          id: post.Id,
+          username: post.AuthorName,
+          authorId: post.AuthorId,
+          avatar: (post.AuthorAvatar && post.AuthorAvatar.trim() !== '') 
+            ? post.AuthorAvatar 
+            : '/img/stock_nimg.jpg',
+          image: post.Image,
+          text: post.Content,
+          title: post.Title,
+          reaction: post.CurrentUserReaction || null,
+          comments: [],
+          createdAt: post.CreatedAt,
+          commentsCount: post.CommentsCount,
+          reactionsCount: post.ReactionsCount || 0,
+          reactionCounts: post.ReactionCounts || {}
+        }));
+        const sortedPosts = sortPosts(transformedPosts, filterType);
+        setPosts(sortedPosts);
+      }).catch(err => {
+        console.error('Error refreshing posts after comment delete:', err);
+      });
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      alert(`Không thể xóa bình luận: ${err.message || 'Có lỗi xảy ra'}`);
+      // Revert optimistic update on error - reload comments
+      getCommentsByPostId(postId).then(comments => {
+        const commentsArray = Array.isArray(comments) ? comments : [];
+        const transformedComments = transformComments(commentsArray);
+        setLoadedComments(prev => ({
+          ...prev,
+          [postId]: transformedComments
+        }));
+      }).catch(error => {
+        console.error('Error reloading comments after delete error:', error);
+      });
+    }
+  };
+
+  const toggleReplyBox = (postId, commentId, commentAuthorName) => {
+    const key = `${postId}-${commentId}`;
+    const isVisible = visibleReplies[key];
+    
+    setVisibleReplies(prev => ({
+      ...prev,
+      [key]: !isVisible
+    }));
+    
+    // If opening the reply box, prefill with @username
+    if (!isVisible && commentAuthorName) {
+      setReplyInputs(prev => ({
+        ...prev,
+        [key]: `@${commentAuthorName} `
+      }));
+    }
+  };
+
+  // Add reply to a comment
+  const addReply = async (postId, commentId) => {
+    const replyText = replyInputs[`${postId}-${commentId}`]?.trim();
+    if (replyText || (replyImages[`${postId}-${commentId}`] && replyImages[`${postId}-${commentId}`].length > 0)) {
+      const success = await createComment(postId, replyText, commentId);
+      if (success) {
+        setReplyInputs(prev => {
+          const updated = { ...prev };
+          delete updated[`${postId}-${commentId}`];
+          return updated;
+        });
+        setVisibleReplies(prev => ({
+          ...prev,
+          [`${postId}-${commentId}`]: false
+        }));
+      }
+    }
+  };
+
+  const handleReplyInputChange = (postId, commentId, value) => {
+    setReplyInputs(prev => ({
+      ...prev,
+      [`${postId}-${commentId}`]: value
+    }));
+  };
+
+  const handlePostSubmit = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log('handlePostSubmit called');
+    const text = newPostText.trim();
+    if (!text && pendingImages.length === 0) {
+      alert('Vui lòng nhập nội dung hoặc chọn ảnh!');
+      return;
+    }
+
+    console.log('Submitting post with text:', text, 'and image:', pendingImages.length > 0);
+    
+    try {
+      const success = await createPost({
+        text: text,
+        image: pendingImages.length > 0 ? pendingImages[0] : null
+      });
+
+      if (success) {
+        console.log('Post created successfully');
+        setNewPostText('');
+        setPendingImages([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } else {
+        console.log('Post creation returned false');
+      }
+    } catch (err) {
+      console.error('Error in handlePostSubmit:', err);
+      alert(`Không thể đăng bài: ${err.message || 'Có lỗi xảy ra'}`);
+    }
+  };
+
+  return (
+    <div className="social-media-page">
+      {/* Header */}
+      <Header />
+
+      <div className="feed-wrapper">
+        {/* Left Sidebar */}
+      <div className="left-sidebar">
+        <img 
+          src={
+            (userInfo?.Avatar && userInfo.Avatar.trim() !== '') 
+              ? userInfo.Avatar 
+              : (userInfo?.avatar && userInfo.avatar.trim() !== '')
+                ? userInfo.avatar
+                : "/img/stock_nimg.jpg"
+          } 
+          alt="Ảnh đại diện" 
+          className="sidebar-avatar"
+          onError={(e) => {
+            console.error('Avatar image failed to load:', userInfo?.Avatar || userInfo?.avatar);
+            e.target.src = "/img/stock_nimg.jpg";
+          }}
+        />
+        <div className="sidebar-name">
+          {userInfo?.Name || userInfo?.name || 'User'}
+        </div>
+        <button className="sidebar-button" onClick={() => navigate('/your-posts')}>Bài viết của bạn</button>
+        <button className="sidebar-button">Về trang chủ</button>
+      </div>
+
+      {/* Main Feed Section */}
+      <div className="main-feed-section">
+        {/* Filter Dropdown */}
+        <div className="post-filter-container">
+          <select 
+            className="post-filter"
+            value={filterType}
+            onChange={(e) => handleFilterChange(e.target.value)}
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="hottest">Nổi bật</option>
+          </select>
+        </div>
+
+        {/* Post Composer */}
+        <div className="userpost-card">
+          <div className="composer-row">
+            <img 
+              src={
+                (userInfo?.Avatar && userInfo.Avatar.trim() !== '') 
+                  ? userInfo.Avatar 
+                  : (userInfo?.avatar && userInfo.avatar.trim() !== '')
+                    ? userInfo.avatar
+                    : "/img/stock_nimg.jpg"
+              } 
+              alt="Ảnh đại diện" 
+              className="user-avatar"
+              onError={(e) => {
+                e.target.src = "/img/stock_nimg.jpg";
+              }}
+            />
+            <textarea
+              className="composer-input"
+              maxLength="256"
+              placeholder="Bạn đang nghĩ gì? (Tối đa 256 ký tự)"
+              value={newPostText}
+              onChange={(e) => setNewPostText(e.target.value)}
+            />
+          </div>
+          <div className="composer-actions">
+            <label htmlFor="composer-photo" className="photo-label">🖼️ Ảnh</label>
+            <input
+              type="file"
+              accept="image/*"
+              id="composer-photo"
+              className="composer-photo-input"
+              multiple
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+            />
+            <div id="image-preview-container">
+              {pendingImages.map((imageData, index) => (
+                <div key={index} className="image-preview-item">
+                  <img src={imageData} className="image-preview" alt={`Preview ${index + 1}`} />
+                  <button
+                    className="image-remove-btn"
+                    onClick={() => removeImage(index)}
+                    title="Xóa ảnh"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="post-btn" onClick={handlePostSubmit}>Đăng bài</button>
+          </div>
+        </div>
+
+        {/* Error State */}
+        {error && (
+          <div className="error-state">
+            <p>{error}</p>
+            <button onClick={fetchPosts}>Thử lại</button>
+          </div>
+        )}
+
+        {/* Feed Container */}
+        <div id="feed-list">
+          {!loading && !error && posts.map(post => (
+            <div key={post.id} className="post-card">
+              <div className="post-top">
+                <img 
+                  src={post.avatar || "/img/stock_nimg.jpg"} 
+                  alt="avatar" 
+                  className="post-avatar"
+                  onError={(e) => {
+                    e.target.src = "/img/stock_nimg.jpg";
+                  }}
+                />
+                <span className="post-username">{post.username}</span>
+              </div>
+              <div className="post-content">
+                {post.text && (
+                  <div style={{ margin: '0.6rem 0 0.3rem 0.1rem' }}>
+                    {escapeHtml(post.text)}
+                  </div>
+                )}
+              </div>
+              {post.images ? (
+                <div className="post-images">
+                  {post.images.map((img, idx) => (
+                    <img key={idx} src={img} className="post-image" alt={`Bài đăng ${idx + 1}`} />
+                  ))}
+                </div>
+              ) : post.image ? (
+                <img src={post.image} className="post-image" alt="Bài đăng" />
+              ) : null}
+              <div className="post-actions">
+                <div
+                  className="reaction-container"
+                  onMouseEnter={() => showReactionMenu(post.id)}
+                  onMouseLeave={() => hideReactionMenu(post.id)}
+                >
+                  <button
+                    className={`action-btn${post.reaction ? ' reacted' : ''}`}
+                    onClick={() => handleReaction(post.id, 'like')}
+                  >
+                    <span className="reaction-icon">{getReactionIcon(post.reaction)}</span> {getReactionText(post.reaction)}
+                  </button>
+                  <div 
+                    className="reaction-menu" 
+                    id={`reaction-menu-${post.id}`}
+                    onMouseEnter={() => showReactionMenu(post.id)}
+                    onMouseLeave={() => hideReactionMenu(post.id)}
+                  >
+                    <button className="reaction-option" onClick={() => handleReaction(post.id, 'like')} title="Thích">👍</button>
+                    <button className="reaction-option" onClick={() => handleReaction(post.id, 'dislike')} title="Không thích">👎</button>
+                    <button className="reaction-option" onClick={() => handleReaction(post.id, 'love')} title="Thương thương">❤️</button>
+                    <button className="reaction-option" onClick={() => handleReaction(post.id, 'haha')} title="Haha">😂</button>
+                    <button className="reaction-option" onClick={() => handleReaction(post.id, 'wow')} title="Wow">😮</button>
+                  </div>
+                </div>
+                <button className="action-btn" onClick={() => toggleCommentBox(post.id)}>
+                  💬 Bình luận ({post.commentsCount || 0})
+                </button>
+              </div>
+              {formatReactionCounts(post.reactionCounts) && (
+                <div className="reaction-counts-text">
+                  {formatReactionCounts(post.reactionCounts)}
+                </div>
+              )}
+              <div className="comment-section" style={{ display: visibleComments[post.id] ? 'block' : 'none' }}>
+                {/* Comment Input with Avatar */}
+                <div className="comment-input-container">
+                  <img 
+                    src={
+                      (userInfo?.Avatar && userInfo.Avatar.trim() !== '') 
+                        ? userInfo.Avatar 
+                        : (userInfo?.avatar && userInfo.avatar.trim() !== '')
+                          ? userInfo.avatar
+                          : "/img/stock_nimg.jpg"
+                    } 
+                    alt="Ảnh đại diện" 
+                    className="comment-input-avatar"
+                    onError={(e) => {
+                      e.target.src = "/img/stock_nimg.jpg";
+                    }}
+                  />
+                  <div className="comment-input-wrapper">
+                    <div className="comment-input-row">
+                      <input
+                        type="text"
+                        className="comment-input"
+                        maxLength="500"
+                        placeholder="Viết bình luận..."
+                        value={commentInputs[post.id] || ''}
+                        onChange={(e) => handleCommentInputChange(post.id, e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
+                      />
+                      <div className="comment-input-actions">
+                        <label htmlFor={`comment-photo-${post.id}`} className="comment-photo-label" title="Thêm ảnh">
+                          🖼️
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id={`comment-photo-${post.id}`}
+                          className="comment-photo-input"
+                          ref={(el) => {
+                            if (el) commentFileInputRefs.current[post.id] = el;
+                          }}
+                          onChange={(e) => handleCommentImageUpload(post.id, e)}
+                        />
+                        <button 
+                          className="comment-send-btn" 
+                          onClick={() => addComment(post.id)}
+                          disabled={(!commentInputs[post.id]?.trim() && (!commentImages[post.id] || commentImages[post.id].length === 0))}
+                        >
+                          Gửi
+                        </button>
+                      </div>
+                    </div>
+                    {/* Comment Image Preview */}
+                    {commentImages[post.id] && commentImages[post.id].length > 0 && (
+                      <div className="comment-image-preview-container">
+                        {commentImages[post.id].map((imageData, index) => (
+                          <div key={index} className="comment-image-preview-item">
+                            <img src={imageData} className="comment-image-preview" alt={`Preview ${index + 1}`} />
+                            <button
+                              className="comment-image-remove-btn"
+                              onClick={() => removeCommentImage(post.id, index)}
+                              title="Xóa ảnh"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comments List */}
+                <div className="comment-list">
+                  {/* Recursive component to render comments and replies */}
+                  {((loadedComments[post.id] || []).map((comment, idx) => {
+                    const renderComment = (comment, isReply = false, isReplyToReply = false) => {
+                      return (
+                      <div key={comment.id} className={`comment-item ${isReply ? 'comment-reply' : ''}`}>
+                        <img 
+                          src={comment.authorAvatar || "/img/stock_nimg.jpg"} 
+                          alt={comment.authorName} 
+                          className="comment-avatar"
+                          onError={(e) => {
+                            e.target.src = "/img/stock_nimg.jpg";
+                          }}
+                        />
+                        <div className="comment-content-wrapper">
+                          <div className="comment-bubble">
+                            <div className="comment-author-name">{comment.authorName}</div>
+                            <div className="comment-text">{escapeHtml(comment.content)}</div>
+                            {comment.image && (
+                              <img src={comment.image} className="comment-image" alt="Comment image" />
+                            )}
+                          </div>
+                          <div className="comment-actions">
+                            <div
+                              className="comment-reaction-container"
+                              onMouseEnter={() => showCommentReactionMenu(post.id, comment.id)}
+                              onMouseLeave={() => hideCommentReactionMenu(post.id, comment.id)}
+                            >
+                              <button 
+                                className={`comment-action-btn ${comment.currentUserReaction ? 'reacted' : ''}`}
+                                onClick={() => handleCommentReaction(post.id, comment.id, 'like')}
+                              >
+                                <span className="reaction-icon">{getCommentReactionIcon(comment.currentUserReaction)}</span> {getCommentReactionText(comment.currentUserReaction)}
+                              </button>
+                              <div 
+                                className="comment-reaction-menu" 
+                                id={`comment-reaction-menu-${post.id}-${comment.id}`}
+                                onMouseEnter={() => showCommentReactionMenu(post.id, comment.id)}
+                                onMouseLeave={() => hideCommentReactionMenu(post.id, comment.id)}
+                              >
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'like')} title="Thích">👍</button>
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'dislike')} title="Không thích">👎</button>
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'love')} title="Thương thương">❤️</button>
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'haha')} title="Haha">😂</button>
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'wow')} title="Wow">😮</button>
+                                <button className="reaction-option" onClick={() => handleCommentReaction(post.id, comment.id, 'angry')} title="Tức giận">😠</button>
+                              </div>
+                            </div>
+                            <button 
+                              className="comment-action-btn"
+                              onClick={() => toggleReplyBox(post.id, comment.id, comment.authorName)}
+                            >
+                              Phản hồi
+                            </button>
+                            {comment.authorId === userId && (
+                              <button 
+                                className="comment-action-btn comment-delete-btn"
+                                onClick={() => handleDeleteComment(post.id, comment.id)}
+                                title="Xóa bình luận"
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* Reply box - show for both top-level comments and replies */}
+                          {visibleReplies[`${post.id}-${comment.id}`] && (
+                            <div className="reply-input-container">
+                              <img 
+                                src={
+                                  (userInfo?.Avatar && userInfo.Avatar.trim() !== '') 
+                                    ? userInfo.Avatar 
+                                    : (userInfo?.avatar && userInfo.avatar.trim() !== '')
+                                      ? userInfo.avatar
+                                      : "/img/stock_nimg.jpg"
+                                } 
+                                alt="Ảnh đại diện" 
+                                className="comment-input-avatar"
+                                onError={(e) => {
+                                  e.target.src = "/img/stock_nimg.jpg";
+                                }}
+                              />
+                              <div className="comment-input-wrapper">
+                                <div className="comment-input-row">
+                                  <input
+                                    type="text"
+                                    className="comment-input"
+                                    maxLength="500"
+                                    placeholder="Viết phản hồi..."
+                                    value={replyInputs[`${post.id}-${comment.id}`] || ''}
+                                    onChange={(e) => handleReplyInputChange(post.id, comment.id, e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && addReply(post.id, comment.id)}
+                                  />
+                                  <div className="comment-input-actions">
+                                    <label htmlFor={`reply-photo-${post.id}-${comment.id}`} className="comment-photo-label" title="Thêm ảnh">
+                                      🖼️
+                                    </label>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      id={`reply-photo-${post.id}-${comment.id}`}
+                                      className="comment-photo-input"
+                                      ref={(el) => {
+                                        if (el) replyFileInputRefs.current[`${post.id}-${comment.id}`] = el;
+                                      }}
+                                      onChange={(e) => handleReplyImageUpload(post.id, comment.id, e)}
+                                    />
+                                    <button 
+                                      className="comment-send-btn" 
+                                      onClick={() => addReply(post.id, comment.id)}
+                                      disabled={(!replyInputs[`${post.id}-${comment.id}`]?.trim() && (!replyImages[`${post.id}-${comment.id}`] || replyImages[`${post.id}-${comment.id}`].length === 0))}
+                                    >
+                                      Gửi
+                                    </button>
+                                  </div>
+                                </div>
+                                {/* Reply Image Preview */}
+                                {replyImages[`${post.id}-${comment.id}`] && replyImages[`${post.id}-${comment.id}`].length > 0 && (
+                                  <div className="comment-image-preview-container">
+                                    {replyImages[`${post.id}-${comment.id}`].map((imageData, index) => (
+                                      <div key={index} className="comment-image-preview-item">
+                                        <img src={imageData} className="comment-image-preview" alt={`Preview ${index + 1}`} />
+                                        <button
+                                          className="comment-image-remove-btn"
+                                          onClick={() => removeReplyImage(post.id, comment.id, index)}
+                                          title="Xóa ảnh"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Render replies */}
+                          {comment.replies && comment.replies.length > 0 && (
+                            <div className="comment-replies">
+                              {comment.replies.map(reply => renderComment(reply, true, isReply))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                    };
+
+                    return renderComment(comment, false);
+                  }))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      </div>
+    </div>
+  );
+};
+
+export default SocialMedia;
