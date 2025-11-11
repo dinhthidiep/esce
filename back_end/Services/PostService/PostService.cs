@@ -209,6 +209,195 @@ namespace ESCE_SYSTEM.Services.PostService
             return tourComboResponseDtos;
         }
 
+        public async Task<PaginatedTourComboResponseDto> SearchTourCombosAsync(TourComboSearchDto searchDto)
+        {
+            var query = _context.Servicecombos
+                .Include(sc => sc.ServicecomboDetails)
+                .AsQueryable();
+
+            // Filter by keyword (search in name and description)
+            if (!string.IsNullOrWhiteSpace(searchDto.Keyword))
+            {
+                var keyword = searchDto.Keyword.ToLower();
+                query = query.Where(sc =>
+                    sc.Name.ToLower().Contains(keyword) ||
+                    (sc.Description != null && sc.Description.ToLower().Contains(keyword)));
+            }
+
+            // Filter by location
+            if (!string.IsNullOrWhiteSpace(searchDto.Location))
+            {
+                var location = searchDto.Location.ToLower();
+                query = query.Where(sc => sc.Address.ToLower().Contains(location));
+            }
+
+            // Filter by price range
+            if (searchDto.MinPrice.HasValue)
+            {
+                query = query.Where(sc => sc.Price >= searchDto.MinPrice.Value);
+            }
+
+            if (searchDto.MaxPrice.HasValue)
+            {
+                query = query.Where(sc => sc.Price <= searchDto.MaxPrice.Value);
+            }
+
+            // Filter by status
+            if (!string.IsNullOrWhiteSpace(searchDto.Status))
+            {
+                query = query.Where(sc => sc.Status == searchDto.Status);
+            }
+
+            // Get total count before pagination
+            var totalCount = await query.CountAsync();
+
+            // Sorting
+            var sortBy = searchDto.SortBy?.ToLower() ?? "createdat";
+            var sortOrder = searchDto.SortOrder?.ToLower() ?? "desc";
+
+            query = sortBy switch
+            {
+                "name" => sortOrder == "asc"
+                    ? query.OrderBy(sc => sc.Name)
+                    : query.OrderByDescending(sc => sc.Name),
+                "price" => sortOrder == "asc"
+                    ? query.OrderBy(sc => sc.Price)
+                    : query.OrderByDescending(sc => sc.Price),
+                "createdat" => sortOrder == "asc"
+                    ? query.OrderBy(sc => sc.CreatedAt)
+                    : query.OrderByDescending(sc => sc.CreatedAt),
+                _ => query.OrderByDescending(sc => sc.CreatedAt)
+            };
+
+            // Pagination
+            var pageNumber = searchDto.PageNumber < 1 ? 1 : searchDto.PageNumber;
+            var pageSize = searchDto.PageSize < 1 ? 10 : searchDto.PageSize;
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var serviceCombos = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = serviceCombos.Select(sc => new TourComboResponseDto
+            {
+                Id = sc.Id,
+                Name = sc.Name,
+                Address = sc.Address,
+                Description = sc.Description,
+                Price = sc.Price,
+                AvailableSlots = sc.AvailableSlots,
+                Image = sc.Image,
+                Status = sc.Status,
+                CancellationPolicy = sc.CancellationPolicy,
+                CreatedAt = sc.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = sc.UpdatedAt ?? DateTime.UtcNow,
+                HostId = sc.HostId,
+                TourDetails = sc.ServicecomboDetails?.Select(sd => new TourComboDetailDto
+                {
+                    ServiceId = sd.ServiceId,
+                    Quantity = sd.Quantity ?? 1
+                }).ToList() ?? new List<TourComboDetailDto>()
+            }).ToList();
+
+            return new PaginatedTourComboResponseDto
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = totalPages,
+                HasPreviousPage = pageNumber > 1,
+                HasNextPage = pageNumber < totalPages
+            };
+        }
+
+        public async Task<TourComboDetailResponseDto?> GetTourComboByIdAsync(int id)
+        {
+            var serviceCombo = await _context.Servicecombos
+                .Include(sc => sc.Host)
+                .Include(sc => sc.ServicecomboDetails)
+                    .ThenInclude(sd => sd.Service)
+                .Include(sc => sc.Reviews)
+                    .ThenInclude(r => r.Author)
+                .Include(sc => sc.Reviews)
+                    .ThenInclude(r => r.InverseParentReview)
+                        .ThenInclude(reply => reply.Author)
+                .FirstOrDefaultAsync(sc => sc.Id == id);
+
+            if (serviceCombo == null)
+            {
+                return null;
+            }
+
+            // Calculate average rating
+            var reviews = serviceCombo.Reviews.Where(r => r.ParentReviewId == null).ToList();
+            var averageRating = reviews.Any()
+                ? (decimal)reviews.Average(r => r.Rating ?? 0)
+                : 0;
+
+            var result = new TourComboDetailResponseDto
+            {
+                Id = serviceCombo.Id,
+                Name = serviceCombo.Name,
+                Address = serviceCombo.Address,
+                Description = serviceCombo.Description,
+                Price = serviceCombo.Price,
+                AvailableSlots = serviceCombo.AvailableSlots,
+                Image = serviceCombo.Image,
+                Status = serviceCombo.Status,
+                CancellationPolicy = serviceCombo.CancellationPolicy,
+                CreatedAt = serviceCombo.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = serviceCombo.UpdatedAt ?? DateTime.UtcNow,
+                Host = new HostInfoDto
+                {
+                    Id = serviceCombo.Host.Id,
+                    Name = serviceCombo.Host.Name,
+                    Avatar = serviceCombo.Host.Avatar,
+                    Phone = serviceCombo.Host.Phone,
+                    Email = serviceCombo.Host.Email
+                },
+                Services = serviceCombo.ServicecomboDetails?.Select(sd => new ServiceInfoDto
+                {
+                    Id = sd.Service.Id,
+                    Name = sd.Service.Name,
+                    Description = sd.Service.Description,
+                    Price = sd.Service.Price,
+                    Quantity = sd.Quantity ?? 1
+                }).ToList() ?? new List<ServiceInfoDto>(),
+                Reviews = reviews.Select(r => new ReviewInfoDto
+                {
+                    Id = r.Id,
+                    Rating = r.Rating ?? 0,
+                    Content = r.Content,
+                    CreatedAt = r.CreatedAt ?? DateTime.UtcNow,
+                    Author = new AuthorInfoDto
+                    {
+                        Id = r.Author.Id,
+                        Name = r.Author.Name,
+                        Avatar = r.Author.Avatar
+                    },
+                    Replies = r.InverseParentReview?.Select(reply => new ReviewInfoDto
+                    {
+                        Id = reply.Id,
+                        Rating = reply.Rating ?? 0,
+                        Content = reply.Content,
+                        CreatedAt = reply.CreatedAt ?? DateTime.UtcNow,
+                        Author = new AuthorInfoDto
+                        {
+                            Id = reply.Author.Id,
+                            Name = reply.Author.Name,
+                            Avatar = reply.Author.Avatar
+                        }
+                    }).ToList() ?? new List<ReviewInfoDto>()
+                }).ToList(),
+                AverageRating = averageRating,
+                TotalReviews = reviews.Count
+            };
+
+            return result;
+        }
+
         public async Task<int> CreateCouponAsync(CreateCouponDto createCouponDto)
         {
             // For now, use a default host ID since we're not requiring authentication

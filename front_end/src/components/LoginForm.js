@@ -65,18 +65,33 @@ const LoginForm = () => {
       if (response.Token || response.token) {
         localStorage.setItem('token', response.Token || response.token);
       }
-      
+
       // Lưu thông tin user nếu có (backend có thể trả về UserInfo hoặc userInfo)
       const userInfo = response.UserInfo || response.userInfo;
       if (userInfo) {
         localStorage.setItem('userInfo', JSON.stringify(userInfo));
       }
-      
-      // Đăng nhập thành công - chuyển hướng hoặc hiển thị thông báo
-      alert('Đăng nhập thành công! Chào mừng đến với ESCE!');
-      
-      // Chuyển hướng đến trang chủ hoặc dashboard
-      navigate('/'); // Hoặc navigate('/dashboard') tùy theo route của bạn
+
+      // Kiểm tra role và chuyển hướng
+      if (userInfo && userInfo.RoleId === 4) {
+        // Role 4 = Customer/User - chuyển đến trang home
+        alert('Đăng nhập thành công! Chào mừng đến với ESCE!');
+        navigate('/home');
+      } else if (userInfo && userInfo.RoleId !== 4) {
+        // Các role khác (Admin, Staff, etc.)
+        alert(`Đăng nhập thành công! Tuy nhiên, tài khoản của bạn không phải là tài khoản khách hàng (Customer). Role ID: ${userInfo.RoleId}`);
+        // Có thể chuyển đến trang admin hoặc dashboard khác
+        // navigate('/admin'); // Uncomment nếu có trang admin
+
+        // Tạm thời logout và quay về login
+        localStorage.removeItem('token');
+        localStorage.removeItem('userInfo');
+        setGeneralError('Tài khoản này không có quyền truy cập trang khách hàng.');
+      } else {
+        // Không có thông tin userInfo
+        alert('Đăng nhập thành công nhưng không nhận được thông tin người dùng.');
+        navigate('/home');
+      }
       
     } catch (error) {
       console.error('Login error:', error);

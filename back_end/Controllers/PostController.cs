@@ -59,12 +59,32 @@ namespace ESCE_SYSTEM.Controllers
         }
 
         [HttpGet("tour-combos")]
-        public async Task<IActionResult> GetAllTourCombos()
+        public async Task<IActionResult> GetAllTourCombos([FromQuery] TourComboSearchDto searchDto)
         {
             try
             {
-                var tourCombos = await _postService.GetAllTourCombosAsync();
-                return Ok(tourCombos);
+                var result = await _postService.SearchTourCombosAsync(searchDto);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("tour-combo/{id}")]
+        public async Task<IActionResult> GetTourComboById(int id)
+        {
+            try
+            {
+                var tourCombo = await _postService.GetTourComboByIdAsync(id);
+
+                if (tourCombo == null)
+                {
+                    return NotFound(new { message = "Tour combo not found" });
+                }
+
+                return Ok(tourCombo);
             }
             catch (Exception ex)
             {

@@ -29,5 +29,11 @@ namespace ESCE_SYSTEM.Services.RoleService
             return await _dbContext.Roles
                 .FirstOrDefaultAsync(x => x.Id == roleId);
         }
+
+        public async Task<Role> GetRoleByName(string roleName)
+        {
+            return await _dbContext.Roles
+                .FirstOrDefaultAsync(x => x.Name == roleName);
+        }
     }
 }

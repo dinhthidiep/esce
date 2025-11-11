@@ -18,13 +18,22 @@ using ESCE_SYSTEM.Repositories.MessageRepository;
 using ESCE_SYSTEM.Services.MessageService;
 using ESCE_SYSTEM.Services.PostService;
 using ESCE_SYSTEM.Repositories.PostRepository;
+using ESCE_SYSTEM.Services.BookingService;
+using ESCE_SYSTEM.Repositories.BookingRepository;
+using ESCE_SYSTEM.Services.FileService;
+using ESCE_SYSTEM.Services.PaymentService;
+using ESCE_SYSTEM.Services.HomeService;
 using ESCE_SYSTEM.SignalR;
 using ESCE_SYSTEM.SeedData;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddSignalR();
 // Configure DbContext with SQL Server
 builder.Services.AddDbContext<ESCEContext>(options =>
@@ -43,6 +52,11 @@ builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 // Đăng ký các helper
@@ -153,11 +167,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
-
     var roleService = scope.ServiceProvider.GetRequiredService<IRoleService>();
     var roleRepository = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
     var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-    await SeedData.Initialize(userService, roleService, roleRepository, userRepository);
+    var dbContext = scope.ServiceProvider.GetRequiredService<ESCEContext>();
+
+    await SeedData.Initialize(userService, roleService, roleRepository, userRepository, dbContext);
 }
 
 
@@ -169,6 +184,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Enable static files
+app.UseStaticFiles();
 
 // Sử dụng CORS (nếu cần)
 app.UseCors("AllowAll");

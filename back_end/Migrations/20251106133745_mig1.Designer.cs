@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ESCE_SYSTEM.Migrations
 {
     [DbContext(typeof(ESCEContext))]
-    [Migration("20251024084633_AllowNullUserIdForOtp")]
-    partial class AllowNullUserIdForOtp
+    [Migration("20251106133745_mig1")]
+    partial class mig1
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -64,11 +64,14 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnType("nvarchar(10)")
                         .HasColumnName("GENDER");
 
-                    b.Property<bool?>("IsActive")
+                    b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasColumnName("IS_ACTIVE")
                         .HasDefaultValueSql("((1))");
+
+                    b.Property<bool>("IsBanned")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -76,18 +79,18 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("NAME");
 
+                    b.Property<string>("Password")
+                        .HasMaxLength(32)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(32)")
+                        .HasColumnName("PASSWORD");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(32)
+                        .HasMaxLength(500)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(32)")
+                        .HasColumnType("varchar(500)")
                         .HasColumnName("PASSWORD_HASH");
-
-                    b.Property<string>("PasswordSalt")
-                        .HasMaxLength(32)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(32)")
-                        .HasColumnName("PASSWORD_SALT");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(10)
@@ -109,7 +112,7 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.HasIndex(new[] { "Email" }, "UQ__ACCOUNTS__161CF724757E8893")
+                    b.HasIndex(new[] { "Email" }, "UQ__ACCOUNTS__161CF724AB7CCC50")
                         .IsUnique();
 
                     b.ToTable("ACCOUNTS", (string)null);
@@ -142,10 +145,6 @@ namespace ESCE_SYSTEM.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Image")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("LicenseFile")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -157,12 +156,10 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("RejectComment")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("ReviewComments")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
@@ -182,7 +179,7 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnType("nvarchar(255)");
 
                     b.HasKey("AgencyId")
-                        .HasName("PK__AGENCIE___95C546DB5FDFFD15");
+                        .HasName("PK__AGENCIE___95C546DBEE22E00D");
 
                     b.HasIndex("AccountId");
 
@@ -308,8 +305,7 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.Property<string>("Image")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("IMAGE");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int?>("ParentCommentId")
                         .HasColumnType("int")
@@ -322,6 +318,8 @@ namespace ESCE_SYSTEM.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
+
+                    b.HasIndex("ParentCommentId");
 
                     b.HasIndex("PostId");
 
@@ -398,7 +396,7 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.HasIndex("ServicecomboId");
 
-                    b.HasIndex(new[] { "Code" }, "UQ__COUPONS__AA1D4379B4900E43")
+                    b.HasIndex(new[] { "Code" }, "UQ__COUPONS__AA1D4379DAE87058")
                         .IsUnique();
 
                     b.ToTable("COUPONS", (string)null);
@@ -435,22 +433,16 @@ namespace ESCE_SYSTEM.Migrations
                     b.Property<int>("HostId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Image")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("RejectComment")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("ReviewComments")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
@@ -466,7 +458,7 @@ namespace ESCE_SYSTEM.Migrations
                         .HasDefaultValueSql("(getdate())");
 
                     b.HasKey("CertificateId")
-                        .HasName("PK__HOST_CER__BBF8A7C1722F012C");
+                        .HasName("PK__HOST_CER__BBF8A7C16A0E9C16");
 
                     b.HasIndex("HostId");
 
@@ -509,6 +501,8 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnName("SENDER_ID");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId");
 
                     b.HasIndex("SenderId");
 
@@ -578,7 +572,8 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnName("MESSAGE");
 
                     b.Property<string>("Title")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int")
@@ -627,8 +622,7 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnName("IS_VERIFIED")
                         .HasDefaultValueSql("((0))");
 
-                    b.Property<int?>("UserId")
-                        .IsRequired()
+                    b.Property<int>("UserId")
                         .HasColumnType("int")
                         .HasColumnName("USER_ID");
 
@@ -707,8 +701,7 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.Property<string>("Image")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("IMAGE");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -875,6 +868,8 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.HasIndex("ComboId");
 
+                    b.HasIndex("ParentReviewId");
+
                     b.ToTable("REVIEWS", (string)null);
                 });
 
@@ -900,7 +895,7 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex(new[] { "Name" }, "UQ__ROLES__D9C1FA000635C206")
+                    b.HasIndex(new[] { "Name" }, "UQ__ROLES__D9C1FA008ED1E6F8")
                         .IsUnique();
 
                     b.ToTable("ROLES", (string)null);
@@ -1102,13 +1097,49 @@ namespace ESCE_SYSTEM.Migrations
                     b.ToTable("SUPPORT_RESPONSES", (string)null);
                 });
 
+            modelBuilder.Entity("ESCE_SYSTEM.Models.SystemLog", b =>
+                {
+                    b.Property<int>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LogId"), 1L, 1);
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<string>("LogLevel")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Module")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StackTrace")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("LogId")
+                        .HasName("PK__SYSTEM_L__5E5486488ADB87BA");
+
+                    b.ToTable("SYSTEM_LOGS", (string)null);
+                });
+
             modelBuilder.Entity("ESCE_SYSTEM.Models.Account", b =>
                 {
                     b.HasOne("ESCE_SYSTEM.Models.Role", "Role")
                         .WithMany("Accounts")
                         .HasForeignKey("RoleId")
                         .IsRequired()
-                        .HasConstraintName("FK__ACCOUNTS__ROLE_I__2B3F6F97");
+                        .HasConstraintName("FK__ACCOUNTS__ROLE_I__3F466844");
 
                     b.Navigation("Role");
                 });
@@ -1119,7 +1150,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("AgencieCertificates")
                         .HasForeignKey("AccountId")
                         .IsRequired()
-                        .HasConstraintName("FK__AGENCIE_C__Accou__3B75D760");
+                        .HasConstraintName("FK__AGENCIE_C__Accou__4F7CD00D");
 
                     b.Navigation("Account");
                 });
@@ -1130,13 +1161,13 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Bookings")
                         .HasForeignKey("ComboId")
                         .IsRequired()
-                        .HasConstraintName("FK__BOOKINGS__COMBO___59FA5E80");
+                        .HasConstraintName("FK__BOOKINGS__COMBO___6E01572D");
 
                     b.HasOne("ESCE_SYSTEM.Models.Account", "User")
                         .WithMany("Bookings")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__BOOKINGS__USER_I__59063A47");
+                        .HasConstraintName("FK__BOOKINGS__USER_I__6D0D32F4");
 
                     b.Navigation("Combo");
 
@@ -1149,13 +1180,13 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("BookingCoupons")
                         .HasForeignKey("BookingId")
                         .IsRequired()
-                        .HasConstraintName("FK__BOOKING_C__BOOKI__5EBF139D");
+                        .HasConstraintName("FK__BOOKING_C__BOOKI__72C60C4A");
 
                     b.HasOne("ESCE_SYSTEM.Models.Coupon", "Coupon")
                         .WithMany("BookingCoupons")
                         .HasForeignKey("CouponId")
                         .IsRequired()
-                        .HasConstraintName("FK__BOOKING_C__COUPO__5FB337D6");
+                        .HasConstraintName("FK__BOOKING_C__COUPO__73BA3083");
 
                     b.Navigation("Booking");
 
@@ -1168,15 +1199,22 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Comments")
                         .HasForeignKey("AuthorId")
                         .IsRequired()
-                        .HasConstraintName("FK__COMMENTS__AUTHOR__787EE5A0");
+                        .HasConstraintName("FK__COMMENTS__AUTHOR__0C85DE4D");
+
+                    b.HasOne("ESCE_SYSTEM.Models.Comment", "ParentComment")
+                        .WithMany("InverseParentComment")
+                        .HasForeignKey("ParentCommentId")
+                        .HasConstraintName("FK__COMMENTS__PARENT__0D7A0286");
 
                     b.HasOne("ESCE_SYSTEM.Models.Post", "Post")
                         .WithMany("Comments")
                         .HasForeignKey("PostId")
                         .IsRequired()
-                        .HasConstraintName("FK__COMMENTS__POST_I__778AC167");
+                        .HasConstraintName("FK__COMMENTS__POST_I__0B91BA14");
 
                     b.Navigation("Author");
+
+                    b.Navigation("ParentComment");
 
                     b.Navigation("Post");
                 });
@@ -1187,13 +1225,13 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Coupons")
                         .HasForeignKey("HostId")
                         .IsRequired()
-                        .HasConstraintName("FK__COUPONS__HOST_ID__52593CB8");
+                        .HasConstraintName("FK__COUPONS__HOST_ID__66603565");
 
                     b.HasOne("ESCE_SYSTEM.Models.Servicecombo", "Servicecombo")
                         .WithMany("Coupons")
                         .HasForeignKey("ServicecomboId")
                         .IsRequired()
-                        .HasConstraintName("FK__COUPONS__SERVICE__534D60F1");
+                        .HasConstraintName("FK__COUPONS__SERVICE__6754599E");
 
                     b.Navigation("Host");
 
@@ -1206,18 +1244,26 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("HostCertificates")
                         .HasForeignKey("HostId")
                         .IsRequired()
-                        .HasConstraintName("FK__HOST_CERT__HostI__35BCFE0A");
+                        .HasConstraintName("FK__HOST_CERT__HostI__49C3F6B7");
 
                     b.Navigation("Host");
                 });
 
             modelBuilder.Entity("ESCE_SYSTEM.Models.Message", b =>
                 {
+                    b.HasOne("ESCE_SYSTEM.Models.Account", "Receiver")
+                        .WithMany("MessageReceivers")
+                        .HasForeignKey("ReceiverId")
+                        .IsRequired()
+                        .HasConstraintName("FK__MESSAGES__RECEIV__17036CC0");
+
                     b.HasOne("ESCE_SYSTEM.Models.Account", "Sender")
-                        .WithMany("Messages")
+                        .WithMany("MessageSenders")
                         .HasForeignKey("SenderId")
                         .IsRequired()
-                        .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
+                        .HasConstraintName("FK__MESSAGES__SENDER__160F4887");
+
+                    b.Navigation("Receiver");
 
                     b.Navigation("Sender");
                 });
@@ -1228,7 +1274,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("News")
                         .HasForeignKey("AccountId")
                         .IsRequired()
-                        .HasConstraintName("FK__NEWS__AccountId__123EB7A3");
+                        .HasConstraintName("FK__NEWS__AccountId__2645B050");
 
                     b.Navigation("Account");
                 });
@@ -1239,7 +1285,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Notifications")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__NOTIFICAT__USER___6EF57B66");
+                        .HasConstraintName("FK__NOTIFICAT__USER___02FC7413");
 
                     b.Navigation("User");
                 });
@@ -1250,7 +1296,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Otps")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__OTP__USER_ID__300424B4");
+                        .HasConstraintName("FK__OTP__USER_ID__440B1D61");
 
                     b.Navigation("User");
                 });
@@ -1261,7 +1307,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Payments")
                         .HasForeignKey("BookingId")
                         .IsRequired()
-                        .HasConstraintName("FK__PAYMENTS__BOOKIN__6477ECF3");
+                        .HasConstraintName("FK__PAYMENTS__BOOKIN__787EE5A0");
 
                     b.Navigation("Booking");
                 });
@@ -1272,7 +1318,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Posts")
                         .HasForeignKey("AuthorId")
                         .IsRequired()
-                        .HasConstraintName("FK__POSTS__AUTHOR_ID__73BA3083");
+                        .HasConstraintName("FK__POSTS__AUTHOR_ID__07C12930");
 
                     b.Navigation("Author");
                 });
@@ -1283,7 +1329,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Reactions")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__REACTIONS__USER___7D439ABD");
+                        .HasConstraintName("FK__REACTIONS__USER___114A936A");
 
                     b.Navigation("User");
                 });
@@ -1293,13 +1339,13 @@ namespace ESCE_SYSTEM.Migrations
                     b.HasOne("ESCE_SYSTEM.Models.Servicecombo", "Combo")
                         .WithMany("RequestSupports")
                         .HasForeignKey("ComboId")
-                        .HasConstraintName("FK__REQUEST_S__COMBO__09A971A2");
+                        .HasConstraintName("FK__REQUEST_S__COMBO__1DB06A4F");
 
                     b.HasOne("ESCE_SYSTEM.Models.Account", "User")
                         .WithMany("RequestSupports")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__REQUEST_S__USER___08B54D69");
+                        .HasConstraintName("FK__REQUEST_S__USER___1CBC4616");
 
                     b.Navigation("Combo");
 
@@ -1312,17 +1358,24 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Reviews")
                         .HasForeignKey("AuthorId")
                         .IsRequired()
-                        .HasConstraintName("FK__REVIEWS__AUTHOR___693CA210");
+                        .HasConstraintName("FK__REVIEWS__AUTHOR___7D439ABD");
 
                     b.HasOne("ESCE_SYSTEM.Models.Servicecombo", "Combo")
                         .WithMany("Reviews")
                         .HasForeignKey("ComboId")
                         .IsRequired()
-                        .HasConstraintName("FK__REVIEWS__COMBO_I__68487DD7");
+                        .HasConstraintName("FK__REVIEWS__COMBO_I__7C4F7684");
+
+                    b.HasOne("ESCE_SYSTEM.Models.Review", "ParentReview")
+                        .WithMany("InverseParentReview")
+                        .HasForeignKey("ParentReviewId")
+                        .HasConstraintName("FK__REVIEWS__PARENT___7E37BEF6");
 
                     b.Navigation("Author");
 
                     b.Navigation("Combo");
+
+                    b.Navigation("ParentReview");
                 });
 
             modelBuilder.Entity("ESCE_SYSTEM.Models.Service", b =>
@@ -1331,7 +1384,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Services")
                         .HasForeignKey("HostId")
                         .IsRequired()
-                        .HasConstraintName("FK__SERVICE__HOST_ID__403A8C7D");
+                        .HasConstraintName("FK__SERVICE__HOST_ID__5441852A");
 
                     b.Navigation("Host");
                 });
@@ -1342,7 +1395,7 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("Servicecombos")
                         .HasForeignKey("HostId")
                         .IsRequired()
-                        .HasConstraintName("FK__SERVICECO__HOST___45F365D3");
+                        .HasConstraintName("FK__SERVICECO__HOST___59FA5E80");
 
                     b.Navigation("Host");
                 });
@@ -1353,13 +1406,13 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("ServicecomboDetails")
                         .HasForeignKey("ServiceId")
                         .IsRequired()
-                        .HasConstraintName("FK__SERVICECO__SERVI__4AB81AF0");
+                        .HasConstraintName("FK__SERVICECO__SERVI__5EBF139D");
 
                     b.HasOne("ESCE_SYSTEM.Models.Servicecombo", "Servicecombo")
                         .WithMany("ServicecomboDetails")
                         .HasForeignKey("ServicecomboId")
                         .IsRequired()
-                        .HasConstraintName("FK__SERVICECO__SERVI__49C3F6B7");
+                        .HasConstraintName("FK__SERVICECO__SERVI__5DCAEF64");
 
                     b.Navigation("Service");
 
@@ -1372,13 +1425,13 @@ namespace ESCE_SYSTEM.Migrations
                         .WithMany("SupportResponses")
                         .HasForeignKey("ResponderId")
                         .IsRequired()
-                        .HasConstraintName("FK__SUPPORT_R__RESPO__0E6E26BF");
+                        .HasConstraintName("FK__SUPPORT_R__RESPO__22751F6C");
 
                     b.HasOne("ESCE_SYSTEM.Models.RequestSupport", "Support")
                         .WithMany("SupportResponses")
                         .HasForeignKey("SupportId")
                         .IsRequired()
-                        .HasConstraintName("FK__SUPPORT_R__SUPPO__0D7A0286");
+                        .HasConstraintName("FK__SUPPORT_R__SUPPO__2180FB33");
 
                     b.Navigation("Responder");
 
@@ -1397,7 +1450,9 @@ namespace ESCE_SYSTEM.Migrations
 
                     b.Navigation("HostCertificates");
 
-                    b.Navigation("Messages");
+                    b.Navigation("MessageReceivers");
+
+                    b.Navigation("MessageSenders");
 
                     b.Navigation("News");
 
@@ -1427,6 +1482,11 @@ namespace ESCE_SYSTEM.Migrations
                     b.Navigation("Payments");
                 });
 
+            modelBuilder.Entity("ESCE_SYSTEM.Models.Comment", b =>
+                {
+                    b.Navigation("InverseParentComment");
+                });
+
             modelBuilder.Entity("ESCE_SYSTEM.Models.Coupon", b =>
                 {
                     b.Navigation("BookingCoupons");
@@ -1440,6 +1500,11 @@ namespace ESCE_SYSTEM.Migrations
             modelBuilder.Entity("ESCE_SYSTEM.Models.RequestSupport", b =>
                 {
                     b.Navigation("SupportResponses");
+                });
+
+            modelBuilder.Entity("ESCE_SYSTEM.Models.Review", b =>
+                {
+                    b.Navigation("InverseParentReview");
                 });
 
             modelBuilder.Entity("ESCE_SYSTEM.Models.Role", b =>
