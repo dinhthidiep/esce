@@ -9,7 +9,7 @@ namespace ESCE_SYSTEM.Models
         {
             Comments = new HashSet<Comment>();
             Postreactions = new HashSet<Postreaction>();
-            Postsaves = new HashSet<Postsafe>();
+            Postsaves = new HashSet<Postsave>();
         }
 
         public int Id { get; set; }
@@ -30,6 +30,6 @@ namespace ESCE_SYSTEM.Models
         public virtual Account Author { get; set; } = null!;
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Postreaction> Postreactions { get; set; }
-        public virtual ICollection<Postsafe> Postsaves { get; set; }
+        public virtual ICollection<Postsave> Postsaves { get; set; }
     }
 }

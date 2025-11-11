@@ -18,32 +18,23 @@ namespace ESCE_SYSTEM.Repositories
 
         public async Task<Postsave> GetByIdAsync(int id)
         {
-            return await _context.Postsaves
-                .Include(ps => ps.Account)
-                .Include(ps => ps.Post)
-                .FirstOrDefaultAsync(ps => ps.Id == id);
+            return null;
         }
 
         public async Task<IEnumerable<Postsave>> GetByUserIdAsync(int userId)
         {
-            return await _context.Postsaves
-                .Where(ps => ps.AccountId == userId)
-                .Include(ps => ps.Post)
-                .ThenInclude(p => p.Author)
-                .OrderByDescending(ps => ps.SavedAt)
-                .ToListAsync();
+            return null;
         }
 
         public async Task<Postsave> GetByUserAndPostAsync(int userId, int postId)
         {
-            return await _context.Postsaves
-                .FirstOrDefaultAsync(ps => ps.AccountId == userId && ps.PostId == postId);
+            return null;
         }
 
         public async Task<Postsave> AddAsync(Postsave postSave)
         {
             postSave.SavedAt = DateTime.Now;
-            _context.Postsaves.Add(postSave);
+           // _context.Postsaves.Add(postSave);
             await _context.SaveChangesAsync();
             return postSave;
         }

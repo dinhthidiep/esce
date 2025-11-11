@@ -31,7 +31,7 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Payment> Payments { get; set; } = null!;
         public virtual DbSet<Post> Posts { get; set; } = null!;
         public virtual DbSet<Postreaction> Postreactions { get; set; } = null!;
-        public virtual DbSet<Postsafe> Postsaves { get; set; } = null!;
+        public virtual DbSet<Postsave> Postsaves { get; set; } = null!;
         public virtual DbSet<Reaction> Reactions { get; set; } = null!;
         public virtual DbSet<ReactionType> ReactionTypes { get; set; } = null!;
         public virtual DbSet<RequestSupport> RequestSupports { get; set; } = null!;
@@ -435,11 +435,11 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.SenderId).HasColumnName("SENDER_ID");
 
-               // entity.HasOne(d => d.Sender)
-                   // .WithMany(p => p.Messages)
-                   // .HasForeignKey(d => d.SenderId)
-                   // .OnDelete(DeleteBehavior.ClientSetNull)
-                  //  .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
+                entity.HasOne(d => d.Sender)
+                    .WithMany(p => p.Messages)
+                    .HasForeignKey(d => d.SenderId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
             });
 
             modelBuilder.Entity<News>(entity =>
@@ -629,7 +629,7 @@ namespace ESCE_SYSTEM.Models
                     .HasConstraintName("FK__POSTREACT__UserI__6CD828CA");
             });
 
-            modelBuilder.Entity<Postsafe>(entity =>
+            modelBuilder.Entity<Postsave>(entity =>
             {
                 entity.ToTable("POSTSAVES");
 
