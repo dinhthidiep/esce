@@ -19,7 +19,7 @@ namespace ESCE_SYSTEM.Models
             Otps = new HashSet<Otp>();
             Postreactions = new HashSet<Postreaction>();
             Posts = new HashSet<Post>();
-            Postsaves = new HashSet<Postsave>();
+            Postsaves = new HashSet<Postsafe>();
             Reactions = new HashSet<Reaction>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
@@ -38,7 +38,7 @@ namespace ESCE_SYSTEM.Models
         public DateTime? Dob { get; set; }
         public string? Gender { get; set; }
         public string? Address { get; set; }
-        public bool IsActive { get; set; }
+        public bool? IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int RoleId { get; set; }
@@ -57,7 +57,7 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<Otp> Otps { get; set; }
         public virtual ICollection<Postreaction> Postreactions { get; set; }
         public virtual ICollection<Post> Posts { get; set; }
-        public virtual ICollection<Postsave> Postsaves { get; set; }
+        public virtual ICollection<Postsafe> Postsaves { get; set; }
         public virtual ICollection<Reaction> Reactions { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }

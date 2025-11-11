@@ -31,7 +31,7 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Payment> Payments { get; set; } = null!;
         public virtual DbSet<Post> Posts { get; set; } = null!;
         public virtual DbSet<Postreaction> Postreactions { get; set; } = null!;
-        public virtual DbSet<Postsave> Postsaves { get; set; } = null!;
+        public virtual DbSet<Postsafe> Postsaves { get; set; } = null!;
         public virtual DbSet<Reaction> Reactions { get; set; } = null!;
         public virtual DbSet<ReactionType> ReactionTypes { get; set; } = null!;
         public virtual DbSet<RequestSupport> RequestSupports { get; set; } = null!;
@@ -66,9 +66,7 @@ namespace ESCE_SYSTEM.Models
                     .HasMaxLength(255)
                     .HasColumnName("ADDRESS");
 
-                entity.Property(e => e.Avatar)
-                    .HasMaxLength(255)
-                    .HasColumnName("AVATAR");
+                entity.Property(e => e.Avatar).HasColumnName("AVATAR");
 
                 entity.Property(e => e.CreatedAt)
                     .HasColumnType("datetime")
@@ -264,9 +262,7 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnName("CREATED_AT")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image)
-                    .HasMaxLength(500)
-                    .HasColumnName("IMAGE");
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
 
                 entity.Property(e => e.ParentCommentId).HasColumnName("PARENT_COMMENT_ID");
 
@@ -454,8 +450,6 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnType("datetime")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image).HasMaxLength(500);
-
                 entity.Property(e => e.NewsTitle).HasMaxLength(255);
 
                 entity.Property(e => e.SocialMediaLink).HasMaxLength(500);
@@ -582,9 +576,7 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnName("CREATED_AT")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image)
-                    .HasMaxLength(500)
-                    .HasColumnName("IMAGE");
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
 
                 entity.Property(e => e.Status)
                     .HasMaxLength(50)
@@ -637,7 +629,7 @@ namespace ESCE_SYSTEM.Models
                     .HasConstraintName("FK__POSTREACT__UserI__6CD828CA");
             });
 
-            modelBuilder.Entity<Postsave>(entity =>
+            modelBuilder.Entity<Postsafe>(entity =>
             {
                 entity.ToTable("POSTSAVES");
 
@@ -870,9 +862,7 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.HostId).HasColumnName("HOST_ID");
 
-                entity.Property(e => e.Image)
-                    .HasMaxLength(255)
-                    .HasColumnName("IMAGE");
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
 
                 entity.Property(e => e.Name)
                     .HasMaxLength(255)
