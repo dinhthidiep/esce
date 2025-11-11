@@ -75,10 +75,7 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized(new { message = "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên." });
                 }
 
-                if (!user.IsActive)
-                {
-                    return Unauthorized(new { message = "Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên." });
-                }
+              
 
                 // Lấy thông tin role
                 var role = await _roleService.GetRoleById(user.RoleId);
@@ -142,10 +139,7 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
                 }
 
-                if (!user.IsActive)
-                {
-                    return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-                }
+             
 
                 var role = await _roleService.GetRoleById(user.RoleId);
                 var token = _jwtHelper.GenerateToken(new UserTokenDto

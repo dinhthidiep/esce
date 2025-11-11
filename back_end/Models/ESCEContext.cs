@@ -21,6 +21,7 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Booking> Bookings { get; set; } = null!;
         public virtual DbSet<BookingCoupon> BookingCoupons { get; set; } = null!;
         public virtual DbSet<Comment> Comments { get; set; } = null!;
+        public virtual DbSet<Commentreaction> Commentreactions { get; set; } = null!;
         public virtual DbSet<Coupon> Coupons { get; set; } = null!;
         public virtual DbSet<HostCertificate> HostCertificates { get; set; } = null!;
         public virtual DbSet<Message> Messages { get; set; } = null!;
@@ -29,7 +30,10 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Otp> Otps { get; set; } = null!;
         public virtual DbSet<Payment> Payments { get; set; } = null!;
         public virtual DbSet<Post> Posts { get; set; } = null!;
+        public virtual DbSet<Postreaction> Postreactions { get; set; } = null!;
+        public virtual DbSet<Postsave> Postsaves { get; set; } = null!;
         public virtual DbSet<Reaction> Reactions { get; set; } = null!;
+        public virtual DbSet<ReactionType> ReactionTypes { get; set; } = null!;
         public virtual DbSet<RequestSupport> RequestSupports { get; set; } = null!;
         public virtual DbSet<Review> Reviews { get; set; } = null!;
         public virtual DbSet<Role> Roles { get; set; } = null!;
@@ -37,14 +41,13 @@ namespace ESCE_SYSTEM.Models
         public virtual DbSet<Servicecombo> Servicecombos { get; set; } = null!;
         public virtual DbSet<ServicecomboDetail> ServicecomboDetails { get; set; } = null!;
         public virtual DbSet<SupportResponse> SupportResponses { get; set; } = null!;
-        public virtual DbSet<SystemLog> SystemLogs { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=DESKTOP-68M1JL8\\MSSQLSERVERHUNG;Database=ESCE;Trusted_Connection=True;TrustServerCertificate=True;");
+                optionsBuilder.UseSqlServer("Server=DESKTOP-TBDCMBV\\DINHHOANG;Database=ESCE;User Id=sa;Password=12345;");
             }
         }
 
@@ -54,7 +57,7 @@ namespace ESCE_SYSTEM.Models
             {
                 entity.ToTable("ACCOUNTS");
 
-                entity.HasIndex(e => e.Email, "UQ__ACCOUNTS__161CF724AB7CCC50")
+                entity.HasIndex(e => e.Email, "UQ__ACCOUNTS__161CF724757E8893")
                     .IsUnique();
 
                 entity.Property(e => e.Id).HasColumnName("ID");
@@ -63,9 +66,7 @@ namespace ESCE_SYSTEM.Models
                     .HasMaxLength(255)
                     .HasColumnName("ADDRESS");
 
-                entity.Property(e => e.Avatar)
-                    .HasMaxLength(255)
-                    .HasColumnName("AVATAR");
+                entity.Property(e => e.Avatar).HasColumnName("AVATAR");
 
                 entity.Property(e => e.CreatedAt)
                     .HasColumnType("datetime")
@@ -119,13 +120,13 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Accounts)
                     .HasForeignKey(d => d.RoleId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__ACCOUNTS__ROLE_I__3F466844");
+                    .HasConstraintName("FK_ACCOUNTS_ROLES");
             });
 
             modelBuilder.Entity<AgencieCertificate>(entity =>
             {
                 entity.HasKey(e => e.AgencyId)
-                    .HasName("PK__AGENCIE___95C546DBEE22E00D");
+                    .HasName("PK__AGENCIE___95C546DB5FDFFD15");
 
                 entity.ToTable("AGENCIE_CERTIFICATES");
 
@@ -143,10 +144,6 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.Phone).HasMaxLength(20);
 
-                entity.Property(e => e.RejectComment).HasMaxLength(1000);
-
-                entity.Property(e => e.ReviewComments).HasMaxLength(1000);
-
                 entity.Property(e => e.Status)
                     .HasMaxLength(50)
                     .HasDefaultValueSql("('pending')");
@@ -161,7 +158,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.AgencieCertificates)
                     .HasForeignKey(d => d.AccountId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__AGENCIE_C__Accou__4F7CD00D");
+                    .HasConstraintName("FK__AGENCIE_C__Accou__3B75D760");
             });
 
             modelBuilder.Entity<Booking>(entity =>
@@ -206,13 +203,13 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Bookings)
                     .HasForeignKey(d => d.ComboId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__BOOKINGS__COMBO___6E01572D");
+                    .HasConstraintName("FK__BOOKINGS__COMBO___59FA5E80");
 
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Bookings)
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__BOOKINGS__USER_I__6D0D32F4");
+                    .HasConstraintName("FK__BOOKINGS__USER_I__59063A47");
             });
 
             modelBuilder.Entity<BookingCoupon>(entity =>
@@ -237,18 +234,22 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.BookingCoupons)
                     .HasForeignKey(d => d.BookingId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__BOOKING_C__BOOKI__72C60C4A");
+                    .HasConstraintName("FK__BOOKING_C__BOOKI__5EBF139D");
 
                 entity.HasOne(d => d.Coupon)
                     .WithMany(p => p.BookingCoupons)
                     .HasForeignKey(d => d.CouponId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__BOOKING_C__COUPO__73BA3083");
+                    .HasConstraintName("FK__BOOKING_C__COUPO__5FB337D6");
             });
 
             modelBuilder.Entity<Comment>(entity =>
             {
                 entity.ToTable("COMMENTS");
+
+                entity.HasIndex(e => e.AuthorId, "IX_Comments_AuthorID");
+
+                entity.HasIndex(e => e.PostId, "IX_Comments_PostID");
 
                 entity.Property(e => e.Id).HasColumnName("ID");
 
@@ -261,35 +262,65 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnName("CREATED_AT")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image).HasMaxLength(500);
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
 
                 entity.Property(e => e.ParentCommentId).HasColumnName("PARENT_COMMENT_ID");
 
                 entity.Property(e => e.PostId).HasColumnName("POST_ID");
 
+                entity.Property(e => e.UpdatedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
                 entity.HasOne(d => d.Author)
                     .WithMany(p => p.Comments)
                     .HasForeignKey(d => d.AuthorId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__COMMENTS__AUTHOR__0C85DE4D");
-
-                entity.HasOne(d => d.ParentComment)
-                    .WithMany(p => p.InverseParentComment)
-                    .HasForeignKey(d => d.ParentCommentId)
-                    .HasConstraintName("FK__COMMENTS__PARENT__0D7A0286");
+                    .HasConstraintName("FK__COMMENTS__AUTHOR__787EE5A0");
 
                 entity.HasOne(d => d.Post)
                     .WithMany(p => p.Comments)
                     .HasForeignKey(d => d.PostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__COMMENTS__POST_I__0B91BA14");
+                    .HasConstraintName("FK__COMMENTS__POST_I__778AC167");
+            });
+
+            modelBuilder.Entity<Commentreaction>(entity =>
+            {
+                entity.ToTable("COMMENTREACTIONS");
+
+                entity.HasIndex(e => e.CommentId, "IX_CommentReactions_CommentID");
+
+                entity.HasIndex(e => new { e.UserId, e.CommentId }, "UQ__COMMENTR__ABB381B18C8E7178")
+                    .IsUnique();
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
+                entity.HasOne(d => d.Comment)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.CommentId)
+                    .HasConstraintName("FK__COMMENTRE__Comme__74794A92");
+
+                entity.HasOne(d => d.ReactionType)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.ReactionTypeId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__COMMENTRE__React__756D6ECB");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.Commentreactions)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__COMMENTRE__UserI__73852659");
             });
 
             modelBuilder.Entity<Coupon>(entity =>
             {
                 entity.ToTable("COUPONS");
 
-                entity.HasIndex(e => e.Code, "UQ__COUPONS__AA1D4379DAE87058")
+                entity.HasIndex(e => e.Code, "UQ__COUPONS__AA1D4379B4900E43")
                     .IsUnique();
 
                 entity.Property(e => e.Id).HasColumnName("ID");
@@ -338,19 +369,19 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Coupons)
                     .HasForeignKey(d => d.HostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__COUPONS__HOST_ID__66603565");
+                    .HasConstraintName("FK__COUPONS__HOST_ID__52593CB8");
 
                 entity.HasOne(d => d.Servicecombo)
                     .WithMany(p => p.Coupons)
                     .HasForeignKey(d => d.ServicecomboId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__COUPONS__SERVICE__6754599E");
+                    .HasConstraintName("FK__COUPONS__SERVICE__534D60F1");
             });
 
             modelBuilder.Entity<HostCertificate>(entity =>
             {
                 entity.HasKey(e => e.CertificateId)
-                    .HasName("PK__HOST_CER__BBF8A7C16A0E9C16");
+                    .HasName("PK__HOST_CER__BBF8A7C1722F012C");
 
                 entity.ToTable("HOST_CERTIFICATES");
 
@@ -366,10 +397,6 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.Phone).HasMaxLength(20);
 
-                entity.Property(e => e.RejectComment).HasMaxLength(1000);
-
-                entity.Property(e => e.ReviewComments).HasMaxLength(1000);
-
                 entity.Property(e => e.Status)
                     .HasMaxLength(50)
                     .HasDefaultValueSql("('pending')");
@@ -382,7 +409,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.HostCertificates)
                     .HasForeignKey(d => d.HostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__HOST_CERT__HostI__49C3F6B7");
+                    .HasConstraintName("FK__HOST_CERT__HostI__35BCFE0A");
             });
 
             modelBuilder.Entity<Message>(entity =>
@@ -408,17 +435,11 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.SenderId).HasColumnName("SENDER_ID");
 
-                entity.HasOne(d => d.Receiver)
-                    .WithMany(p => p.MessageReceivers)
-                    .HasForeignKey(d => d.ReceiverId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__MESSAGES__RECEIV__17036CC0");
-
                 entity.HasOne(d => d.Sender)
-                    .WithMany(p => p.MessageSenders)
+                    .WithMany(p => p.Messages)
                     .HasForeignKey(d => d.SenderId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__MESSAGES__SENDER__160F4887");
+                    .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
             });
 
             modelBuilder.Entity<News>(entity =>
@@ -429,8 +450,6 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnType("datetime")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image).HasMaxLength(500);
-
                 entity.Property(e => e.NewsTitle).HasMaxLength(255);
 
                 entity.Property(e => e.SocialMediaLink).HasMaxLength(500);
@@ -439,7 +458,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.News)
                     .HasForeignKey(d => d.AccountId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__NEWS__AccountId__2645B050");
+                    .HasConstraintName("FK__NEWS__AccountId__123EB7A3");
             });
 
             modelBuilder.Entity<Notification>(entity =>
@@ -469,7 +488,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Notifications)
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__NOTIFICAT__USER___02FC7413");
+                    .HasConstraintName("FK__NOTIFICAT__USER___6EF57B66");
             });
 
             modelBuilder.Entity<Otp>(entity =>
@@ -504,8 +523,7 @@ namespace ESCE_SYSTEM.Models
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Otps)
                     .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__OTP__USER_ID__440B1D61");
+                    .HasConstraintName("FK__OTP__USER_ID__300424B4");
             });
 
             modelBuilder.Entity<Payment>(entity =>
@@ -538,12 +556,14 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Payments)
                     .HasForeignKey(d => d.BookingId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__PAYMENTS__BOOKIN__787EE5A0");
+                    .HasConstraintName("FK__PAYMENTS__BOOKIN__6477ECF3");
             });
 
             modelBuilder.Entity<Post>(entity =>
             {
                 entity.ToTable("POSTS");
+
+                entity.HasIndex(e => e.AuthorId, "IX_Posts_AuthorID");
 
                 entity.Property(e => e.Id).HasColumnName("ID");
 
@@ -556,7 +576,11 @@ namespace ESCE_SYSTEM.Models
                     .HasColumnName("CREATED_AT")
                     .HasDefaultValueSql("(getdate())");
 
-                entity.Property(e => e.Image).HasMaxLength(500);
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(50)
+                    .HasDefaultValueSql("('Pending')");
 
                 entity.Property(e => e.Title)
                     .HasMaxLength(255)
@@ -571,7 +595,61 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Posts)
                     .HasForeignKey(d => d.AuthorId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__POSTS__AUTHOR_ID__07C12930");
+                    .HasConstraintName("FK__POSTS__AUTHOR_ID__73BA3083");
+            });
+
+            modelBuilder.Entity<Postreaction>(entity =>
+            {
+                entity.ToTable("POSTREACTIONS");
+
+                entity.HasIndex(e => e.PostId, "IX_PostReactions_PostID");
+
+                entity.HasIndex(e => new { e.UserId, e.PostId }, "UQ__POSTREAC__8D29EA4C21AF919E")
+                    .IsUnique();
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
+                entity.HasOne(d => d.Post)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.PostId)
+                    .HasConstraintName("FK__POSTREACT__PostI__6DCC4D03");
+
+                entity.HasOne(d => d.ReactionType)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.ReactionTypeId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTREACT__React__6EC0713C");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.Postreactions)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTREACT__UserI__6CD828CA");
+            });
+
+            modelBuilder.Entity<Postsave>(entity =>
+            {
+                entity.ToTable("POSTSAVES");
+
+                entity.HasIndex(e => new { e.AccountId, e.PostId }, "UQ_PostSave_UserPost")
+                    .IsUnique();
+
+                entity.Property(e => e.SavedAt)
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("(getdate())");
+
+                entity.HasOne(d => d.Account)
+                    .WithMany(p => p.Postsaves)
+                    .HasForeignKey(d => d.AccountId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK__POSTSAVES__Accou__671F4F74");
+
+                entity.HasOne(d => d.Post)
+                    .WithMany(p => p.Postsaves)
+                    .HasForeignKey(d => d.PostId)
+                    .HasConstraintName("FK__POSTSAVES__PostI__681373AD");
             });
 
             modelBuilder.Entity<Reaction>(entity =>
@@ -601,7 +679,19 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Reactions)
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__REACTIONS__USER___114A936A");
+                    .HasConstraintName("FK__REACTIONS__USER___7D439ABD");
+            });
+
+            modelBuilder.Entity<ReactionType>(entity =>
+            {
+                entity.ToTable("REACTION_TYPES");
+
+                entity.HasIndex(e => e.Name, "UQ__REACTION__737584F61492C36B")
+                    .IsUnique();
+
+                entity.Property(e => e.Id).HasColumnName("ID");
+
+                entity.Property(e => e.Name).HasMaxLength(20);
             });
 
             modelBuilder.Entity<RequestSupport>(entity =>
@@ -645,13 +735,13 @@ namespace ESCE_SYSTEM.Models
                 entity.HasOne(d => d.Combo)
                     .WithMany(p => p.RequestSupports)
                     .HasForeignKey(d => d.ComboId)
-                    .HasConstraintName("FK__REQUEST_S__COMBO__1DB06A4F");
+                    .HasConstraintName("FK__REQUEST_S__COMBO__09A971A2");
 
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.RequestSupports)
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__REQUEST_S__USER___1CBC4616");
+                    .HasConstraintName("FK__REQUEST_S__USER___08B54D69");
             });
 
             modelBuilder.Entity<Review>(entity =>
@@ -679,28 +769,25 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Reviews)
                     .HasForeignKey(d => d.AuthorId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__REVIEWS__AUTHOR___7D439ABD");
+                    .HasConstraintName("FK__REVIEWS__AUTHOR___693CA210");
 
                 entity.HasOne(d => d.Combo)
                     .WithMany(p => p.Reviews)
                     .HasForeignKey(d => d.ComboId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__REVIEWS__COMBO_I__7C4F7684");
-
-                entity.HasOne(d => d.ParentReview)
-                    .WithMany(p => p.InverseParentReview)
-                    .HasForeignKey(d => d.ParentReviewId)
-                    .HasConstraintName("FK__REVIEWS__PARENT___7E37BEF6");
+                    .HasConstraintName("FK__REVIEWS__COMBO_I__68487DD7");
             });
 
             modelBuilder.Entity<Role>(entity =>
             {
                 entity.ToTable("ROLES");
 
-                entity.HasIndex(e => e.Name, "UQ__ROLES__D9C1FA008ED1E6F8")
+                entity.HasIndex(e => e.Name, "UQ__ROLES__D9C1FA000635C206")
                     .IsUnique();
 
-                entity.Property(e => e.Id).HasColumnName("ID");
+                entity.Property(e => e.Id)
+                    .ValueGeneratedNever()
+                    .HasColumnName("ID");
 
                 entity.Property(e => e.Description)
                     .HasMaxLength(255)
@@ -745,7 +832,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Services)
                     .HasForeignKey(d => d.HostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SERVICE__HOST_ID__5441852A");
+                    .HasConstraintName("FK__SERVICE__HOST_ID__403A8C7D");
             });
 
             modelBuilder.Entity<Servicecombo>(entity =>
@@ -775,9 +862,7 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.HostId).HasColumnName("HOST_ID");
 
-                entity.Property(e => e.Image)
-                    .HasMaxLength(255)
-                    .HasColumnName("IMAGE");
+                entity.Property(e => e.Image).HasColumnName("IMAGE");
 
                 entity.Property(e => e.Name)
                     .HasMaxLength(255)
@@ -801,7 +886,7 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.Servicecombos)
                     .HasForeignKey(d => d.HostId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SERVICECO__HOST___59FA5E80");
+                    .HasConstraintName("FK__SERVICECO__HOST___45F365D3");
             });
 
             modelBuilder.Entity<ServicecomboDetail>(entity =>
@@ -822,13 +907,13 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.ServicecomboDetails)
                     .HasForeignKey(d => d.ServiceId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SERVICECO__SERVI__5EBF139D");
+                    .HasConstraintName("FK__SERVICECO__SERVI__4AB81AF0");
 
                 entity.HasOne(d => d.Servicecombo)
                     .WithMany(p => p.ServicecomboDetails)
                     .HasForeignKey(d => d.ServicecomboId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SERVICECO__SERVI__5DCAEF64");
+                    .HasConstraintName("FK__SERVICECO__SERVI__49C3F6B7");
             });
 
             modelBuilder.Entity<SupportResponse>(entity =>
@@ -858,29 +943,13 @@ namespace ESCE_SYSTEM.Models
                     .WithMany(p => p.SupportResponses)
                     .HasForeignKey(d => d.ResponderId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SUPPORT_R__RESPO__22751F6C");
+                    .HasConstraintName("FK__SUPPORT_R__RESPO__0E6E26BF");
 
                 entity.HasOne(d => d.Support)
                     .WithMany(p => p.SupportResponses)
                     .HasForeignKey(d => d.SupportId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__SUPPORT_R__SUPPO__2180FB33");
-            });
-
-            modelBuilder.Entity<SystemLog>(entity =>
-            {
-                entity.HasKey(e => e.LogId)
-                    .HasName("PK__SYSTEM_L__5E5486488ADB87BA");
-
-                entity.ToTable("SYSTEM_LOGS");
-
-                entity.Property(e => e.CreatedAt)
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                entity.Property(e => e.LogLevel).HasMaxLength(50);
-
-                entity.Property(e => e.Module).HasMaxLength(100);
+                    .HasConstraintName("FK__SUPPORT_R__SUPPO__0D7A0286");
             });
 
             OnModelCreatingPartial(modelBuilder);

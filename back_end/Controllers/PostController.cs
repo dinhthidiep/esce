@@ -1,28 +1,33 @@
-﻿using ESCE_SYSTEM.DTOs.Post;
-using ESCE_SYSTEM.Services.PostService;
+﻿using ESCE_SYSTEM.DTOs;
+using ESCE_SYSTEM.Models;
+using ESCE_SYSTEM.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ESCE_SYSTEM.Controllers
 {
-    [Route("api/tour")]
+    [Route("api/[controller]")]
     [ApiController]
-    public class TourController : ControllerBase
+    public class PostController : ControllerBase
     {
         private readonly IPostService _postService;
 
-        public TourController(IPostService postService)
+        public PostController(IPostService postService)
         {
             _postService = postService;
         }
 
-        [HttpPost("create-tour")]
-        public async Task<IActionResult> CreateTour([FromForm] CreateTourDto createTourDto)
+        [HttpPost("CreatePost")]
+        [Authorize(Roles = "Admin,Host,Agency,Customer")]
+        public async Task<ActionResult> CreatePost([FromBody] PostDto postDto)
         {
             try
             {
-                var tourId = await _postService.CreateTourAsync(createTourDto);
-                return Ok(new { message = "Tour created successfully", tourId });
+                var newPost = await _postService.Create(postDto);
+                return Ok(new { message = "Tạo bài viết thành công", post = newPost });
             }
             catch (Exception ex)
             {
@@ -30,97 +35,13 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
-        [HttpPost("create-tour-combo")]
-        public async Task<IActionResult> CreateTourCombo([FromBody] CreateTourComboDto createTourComboDto)
+        [HttpGet("GetAllPost")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetAllPosts()
         {
             try
             {
-                var tourComboId = await _postService.CreateTourComboAsync(createTourComboDto);
-                return Ok(new { message = "Tour combo created successfully", tourComboId });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpGet("tours")]
-        public async Task<IActionResult> GetAllTours()
-        {
-            try
-            {
-                var tours = await _postService.GetAllToursAsync();
-                return Ok(tours);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpGet("tour-combos")]
-        public async Task<IActionResult> GetAllTourCombos()
-        {
-            try
-            {
-                var tourCombos = await _postService.GetAllTourCombosAsync();
-                return Ok(tourCombos);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpPost("create-coupon")]
-        public async Task<IActionResult> CreateCoupon([FromBody] CreateCouponDto createCouponDto)
-        {
-            try
-            {
-                var couponId = await _postService.CreateCouponAsync(createCouponDto);
-                return Ok(new { message = "Coupon created successfully", couponId });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpGet("coupons")]
-        public async Task<IActionResult> GetAllCoupons()
-        {
-            try
-            {
-                var coupons = await _postService.GetAllCouponsAsync();
-                return Ok(coupons);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        // Social Media endpoints
-        [HttpPost("create-post")]
-        public async Task<IActionResult> CreatePost([FromBody] CreatePostDto createPostDto)
-        {
-            try
-            {
-                var postId = await _postService.CreateSocialPostAsync(createPostDto);
-                return Ok(new { message = "Post created successfully", postId });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpGet("posts")]
-        public async Task<IActionResult> GetAllPosts()
-        {
-            try
-            {
-                var posts = await _postService.GetAllSocialPostsAsync();
+                var posts = await _postService.GetAllPosts();
                 return Ok(posts);
             }
             catch (Exception ex)
@@ -129,13 +50,14 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
-        [HttpPost("create-comment")]
-        public async Task<IActionResult> CreateComment([FromBody] CreateCommentDto createCommentDto)
+        [HttpGet("approved")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetAllPostsApproved()
         {
             try
             {
-                var commentId = await _postService.CreateCommentAsync(createCommentDto);
-                return Ok(new { message = "Comment created successfully", commentId });
+                var posts = await _postService.GetAllPostsApproved();
+                return Ok(posts);
             }
             catch (Exception ex)
             {
@@ -143,13 +65,133 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
-        [HttpPost("create-reaction")]
-        public async Task<IActionResult> CreateReaction([FromBody] CreateReactionDto createReactionDto)
+        [HttpGet("pending")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> GetAllPostsPending()
         {
             try
             {
-                var reactionId = await _postService.CreateReactionAsync(createReactionDto);
-                return Ok(new { message = "Reaction created successfully", reactionId });
+                var posts = await _postService.GetAllPostsPending();
+                return Ok(posts);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("approve")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> ApprovePost([FromBody] ApprovePostDto approvePostDto)
+        {
+            try
+            {
+                await _postService.Approve(approvePostDto);
+                return Ok(new { message = "Đã duyệt bài viết" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("reject")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> RejectPost([FromBody] RejectPostDto rejectPostDto)
+        {
+            try
+            {
+                await _postService.Reject(rejectPostDto);
+                return Ok(new { message = "Đã từ chối bài viết" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("UpdatePost")]
+        [Authorize(Roles = "Admin,Host,Agency,Customer")]
+        public async Task<ActionResult> UpdatePost(int id, [FromBody] PostDto postDto)
+        {
+            try
+            {
+                await _postService.Update(id, postDto);
+                return Ok(new { message = "Cập nhật bài viết thành công" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid("Bạn không có quyền cập nhật bài viết này");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("DeletePost")]
+        [Authorize(Roles = "Admin,Host,Agency,Customer")]
+        public async Task<ActionResult> DeletePost(int id)
+        {
+            try
+            {
+                await _postService.Delete(id);
+                return Ok(new { message = "Xóa bài viết thành công" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid("Bạn không có quyền xóa bài viết này");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("GetPostById")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetPostById(int id)
+        {
+            try
+            {
+                var post = await _postService.GetById(id);
+                if (post == null)
+                    return NotFound(new { message = "Không tìm thấy bài viết" });
+
+                return Ok(post);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("detail/{postId}")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetPostDetail(int postId)
+        {
+            try
+            {
+                var postDetail = await _postService.GetPostDetail(postId);
+                if (postDetail == null)
+                    return NotFound(new { message = "Không tìm thấy bài viết" });
+
+                return Ok(postDetail);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("review")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> ReviewPost([FromBody] ReviewPostDto reviewPostDto)
+        {
+            try
+            {
+                await _postService.Review(reviewPostDto);
+                return Ok(new { message = "Đã gửi yêu cầu chỉnh sửa bài viết" });
             }
             catch (Exception ex)
             {

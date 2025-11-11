@@ -7,7 +7,7 @@ namespace ESCE_SYSTEM.Models
     {
         public Comment()
         {
-            InverseParentComment = new HashSet<Comment>();
+            Commentreactions = new HashSet<Commentreaction>();
         }
 
         public int Id { get; set; }
@@ -17,10 +17,12 @@ namespace ESCE_SYSTEM.Models
         public string Content { get; set; } = null!;
         public DateTime? CreatedAt { get; set; }
         public string? Image { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public int ReactionsCount { get; set; }
+        public bool IsDeleted { get; set; }
 
         public virtual Account Author { get; set; } = null!;
-        public virtual Comment? ParentComment { get; set; }
         public virtual Post Post { get; set; } = null!;
-        public virtual ICollection<Comment> InverseParentComment { get; set; }
+        public virtual ICollection<Commentreaction> Commentreactions { get; set; }
     }
 }
