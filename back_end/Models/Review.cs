@@ -5,6 +5,11 @@ namespace ESCE_SYSTEM.Models
 {
     public partial class Review
     {
+        public Review()
+        {
+            InverseParentReview = new HashSet<Review>();
+        }
+
         public int Id { get; set; }
         public int ComboId { get; set; }
         public int AuthorId { get; set; }
@@ -15,5 +20,7 @@ namespace ESCE_SYSTEM.Models
 
         public virtual Account Author { get; set; } = null!;
         public virtual Servicecombo Combo { get; set; } = null!;
+        public virtual Review? ParentReview { get; set; }
+        public virtual ICollection<Review> InverseParentReview { get; set; }
     }
 }

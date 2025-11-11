@@ -57,6 +57,8 @@ builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository
 
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 // Đăng ký các helper

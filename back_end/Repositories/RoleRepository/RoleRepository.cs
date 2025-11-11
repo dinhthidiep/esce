@@ -26,8 +26,10 @@ namespace ESCE_SYSTEM.Repositories.RoleRepository
 
         public async Task AddAsync(Role role)
         {
-            _dbContext.Roles.Add(role);
-            await _dbContext.SaveChangesAsync();
+            Console.WriteLine("Dữ liệu của role: " + role);
+
+            //_dbContext.Roles.Add(role);//
+            //await _dbContext.SaveChangesAsync();//
         }
     }
 }

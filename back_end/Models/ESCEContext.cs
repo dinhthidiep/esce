@@ -435,11 +435,11 @@ namespace ESCE_SYSTEM.Models
 
                 entity.Property(e => e.SenderId).HasColumnName("SENDER_ID");
 
-                entity.HasOne(d => d.Sender)
-                    .WithMany(p => p.Messages)
-                    .HasForeignKey(d => d.SenderId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
+               // entity.HasOne(d => d.Sender)
+                   // .WithMany(p => p.Messages)
+                   // .HasForeignKey(d => d.SenderId)
+                   // .OnDelete(DeleteBehavior.ClientSetNull)
+                  //  .HasConstraintName("FK__MESSAGES__SENDER__02084FDA");
             });
 
             modelBuilder.Entity<News>(entity =>

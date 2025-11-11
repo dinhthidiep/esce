@@ -22,6 +22,7 @@ namespace ESCE_SYSTEM.Models
         public bool IsDeleted { get; set; }
 
         public virtual Account Author { get; set; } = null!;
+        public virtual Comment? ParentComment { get; set; }
         public virtual Post Post { get; set; } = null!;
         public virtual ICollection<Commentreaction> Commentreactions { get; set; }
     }
