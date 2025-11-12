@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -27,9 +28,13 @@ namespace ESCE_SYSTEM.Models
         public int ReactionsCount { get; set; }
         public int SavesCount { get; set; }
 
-        public virtual Account Author { get; set; } = null!;
+        [ValidateNever]
+        public virtual Account? Author { get; set; }
+        [ValidateNever]
         public virtual ICollection<Comment> Comments { get; set; }
+        [ValidateNever]
         public virtual ICollection<Postreaction> Postreactions { get; set; }
+        [ValidateNever]
         public virtual ICollection<Postsave> Postsaves { get; set; }
     }
 }

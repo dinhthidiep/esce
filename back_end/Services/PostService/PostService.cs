@@ -61,17 +61,55 @@ namespace ESCE_SYSTEM.Services
             _env = env;
         }
 
-        public async Task<PostDetailDto> Create(PostDto postDto)
+        public async Task<PostDetailDto> Create(PostDto postDto, Microsoft.AspNetCore.Http.IFormFile? imageFile = null)
         {
             var currentUserId = _userContextService.GetCurrentUserId();
             var currentUser = await _userService.GetAccountByIdAsync(currentUserId);
+
+            string? imageFileName = null;
+
+            // Handle image file upload
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                // Validate file type
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    throw new Exception("Invalid file type. Only image files are allowed.");
+                }
+
+                // Validate file size (5MB max)
+                if (imageFile.Length > 5 * 1024 * 1024)
+                {
+                    throw new Exception("File size exceeds 5MB limit.");
+                }
+
+                // Generate unique filename
+                imageFileName = $"{Guid.NewGuid()}{fileExtension}";
+                var imagesDir = Path.Combine(_env.ContentRootPath, "wwwroot", "images");
+                
+                // Ensure directory exists
+                if (!Directory.Exists(imagesDir))
+                {
+                    Directory.CreateDirectory(imagesDir);
+                }
+
+                var filePath = Path.Combine(imagesDir, imageFileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await imageFile.CopyToAsync(stream);
+                }
+            }
 
             var post = new Post
             {
                 Title = postDto.ArticleTitle ?? "Không có tiêu đề",
                 Content = postDto.PostContent,
                 AuthorId = currentUserId,
-                Image = postDto.Images != null && postDto.Images.Any() ? string.Join(",", postDto.Images) : null,
+                Image = imageFileName, // Store filename instead of base64
                 CreatedAt = DateTime.Now,
                 Status = "Pending",
                 IsDeleted = false,
@@ -102,6 +140,12 @@ namespace ESCE_SYSTEM.Services
                 throw new UnauthorizedAccessException("Bạn không có quyền xóa bài viết này");
             }
 
+            // Delete associated image file
+            if (!string.IsNullOrWhiteSpace(post.Image))
+            {
+                DeleteImageFile(post.Image);
+            }
+
             await _postRepository.SoftDeleteAsync(id);
 
             // Gửi thông báo cho tác giả
@@ -111,19 +155,46 @@ namespace ESCE_SYSTEM.Services
 
         public async Task<List<PostResponseDto>> GetAllPosts()
         {
+            Console.WriteLine($"[PostService] GetAllPosts: Starting at {DateTime.Now}");
             var posts = await _postRepository.GetAllAsync();
+            Console.WriteLine($"[PostService] GetAllPosts: Loaded {posts.Count()} posts from repository at {DateTime.Now}");
+            
+            // Repository already limits to 50 posts, so we can process all of them
+            Console.WriteLine($"[PostService] GetAllPosts: Processing {posts.Count()} posts at {DateTime.Now}");
+            
             var postDtos = new List<PostResponseDto>();
 
+            int processedCount = 0;
             foreach (var post in posts)
             {
+                processedCount++;
+                if (processedCount % 5 == 0)
+                {
+                    Console.WriteLine($"[PostService] GetAllPosts: Processing post {processedCount}/{posts.Count()} (ID: {post.Id}) at {DateTime.Now}");
+                }
+                
+                // Log image data when retrieving to debug truncation issues
+                // Only one image is supported - no splitting needed
+                var imageList = post.Image != null ? new List<string> { post.Image } : new List<string>();
+                if (imageList.Any() && imageList[0] != null)
+                {
+                    var firstImage = imageList[0];
+                    Console.WriteLine($"[PostService] Retrieving post {post.Id}. Image length: {firstImage.Length} characters");
+                    if (firstImage.Length < 100 && firstImage.StartsWith("data:image"))
+                    {
+                        Console.WriteLine($"⚠️ [PostService] WARNING: Post {post.Id} has truncated image ({firstImage.Length} chars). Database column may still be nvarchar(500).");
+                    }
+                }
+
                 var postDto = new PostResponseDto
                 {
                     PostId = post.Id.ToString(),
                     PostContent = post.Content,
-                    Images = post.Image?.Split(',').ToList() ?? new List<string>(),
+                    Images = imageList,
                     PosterId = post.AuthorId.ToString(),
                     PosterRole = post.Author?.Role?.Name ?? string.Empty,
                     PosterName = post.Author?.Name ?? string.Empty,
+                    PosterAvatar = post.Author?.Avatar ?? null,
                     Status = post.Status,
                     RejectComment = post.RejectComment ?? string.Empty,
                     PosterApproverId = post.AuthorId.ToString(),
@@ -137,8 +208,36 @@ namespace ESCE_SYSTEM.Services
 
                 // Lấy reactions (likes) cho post
                 var reactions = await _postReactionRepository.GetByPostIdAsync(post.Id);
+                
+                // Map ReactionTypeId to reaction type string
+                // Database mapping: 1=like, 2=dislike, 3=love, 4=haha, 5=wow
+                var reactionTypeMap = new Dictionary<byte, string>
+                {
+                    { 1, "like" },
+                    { 2, "dislike" },
+                    { 3, "love" },
+                    { 4, "haha" },
+                    { 5, "wow" }
+                };
+                
+                // Get current user ID (if authenticated)
+                int? currentUserId = null;
+                try
+                {
+                    currentUserId = _userContextService.GetCurrentUserId();
+                }
+                catch
+                {
+                    // User not authenticated, currentUserId remains null
+                }
+                
+                // Group reactions by type and find current user's reaction
+                var reactionCounts = new Dictionary<string, int>();
+                string? currentUserReaction = null;
+                
                 foreach (var reaction in reactions)
                 {
+                    // Add to likes list
                     postDto.Likes.Add(new PostLikeResponseDto
                     {
                         PostLikeId = reaction.Id.ToString(),
@@ -146,7 +245,28 @@ namespace ESCE_SYSTEM.Services
                         FullName = reaction.User?.Name ?? string.Empty,
                         CreatedDate = reaction.CreatedAt ?? DateTime.Now
                     });
+                    
+                    // Map reaction type
+                    var reactionType = reactionTypeMap.ContainsKey(reaction.ReactionTypeId) 
+                        ? reactionTypeMap[reaction.ReactionTypeId] 
+                        : "like";
+                    
+                    // Count reactions by type
+                    if (!reactionCounts.ContainsKey(reactionType))
+                    {
+                        reactionCounts[reactionType] = 0;
+                    }
+                    reactionCounts[reactionType]++;
+                    
+                    // Check if this is the current user's reaction
+                    if (currentUserId.HasValue && reaction.UserId == currentUserId.Value)
+                    {
+                        currentUserReaction = reactionType;
+                    }
                 }
+                
+                postDto.CurrentUserReaction = currentUserReaction;
+                postDto.ReactionCounts = reactionCounts;
 
                 // Lấy comments cho post
                 var comments = await _commentRepository.GetByPostIdAsync(post.Id);
@@ -182,6 +302,7 @@ namespace ESCE_SYSTEM.Services
                 postDtos.Add(postDto);
             }
 
+            Console.WriteLine($"[PostService] GetAllPosts: Completed processing {postDtos.Count} posts at {DateTime.Now}");
             return postDtos;
         }
 
@@ -215,7 +336,7 @@ namespace ESCE_SYSTEM.Services
             {
                 PostId = post.Id.ToString(),
                 PostContent = post.Content,
-                Images = post.Image?.Split(',').ToList() ?? new List<string>(),
+                Images = post.Image != null ? new List<string> { post.Image } : new List<string>(),
                 Status = post.Status,
                 CreatedDate = post.CreatedAt ?? DateTime.Now,
                 RejectComment = post.RejectComment ?? string.Empty,
@@ -244,7 +365,7 @@ namespace ESCE_SYSTEM.Services
             return postDetail;
         }
 
-        public async Task Update(int id, PostDto postDto)
+        public async Task Update(int id, PostDto postDto, Microsoft.AspNetCore.Http.IFormFile? imageFile = null)
         {
             var post = await _postRepository.GetByIdAsync(id);
             if (post == null)
@@ -258,9 +379,53 @@ namespace ESCE_SYSTEM.Services
                 throw new UnauthorizedAccessException("Bạn không có quyền cập nhật bài viết này");
             }
 
+            // Handle image file upload if a new file is provided
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                // Delete old image file
+                if (!string.IsNullOrWhiteSpace(post.Image))
+                {
+                    DeleteImageFile(post.Image);
+                }
+
+                // Validate file type
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    throw new Exception("Invalid file type. Only image files are allowed.");
+                }
+
+                // Validate file size (5MB max)
+                if (imageFile.Length > 5 * 1024 * 1024)
+                {
+                    throw new Exception("File size exceeds 5MB limit.");
+                }
+
+                // Generate unique filename
+                var imageFileName = $"{Guid.NewGuid()}{fileExtension}";
+                var imagesDir = Path.Combine(_env.ContentRootPath, "wwwroot", "images");
+                
+                // Ensure directory exists
+                if (!Directory.Exists(imagesDir))
+                {
+                    Directory.CreateDirectory(imagesDir);
+                }
+
+                var filePath = Path.Combine(imagesDir, imageFileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await imageFile.CopyToAsync(stream);
+                }
+
+                post.Image = imageFileName;
+            }
+            // If no new image file, preserve existing image
+
             post.Title = postDto.ArticleTitle ?? post.Title;
             post.Content = postDto.PostContent;
-            post.Image = postDto.Images != null && postDto.Images.Any() ? string.Join(",", postDto.Images) : post.Image;
             post.UpdatedAt = DateTime.Now;
 
             await _postRepository.UpdateAsync(post);
@@ -335,6 +500,41 @@ namespace ESCE_SYSTEM.Services
 
             // Gửi email và thông báo cho tác giả
             await GuiThongBaoYeuCauChinhSua(post, reviewPostDto.Comment);
+        }
+
+        /// <summary>
+        /// Safely deletes an image file from the wwwroot/images directory.
+        /// </summary>
+        private bool DeleteImageFile(string? imageFileName)
+        {
+            if (string.IsNullOrWhiteSpace(imageFileName))
+                return false;
+
+            try
+            {
+                var imagesDir = Path.Combine(_env.ContentRootPath, "wwwroot", "images");
+                var filePath = Path.Combine(imagesDir, imageFileName);
+
+                // Security check: ensure the file path is within the images directory
+                if (!Path.GetFullPath(filePath).StartsWith(Path.GetFullPath(imagesDir), StringComparison.OrdinalIgnoreCase))
+                {
+                    // Path traversal attempt - log and ignore
+                    return false;
+                }
+
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't throw - we don't want to fail the operation if file deletion fails
+                Console.WriteLine($"Failed to delete image file '{imageFileName}': {ex.Message}");
+            }
+
+            return false;
         }
 
         #region Private Methods - Email & Notification (Tiếng Việt)

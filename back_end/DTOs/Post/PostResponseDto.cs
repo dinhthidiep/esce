@@ -11,6 +11,7 @@ namespace ESCE_SYSTEM.DTOs
         public string PosterId { get; set; } = null!;
         public string PosterRole { get; set; } = null!;
         public string PosterName { get; set; } = null!;
+        public string? PosterAvatar { get; set; }
         public string Status { get; set; } = null!;
         public string RejectComment { get; set; } = null!;
         public string PosterApproverId { get; set; } = null!;
@@ -21,6 +22,8 @@ namespace ESCE_SYSTEM.DTOs
         public List<PostLikeResponseDto> Likes { get; set; } = new List<PostLikeResponseDto>();
         public List<PostCommentResponseDto> Comments { get; set; } = new List<PostCommentResponseDto>();
         public List<string> Hashtags { get; set; } = new List<string>();
+        public string? CurrentUserReaction { get; set; } // "like", "love", "haha", "wow", "dislike", or null
+        public Dictionary<string, int> ReactionCounts { get; set; } = new Dictionary<string, int>(); // Reaction type -> count
     }
 
     public class PostLikeResponseDto

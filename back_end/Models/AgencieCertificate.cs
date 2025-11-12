@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace ESCE_SYSTEM.Models
 {
     public partial class AgencieCertificate
     {
+        [Key]
         public int AgencyId { get; set; }
         public int AccountId { get; set; }
         public string Companyname { get; set; } = null!;

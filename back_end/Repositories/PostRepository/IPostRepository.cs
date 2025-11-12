@@ -7,6 +7,7 @@ namespace ESCE_SYSTEM.Repositories
     public interface IPostRepository
     {
         Task<Post> GetByIdAsync(int id);
+        Task<Post> GetByIdWithoutIncludesAsync(int id); // Get Post without loading related entities
         Task<IEnumerable<Post>> GetAllAsync();
         Task<IEnumerable<Post>> GetApprovedPostsAsync();
         Task<IEnumerable<Post>> GetPendingPostsAsync();

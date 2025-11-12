@@ -11,8 +11,8 @@ namespace ESCE_SYSTEM.Services
         Task<List<Post>> GetAllPostsApproved();
         Task<List<Post>> GetAllPostsPending();
         Task<Post> GetById(int id);
-        Task<PostDetailDto> Create(PostDto post);
-        Task Update(int id, PostDto post);
+        Task<PostDetailDto> Create(PostDto post, Microsoft.AspNetCore.Http.IFormFile? imageFile = null);
+        Task Update(int id, PostDto post, Microsoft.AspNetCore.Http.IFormFile? imageFile = null);
         Task Delete(int id);
         Task Approve(ApprovePostDto approvePostDto);
         Task Reject(RejectPostDto rejectPostDto);

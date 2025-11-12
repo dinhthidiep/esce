@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ESCE_SYSTEM.Models;
+using System;
 using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models
@@ -10,9 +11,9 @@ namespace ESCE_SYSTEM.Models
             Accounts = new HashSet<Account>();
         }
 
+        public int Id { get; set; }
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
-        public int Id { get; set; }
 
         public virtual ICollection<Account> Accounts { get; set; }
     }

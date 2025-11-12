@@ -1,24 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ESCE_SYSTEM.Models
 {
-    public partial class Service
+    public class Service
     {
-        public Service()
-        {
-            ServicecomboDetails = new HashSet<ServicecomboDetail>();
-        }
-
         public int Id { get; set; }
-        public string Name { get; set; } = null!;
+        public string? Name { get; set; }
         public string? Description { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
         public decimal Price { get; set; }
+        public DateTime Created_At { get; set; } = DateTime.Now;
+        public DateTime Updated_At { get; set; }
+        
+        // Foreign Key to Account (Host who created this service)
         public int HostId { get; set; }
-        public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
 
-        public virtual Account Host { get; set; } = null!;
-        public virtual ICollection<ServicecomboDetail> ServicecomboDetails { get; set; }
     }
 }

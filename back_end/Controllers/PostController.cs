@@ -22,11 +22,15 @@ namespace ESCE_SYSTEM.Controllers
 
         [HttpPost("CreatePost")]
         [Authorize(Roles = "Admin,Host,Agency,Customer")]
-        public async Task<ActionResult> CreatePost([FromBody] PostDto postDto)
+        public async Task<ActionResult> CreatePost([FromForm] PostDto postDto, IFormFile? imageFile)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
             try
             {
-                var newPost = await _postService.Create(postDto);
+                var newPost = await _postService.Create(postDto, imageFile);
                 return Ok(new { message = "Tạo bài viết thành công", post = newPost });
             }
             catch (Exception ex)
@@ -46,7 +50,13 @@ namespace ESCE_SYSTEM.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                // Return detailed error for debugging
+                var errorMessage = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    errorMessage += " | Inner: " + ex.InnerException.Message;
+                }
+                return StatusCode(500, new { message = errorMessage, stackTrace = ex.StackTrace });
             }
         }
 
@@ -112,11 +122,11 @@ namespace ESCE_SYSTEM.Controllers
 
         [HttpPut("UpdatePost")]
         [Authorize(Roles = "Admin,Host,Agency,Customer")]
-        public async Task<ActionResult> UpdatePost(int id, [FromBody] PostDto postDto)
+        public async Task<ActionResult> UpdatePost(int id, [FromForm] PostDto postDto, IFormFile? imageFile)
         {
             try
             {
-                await _postService.Update(id, postDto);
+                await _postService.Update(id, postDto, imageFile);
                 return Ok(new { message = "Cập nhật bài viết thành công" });
             }
             catch (UnauthorizedAccessException)
@@ -129,7 +139,7 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
-        [HttpDelete("DeletePost")]
+        [HttpDelete("{id}")]
         [Authorize(Roles = "Admin,Host,Agency,Customer")]
         public async Task<ActionResult> DeletePost(int id)
         {

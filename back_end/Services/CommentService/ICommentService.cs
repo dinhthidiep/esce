@@ -7,7 +7,7 @@ namespace ESCE_SYSTEM.Services
 {
     public interface ICommentService
     {
-        Task Create(PostCommentDto comment);
+        Task Create(PostCommentDto comment, Microsoft.AspNetCore.Http.IFormFile? imageFile = null);
         Task<List<Comment>> GetByPostId(int postId);
         Task<Comment> GetById(int id);
         Task Update(int id, UpdatePostCommentDto comment);

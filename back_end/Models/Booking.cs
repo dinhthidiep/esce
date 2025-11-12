@@ -1,30 +1,63 @@
-﻿using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ESCE_SYSTEM.Models
 {
-    public partial class Booking
+    public class Booking
     {
-        public Booking()
-        {
-            BookingCoupons = new HashSet<BookingCoupon>();
-            Payments = new HashSet<Payment>();
-        }
-
         public int Id { get; set; }
-        public int UserId { get; set; }
-        public int ComboId { get; set; }
-        public DateTime? BookingDate { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public int Quantity { get; set; }
-        public decimal TotalAmount { get; set; }
-        public string? Notes { get; set; }
-        public string? Status { get; set; }
 
-        public virtual Servicecombo Combo { get; set; } = null!;
+        [Required]
+        public int UserId { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string BookingNumber { get; set; } = string.Empty;
+
+        // Có thể là ServiceCombo hoặc Service riêng lẻ
+        public int? ServiceComboId { get; set; }
+        public int? ServiceId { get; set; }
+
+        [Required]
+        public int Quantity { get; set; } = 1;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal UnitPrice { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalAmount { get; set; }
+
+        [MaxLength(50)]
+        public string ItemType { get; set; } = string.Empty; // "combo" hoặc "service"
+
+        [MaxLength(50)]
+        public string Status { get; set; } = "pending"; // pending / confirmed / processing / completed / cancelled
+
+        [MaxLength(1000)]
+        public string? Notes { get; set; }
+
+        public DateTime BookingDate { get; set; } = DateTime.Now;
+
+        public DateTime? ConfirmedDate { get; set; }
+
+        public DateTime? CompletedDate { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        // Navigation properties
+        [ForeignKey("UserId")]
         public virtual Account User { get; set; } = null!;
-        public virtual ICollection<BookingCoupon> BookingCoupons { get; set; }
-        public virtual ICollection<Payment> Payments { get; set; }
+
+        [ForeignKey("ServiceComboId")]
+        public virtual ServiceCombo? ServiceCombo { get; set; }
+
+        [ForeignKey("ServiceId")]
+        public virtual Service? Service { get; set; }
+
+        public virtual ICollection<BookingCoupon> BookingCoupons { get; set; } = new List<BookingCoupon>();
+        public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
     }
 }
+

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -7,6 +8,7 @@ namespace ESCE_SYSTEM.Models
     {
         public Comment()
         {
+            InverseParentComment = new HashSet<Comment>();
             Commentreactions = new HashSet<Commentreaction>();
         }
 
@@ -21,8 +23,15 @@ namespace ESCE_SYSTEM.Models
         public int ReactionsCount { get; set; }
         public bool IsDeleted { get; set; }
 
-        public virtual Account Author { get; set; } = null!;
-        public virtual Post Post { get; set; } = null!;
+        [ValidateNever]
+        public virtual Account? Author { get; set; }
+        [ValidateNever]
+        public virtual Comment? ParentComment { get; set; }
+        [ValidateNever]
+        public virtual Post? Post { get; set; }
+        [ValidateNever]
+        public virtual ICollection<Comment> InverseParentComment { get; set; }
+        [ValidateNever]
         public virtual ICollection<Commentreaction> Commentreactions { get; set; }
     }
 }

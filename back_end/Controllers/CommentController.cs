@@ -22,11 +22,16 @@ namespace ESCE_SYSTEM.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin,Host,Agency,Customer")]
-        public async Task<ActionResult> CreateComment([FromBody] PostCommentDto commentDto)
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult> CreateComment([FromForm] PostCommentDto commentDto, IFormFile? imageFile)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
             try
             {
-                await _commentService.Create(commentDto);
+                await _commentService.Create(commentDto, imageFile);
                 return Ok(new { message = "Tạo bình luận thành công" });
             }
             catch (Exception ex)
@@ -41,6 +46,7 @@ namespace ESCE_SYSTEM.Controllers
         {
             try
             {
+                // Return raw Comment entities with Author included (repository already includes it)
                 var comments = await _commentService.GetByPostId(postId);
                 return Ok(comments);
             }

@@ -42,7 +42,7 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
                 }
 
-                if (!user.IsActive)
+                if (user.IsActive != true)
                 {
                     return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
                 }
@@ -94,7 +94,7 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
                 }
 
-                if (!user.IsActive)
+                if (user.IsActive != true)
                 {
                     return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
                 }

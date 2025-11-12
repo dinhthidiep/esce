@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -11,8 +12,11 @@ namespace ESCE_SYSTEM.Models
         public byte ReactionTypeId { get; set; }
         public DateTime? CreatedAt { get; set; }
 
-        public virtual Post Post { get; set; } = null!;
-        public virtual ReactionType ReactionType { get; set; } = null!;
-        public virtual Account User { get; set; } = null!;
+        [ValidateNever]
+        public virtual Post? Post { get; set; }
+        [ValidateNever]
+        public virtual ReactionType? ReactionType { get; set; }
+        [ValidateNever]
+        public virtual Account? User { get; set; }
     }
 }

@@ -51,10 +51,25 @@ namespace ESCE_SYSTEM.Repositories
 
         public async Task<Postreaction> AddAsync(Postreaction postReaction)
         {
-            postReaction.CreatedAt = DateTime.Now;
-            _context.Postreactions.Add(postReaction);
-            await _context.SaveChangesAsync();
-            return postReaction;
+            try
+            {
+                postReaction.CreatedAt = DateTime.Now;
+                _context.Postreactions.Add(postReaction);
+                await _context.SaveChangesAsync();
+                return postReaction;
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                // Log detailed error information
+                Console.WriteLine($"=== PostReactionRepository.AddAsync Error ===");
+                Console.WriteLine($"UserId: {postReaction.UserId}, PostId: {postReaction.PostId}, ReactionTypeId: {postReaction.ReactionTypeId}");
+                Console.WriteLine($"Exception: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+                }
+                throw; // Re-throw to let controller handle it
+            }
         }
 
         public async Task<bool> DeleteAsync(int id)

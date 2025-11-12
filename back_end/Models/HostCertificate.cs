@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace ESCE_SYSTEM.Models
 {
     public partial class HostCertificate
     {
+        [Key]
         public int CertificateId { get; set; }
         public int HostId { get; set; }
         public string BusinessLicenseFile { get; set; } = null!;

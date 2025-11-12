@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -10,7 +11,9 @@ namespace ESCE_SYSTEM.Models
         public int AccountId { get; set; }
         public DateTime? SavedAt { get; set; }
 
-        public virtual Account Account { get; set; } = null!;
-        public virtual Post Post { get; set; } = null!;
+        [ValidateNever]
+        public virtual Account? Account { get; set; }
+        [ValidateNever]
+        public virtual Post? Post { get; set; }
     }
 }
