@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
 import googleAuthService from '../services/googleAuth';
+import { login } from '../API/Au';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const LoginForm = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -10,6 +14,8 @@ const LoginForm = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [generalError, setGeneralError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,18 +60,55 @@ const LoginForm = () => {
     }
     
     setIsLoading(true);
+    setGeneralError('');
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await login(formData.email, formData.password);
       
-      // Here you would typically make an API call to your backend
-      console.log('Login data:', formData);
-      alert('Đăng nhập thành công! Chào mừng đến với Travel App!');
+      // Chọn storage dựa trên "Ghi nhớ đăng nhập"
+      const storage = rememberMe ? localStorage : sessionStorage;
+      
+      // Lưu token vào storage (localStorage hoặc sessionStorage)
+      if (response.Token || response.token) {
+        storage.setItem('token', response.Token || response.token);
+        // Xóa token cũ từ storage khác nếu có
+        if (rememberMe) {
+          sessionStorage.removeItem('token');
+        } else {
+          localStorage.removeItem('token');
+        }
+      }
+      
+      // Lưu thông tin user nếu có
+      const userInfo = response.UserInfo || response.userInfo;
+      if (userInfo) {
+        storage.setItem('userInfo', JSON.stringify(userInfo));
+        // Xóa userInfo cũ từ storage khác nếu có
+        if (rememberMe) {
+          sessionStorage.removeItem('userInfo');
+        } else {
+          localStorage.removeItem('userInfo');
+        }
+      }
+      
+          // Đăng nhập thành công - chuyển hướng hoặc hiển thị thông báo
+          // Set flag để hiển thị welcome message trên landing page
+          sessionStorage.setItem('justLoggedIn', 'true');
+          
+          // Kiểm tra returnUrl từ location.state
+          const returnUrl = location.state?.returnUrl;
+          if (returnUrl) {
+            // Chuyển về trang ban đầu mà người dùng muốn truy cập
+            navigate(returnUrl, { replace: true });
+          } else {
+            // Chuyển hướng đến trang landing page
+            navigate('/', { replace: true });
+          }
       
     } catch (error) {
       console.error('Login error:', error);
-      alert('Đăng nhập thất bại. Vui lòng thử lại!');
+      const errorMessage = error.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      setGeneralError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -133,14 +176,31 @@ const LoginForm = () => {
                 placeholder="nhập mật khẩu"
                 className={errors.password ? 'error' : ''}
               />
-              <span className="toggle-icon" aria-hidden>👁️</span>
+              <span className="toggle-icon" aria-hidden></span>
             </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 
+          {generalError && (
+          <div className="error-message general-error" style={{ 
+            marginBottom: '1rem', 
+            padding: '0.75rem', 
+            backgroundColor: '#fee', 
+            color: '#c33', 
+            borderRadius: '4px',
+            textAlign: 'center'
+          }}>
+            {generalError}
+          </div>
+        )}
+
           <div className="form-options">
             <label className="remember-me">
-              <input type="checkbox" />
+              <input 
+                type="checkbox" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               <span className="checkmark"></span>
               Ghi nhớ đăng nhập
             </label>

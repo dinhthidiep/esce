@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import './OTPVerification.css';
+import { verifyOtpForRegister, verifyOtp, register, requestOtpForRegister, forgotPassword } from '../API/Au';
 
 const OTPVerification = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const email = searchParams.get('email') || '';
+  const type = searchParams.get('type') || 'register'; // 'register' or 'forgot-password'
+  
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,44 +58,101 @@ const OTPVerification = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const otpString = otp.join('');
+    const otpString = otp.join('').trim();
     if (otpString.length !== 6) {
       setError('Vui lòng nhập đầy đủ 6 số OTP');
+      return;
+    }
+
+    if (!email) {
+      setError('Không tìm thấy email. Vui lòng thử lại từ đầu.');
       return;
     }
 
     setLoading(true);
     setError('');
     
-    // Simulate API call với validation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Giả lập kiểm tra OTP (trong thực tế sẽ gọi API)
-    const correctOTP = '123456'; // Mã OTP đúng để test
-    
-    if (otpString === correctOTP) {
-      // Chuyển sang màn hình reset password
-      navigate('/reset-password');
-    } else {
-      setError('Mã OTP không chính xác. Vui lòng thử lại.');
+    try {
+      // Verify OTP
+      if (type === 'register') {
+        await verifyOtpForRegister(email, otpString);
+        
+        // OTP verified successfully, now complete registration
+        const pendingRegistration = JSON.parse(localStorage.getItem('pendingRegistration') || '{}');
+        
+        if (pendingRegistration.userEmail && pendingRegistration.password && pendingRegistration.fullName) {
+          // Complete registration
+          const response = await register(
+            pendingRegistration.userEmail,
+            pendingRegistration.password,
+            pendingRegistration.fullName,
+            pendingRegistration.phone || ''
+          );
+          
+          // Clear pending registration
+          localStorage.removeItem('pendingRegistration');
+          
+          // Store token and user info vào sessionStorage (mặc định cho đăng ký mới)
+          // Người dùng có thể đăng nhập lại sau và chọn "Ghi nhớ đăng nhập" nếu muốn
+          if (response.Token || response.token) {
+            sessionStorage.setItem('token', response.Token || response.token);
+            // Xóa token cũ từ localStorage nếu có
+            localStorage.removeItem('token');
+          }
+          
+          const userInfo = response.UserInfo || response.userInfo;
+          if (userInfo) {
+            sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
+            // Xóa userInfo cũ từ localStorage nếu có
+            localStorage.removeItem('userInfo');
+          }
+          
+          // Set flag để hiển thị welcome message trên landing page
+          sessionStorage.setItem('justLoggedIn', 'true');
+          
+          // Navigate to landing page
+          navigate('/');
+        } else {
+          setError('Không tìm thấy thông tin đăng ký. Vui lòng đăng ký lại.');
+        }
+      } else {
+        // Forgot password flow
+        await verifyOtp(email, otpString);
+        // Navigate to reset password page với OTP
+        navigate(`/reset-password?email=${encodeURIComponent(email)}&otp=${otpString}`);
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      const errorMessage = error.message || 'Mã OTP không chính xác. Vui lòng thử lại.';
+      setError(errorMessage);
       // Reset OTP inputs
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (!canResend || !email) return;
     
     setCanResend(false);
     setResendTimer(60);
     setError('');
     setOtp(['', '', '', '', '', '']);
     
-    // Simulate gửi lại mã OTP
-    console.log('Đang gửi lại mã OTP...');
+    try {
+      if (type === 'register') {
+        await requestOtpForRegister(email, '');
+        alert('Mã OTP đã được gửi lại đến email của bạn.');
+      } else {
+        await forgotPassword(email, '');
+        alert('Mã OTP đã được gửi lại đến email của bạn.');
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      setError(error.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+    }
     
     // Focus vào ô đầu tiên
     setTimeout(() => {
@@ -106,9 +168,11 @@ const OTPVerification = () => {
           <p className="brand-sub">Du lịch sinh thái</p>
         </div>
 
-        <div className="otp-icon">🔐</div>
+        <div className="otp-icon"></div>
         <h3 className="title">Xác thực OTP</h3>
-        <p className="subtitle">Nhập mã OTP 6 số để tiếp tục</p>
+        <p className="subtitle">
+          Nhập mã OTP 6 số đã được gửi đến <strong>{email || 'email của bạn'}</strong>
+        </p>
 
         <form onSubmit={handleSubmit} className="otp-form">
           <div className="otp-inputs">

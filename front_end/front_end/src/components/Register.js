@@ -70,7 +70,7 @@ const Register = () => {
             <div className="input-wrapper with-toggle">
               <input id="password" name="password" type={showPassword ? 'text' : 'password'} placeholder="tạo mật khẩu mạnh" value={form.password} onChange={handleChange} className={errors.password ? 'error' : ''} />
               <span className="toggle-icon" role="button" tabIndex={0} onClick={() => setShowPassword(p => !p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowPassword(p => !p); }} aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? 'Hide' : 'Show'}
               </span>
             </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
@@ -81,7 +81,7 @@ const Register = () => {
             <div className="input-wrapper with-toggle">
               <input id="confirm" name="confirm" type={showConfirm ? 'text' : 'password'} placeholder="nhập lại mật khẩu" value={form.confirm} onChange={handleChange} className={errors.confirm ? 'error' : ''} />
               <span className="toggle-icon" role="button" tabIndex={0} onClick={() => setShowConfirm(p => !p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowConfirm(p => !p); }} aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
-                {showConfirm ? '🙈' : '👁️'}
+                {showConfirm ? 'Hide' : 'Show'}
               </span>
             </div>
             {errors.confirm && <span className="error-message">{errors.confirm}</span>}

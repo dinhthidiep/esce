@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import './ResetPassword.css';
+import { resetPassword } from '../API/Au';
 
 const ResetPassword = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const email = searchParams.get('email') || '';
+  const otp = searchParams.get('otp') || '';
   const [formData, setFormData] = useState({
     newPassword: '',
     confirmPassword: ''
@@ -73,17 +79,29 @@ const ResetPassword = () => {
     }
 
     setLoading(true);
+    setError('');
 
-    // Giả lập gửi yêu cầu đổi mật khẩu
-    await new Promise(r => setTimeout(r, 2000));
+    try {
+      if (!email || !otp) {
+        setError('Thiếu thông tin email hoặc OTP. Vui lòng thử lại từ đầu.');
+        setLoading(false);
+        return;
+      }
 
-    setLoading(false);
-    setSuccess(true);
+      await resetPassword(email, otp, formData.newPassword);
+      
+      setLoading(false);
+      setSuccess(true);
 
-    // Sau 3 giây chuyển về trang đăng nhập
-    setTimeout(() => {
-      window.location.href = '/login';
-    }, 3000);
+      // Sau 3 giây chuyển về trang đăng nhập
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setError(err.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
+      setLoading(false);
+    }
   };
 
   if (success) {
@@ -95,7 +113,7 @@ const ResetPassword = () => {
             <p className="brand-sub">Du lịch sinh thái</p>
           </div>
 
-          <div className="success-icon">✅</div>
+          <div className="success-icon"></div>
           <h3 className="title">Đổi mật khẩu thành công!</h3>
           <p className="subtitle">Mật khẩu của bạn đã được cập nhật thành công</p>
           <p className="redirect-message">Đang chuyển về trang đăng nhập...</p>
@@ -112,7 +130,7 @@ const ResetPassword = () => {
           <p className="brand-sub">Du lịch sinh thái</p>
         </div>
 
-        <div className="reset-icon">🔑</div>
+        <div className="reset-icon"></div>
         <h3 className="title">Đặt lại mật khẩu</h3>
         <p className="subtitle">Nhập mật khẩu mới của bạn</p>
 
@@ -134,7 +152,7 @@ const ResetPassword = () => {
                 className="password-toggle"
                 onClick={() => togglePasswordVisibility('newPassword')}
               >
-                {showPassword.newPassword ? '🙈' : '👁️'}
+                {showPassword.newPassword ? 'Hide' : 'Show'}
               </button>
             </div>
           </div>
@@ -156,7 +174,7 @@ const ResetPassword = () => {
                 className="password-toggle"
                 onClick={() => togglePasswordVisibility('confirmPassword')}
               >
-                {showPassword.confirmPassword ? '🙈' : '👁️'}
+                {showPassword.confirmPassword ? 'Hide' : 'Show'}
               </button>
             </div>
           </div>

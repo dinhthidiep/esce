@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ForgotPassword.css';
+import { forgotPassword } from '../API/Au';
 
 const ForgotPassword = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,11 +20,17 @@ const ForgotPassword = () => {
       setError('Email không hợp lệ');
       return;
     }
+    
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    // Chuyển đến màn hình OTP thay vì hiển thị thông báo
-    window.location.href = '/otp-verification';
+    try {
+      await forgotPassword(email, '');
+      // Chuyển đến màn hình OTP với type=forgot-password
+      navigate(`/otp-verification?email=${encodeURIComponent(email)}&type=forgot-password`);
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setError(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,7 +41,7 @@ const ForgotPassword = () => {
           <p className="brand-sub">Du lịch sinh thái</p>
         </div>
 
-        <div className="fp-icon">✉️</div>
+        <div className="fp-icon"></div>
         <h3 className="title">Quên mật khẩu</h3>
         <p className="subtitle">Nhập email của bạn và chúng tôi sẽ gửi mã OTP để xác thực</p>
 

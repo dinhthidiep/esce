@@ -109,7 +109,7 @@ const LoginForm = () => {
                 placeholder="nhập mật khẩu"
                 className={errors.password ? 'error' : ''}
               />
-              <span className="toggle-icon" aria-hidden>👁️</span>
+              <span className="toggle-icon" aria-hidden></span>
             </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>

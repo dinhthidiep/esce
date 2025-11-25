@@ -32,7 +32,7 @@ const ForgotPassword = () => {
           <p className="brand-sub">Du lịch sinh thái</p>
         </div>
 
-        <div className="fp-icon">✉️</div>
+        <div className="fp-icon"></div>
         <h3 className="title">Quên mật khẩu</h3>
         <p className="subtitle">Nhập email của bạn và chúng tôi sẽ gửi liên kết đặt lại mật khẩu</p>
 
