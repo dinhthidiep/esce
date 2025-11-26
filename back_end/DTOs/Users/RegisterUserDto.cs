@@ -12,7 +12,6 @@ namespace ESCE_SYSTEM.DTOs.Users
         [MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự.")]
         public string Password { get; set; } = null!;
 
-        [Required(ErrorMessage = "Họ và tên là bắt buộc.")]
         [MinLength(2, ErrorMessage = "Họ và tên phải có ít nhất 2 ký tự.")]
         [MaxLength(100, ErrorMessage = "Họ và tên không được vượt quá 100 ký tự.")]
         public string FullName { get; set; } = null!;

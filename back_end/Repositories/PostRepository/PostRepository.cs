@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ESCE_SYSTEM.Repositories
@@ -23,10 +24,16 @@ namespace ESCE_SYSTEM.Repositories
                 .ThenInclude(a => a.Role)
                 .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
                 .Include(p => p.Postreactions)
                 .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
                 .Include(p => p.Postsaves)
                 .ThenInclude(ps => ps.Account)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
         }
 
@@ -38,11 +45,17 @@ namespace ESCE_SYSTEM.Repositories
                 .ThenInclude(a => a.Role)
                 .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
                 .Include(p => p.Postreactions)
                 .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
                 .Include(p => p.Postsaves)
                 .ThenInclude(ps => ps.Account)
                 .OrderByDescending(p => p.CreatedAt)
+                .AsSplitQuery()
                 .ToListAsync();
         }
 
@@ -54,11 +67,17 @@ namespace ESCE_SYSTEM.Repositories
                 .ThenInclude(a => a.Role)
                 .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
                 .Include(p => p.Postreactions)
                 .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
                 .Include(p => p.Postsaves)
                 .ThenInclude(ps => ps.Account)
                 .OrderByDescending(p => p.CreatedAt)
+                .AsSplitQuery()
                 .ToListAsync();
         }
 
@@ -70,12 +89,56 @@ namespace ESCE_SYSTEM.Repositories
                 .ThenInclude(a => a.Role)
                 .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
                 .Include(p => p.Postreactions)
                 .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
                 .Include(p => p.Postsaves)
                 .ThenInclude(ps => ps.Account)
                 .OrderByDescending(p => p.CreatedAt)
+                .AsSplitQuery()
                 .ToListAsync();
+        }
+
+        public async Task<(IEnumerable<Post> Posts, int TotalCount)> GetPagedAsync(int pageNumber, int pageSize, string statusFilter = null, CancellationToken cancellationToken = default)
+        {
+            pageNumber = Math.Max(pageNumber, 1);
+            pageSize = Math.Max(pageSize, 1);
+
+            var query = _context.Posts
+                .Where(p => !p.IsDeleted)
+                .Include(p => p.Author)
+                .ThenInclude(a => a.Role)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
+                .Include(p => p.Postsaves)
+                .ThenInclude(ps => ps.Account)
+                .OrderByDescending(p => p.CreatedAt)
+                .AsSplitQuery()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+            {
+                query = query.Where(p => p.Status == statusFilter);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+            var posts = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return (posts, totalCount);
         }
 
         public async Task<IEnumerable<Post>> GetByAuthorIdAsync(int authorId)
@@ -86,11 +149,17 @@ namespace ESCE_SYSTEM.Repositories
                 .ThenInclude(a => a.Role)
                 .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+                .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Commentreactions)
+                .ThenInclude(cr => cr.User)
                 .Include(p => p.Postreactions)
                 .ThenInclude(pr => pr.User)
+                .Include(p => p.Postreactions)
+                .ThenInclude(pr => pr.ReactionType)
                 .Include(p => p.Postsaves)
                 .ThenInclude(ps => ps.Account)
                 .OrderByDescending(p => p.CreatedAt)
+                .AsSplitQuery()
                 .ToListAsync();
         }
 

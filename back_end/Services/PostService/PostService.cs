@@ -1,20 +1,21 @@
 ﻿using ESCE_SYSTEM.DTOs;
 using ESCE_SYSTEM.DTOs.Notifications;
-using ESCE_SYSTEM.Models;
-using ESCE_SYSTEM.Repositories;
-using ESCE_SYSTEM.Services.UserService;
 using ESCE_SYSTEM.Helper;
+using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Options;
-using Microsoft.AspNetCore.SignalR;
+using ESCE_SYSTEM.Repositories;
+using ESCE_SYSTEM.Services.NotificationService;
+using ESCE_SYSTEM.Services.UserContextService;
+using ESCE_SYSTEM.Services.UserService;
 using ESCE_SYSTEM.SignalR;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.IO;
-using ESCE_SYSTEM.Services.NotificationService;
-using ESCE_SYSTEM.Services.UserContextService;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ESCE_SYSTEM.Services
 {
@@ -32,6 +33,8 @@ namespace ESCE_SYSTEM.Services
         private readonly EmailHelper _emailHelper;
         private readonly EmailConfig _emailConfig;
         private readonly IWebHostEnvironment _env;
+
+        private const string MissingContentOrImageMessage = "Bài viết phải có nội dung hoặc ít nhất một hình ảnh.";
 
         public PostService(
             IPostRepository postRepository,
@@ -65,13 +68,15 @@ namespace ESCE_SYSTEM.Services
         {
             var currentUserId = _userContextService.GetCurrentUserId();
             var currentUser = await _userService.GetAccountByIdAsync(currentUserId);
+            var normalizedImages = NormalizeImages(postDto.Images);
+            EnsurePostHasContentOrImage(postDto.PostContent, normalizedImages);
 
             var post = new Post
             {
                 Title = postDto.ArticleTitle ?? "Không có tiêu đề",
-                Content = postDto.PostContent,
+                Content = postDto.PostContent?.Trim() ?? string.Empty,
                 AuthorId = currentUserId,
-                Image = postDto.Images != null && postDto.Images.Any() ? string.Join(",", postDto.Images) : null,
+                Image = normalizedImages.Any() ? string.Join(",", normalizedImages) : null,
                 CreatedAt = DateTime.Now,
                 Status = "Pending",
                 IsDeleted = false,
@@ -112,87 +117,43 @@ namespace ESCE_SYSTEM.Services
         public async Task<List<PostResponseDto>> GetAllPosts()
         {
             var posts = await _postRepository.GetAllAsync();
-            var postDtos = new List<PostResponseDto>();
+            return BuildPostResponseDtos(posts);
+        }
 
-            foreach (var post in posts)
+        public async Task<List<PostResponseDto>> GetAllPostsApproved()
+        {
+            var posts = await _postRepository.GetApprovedPostsAsync();
+            return BuildPostResponseDtos(posts);
+        }
+
+        public async Task<List<PostResponseDto>> GetAllPostsPending()
+        {
+            var posts = await _postRepository.GetPendingPostsAsync();
+            return BuildPostResponseDtos(posts);
+        }
+
+        public async Task<PagedResult<PostResponseDto>> GetPostsPagedAsync(int pageNumber, int pageSize, string status = null, CancellationToken cancellationToken = default)
+        {
+            if (pageNumber < 1)
             {
-                var postDto = new PostResponseDto
-                {
-                    PostId = post.Id.ToString(),
-                    PostContent = post.Content,
-                    Images = post.Image?.Split(',').ToList() ?? new List<string>(),
-                    PosterId = post.AuthorId.ToString(),
-                    PosterRole = post.Author?.Role?.Name ?? string.Empty,
-                    PosterName = post.Author?.Name ?? string.Empty,
-                    Status = post.Status,
-                    RejectComment = post.RejectComment ?? string.Empty,
-                    PosterApproverId = post.AuthorId.ToString(),
-                    PosterApproverName = post.Author?.Name ?? string.Empty,
-                    PublicDate = post.CreatedAt?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty,
-                    ArticleTitle = post.Title,
-                    Hashtags = new List<string>(),
-                    Likes = new List<PostLikeResponseDto>(),
-                    Comments = new List<PostCommentResponseDto>()
-                };
-
-                // Lấy reactions (likes) cho post
-                var reactions = await _postReactionRepository.GetByPostIdAsync(post.Id);
-                foreach (var reaction in reactions)
-                {
-                    postDto.Likes.Add(new PostLikeResponseDto
-                    {
-                        PostLikeId = reaction.Id.ToString(),
-                        AccountId = reaction.UserId.ToString(),
-                        FullName = reaction.User?.Name ?? string.Empty,
-                        CreatedDate = reaction.CreatedAt ?? DateTime.Now
-                    });
-                }
-
-                // Lấy comments cho post
-                var comments = await _commentRepository.GetByPostIdAsync(post.Id);
-                foreach (var comment in comments)
-                {
-                    var commentDto = new PostCommentResponseDto
-                    {
-                        PostCommentId = comment.Id.ToString(),
-                        FullName = comment.Author?.Name ?? string.Empty,
-                        Content = comment.Content,
-                        Images = comment.Image != null ? new List<string> { comment.Image } : new List<string>(),
-                        CreatedDate = comment.CreatedAt,
-                        Likes = new List<PostCommentLikeResponseDto>(),
-                        Replies = new List<ReplyPostCommentResponseDto>()
-                    };
-
-                    // Lấy reactions cho comment
-                    var commentReactions = await _commentReactionRepository.GetByCommentIdAsync(comment.Id);
-                    foreach (var commentReaction in commentReactions)
-                    {
-                        commentDto.Likes.Add(new PostCommentLikeResponseDto
-                        {
-                            PostCommentLikeId = commentReaction.Id.ToString(),
-                            AccountId = commentReaction.UserId.ToString(),
-                            FullName = commentReaction.User?.Name ?? string.Empty,
-                            CreatedDate = commentReaction.CreatedAt ?? DateTime.Now
-                        });
-                    }
-
-                    postDto.Comments.Add(commentDto);
-                }
-
-                postDtos.Add(postDto);
+                pageNumber = 1;
             }
 
-            return postDtos;
-        }
+            if (pageSize < 1)
+            {
+                pageSize = 10;
+            }
 
-        public async Task<List<Post>> GetAllPostsApproved()
-        {
-            return (await _postRepository.GetApprovedPostsAsync()).ToList();
-        }
+            var (posts, totalCount) = await _postRepository.GetPagedAsync(pageNumber, pageSize, status, cancellationToken);
+            var postDtos = BuildPostResponseDtos(posts);
 
-        public async Task<List<Post>> GetAllPostsPending()
-        {
-            return (await _postRepository.GetPendingPostsAsync()).ToList();
+            return new PagedResult<PostResponseDto>
+            {
+                Items = postDtos,
+                TotalItems = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
         public async Task<Post> GetById(int id)
@@ -258,9 +219,23 @@ namespace ESCE_SYSTEM.Services
                 throw new UnauthorizedAccessException("Bạn không có quyền cập nhật bài viết này");
             }
 
+            var normalizedImages = postDto.Images != null
+                ? NormalizeImages(postDto.Images)
+                : SplitImages(post.Image);
+
+            var updatedImagesString = normalizedImages.Any()
+                ? string.Join(",", normalizedImages)
+                : null;
+
+            var updatedContent = postDto.PostContent != null
+                ? postDto.PostContent.Trim()
+                : post.Content;
+
+            EnsurePostHasContentOrImage(updatedContent, normalizedImages);
+
             post.Title = postDto.ArticleTitle ?? post.Title;
-            post.Content = postDto.PostContent;
-            post.Image = postDto.Images != null && postDto.Images.Any() ? string.Join(",", postDto.Images) : post.Image;
+            post.Content = updatedContent;
+            post.Image = updatedImagesString;
             post.UpdatedAt = DateTime.Now;
 
             await _postRepository.UpdateAsync(post);
@@ -337,7 +312,113 @@ namespace ESCE_SYSTEM.Services
             await GuiThongBaoYeuCauChinhSua(post, reviewPostDto.Comment);
         }
 
+        private List<PostResponseDto> BuildPostResponseDtos(IEnumerable<Post> posts)
+        {
+            return posts.Select(BuildPostResponseDto).ToList();
+        }
+
+        private PostResponseDto BuildPostResponseDto(Post post)
+        {
+            var postDto = new PostResponseDto
+            {
+                PostId = post.Id.ToString(),
+                PostContent = post.Content,
+                Images = post.Image?.Split(',').ToList() ?? new List<string>(),
+                PosterId = post.AuthorId.ToString(),
+                PosterRole = post.Author?.Role?.Name ?? string.Empty,
+                PosterName = post.Author?.Name ?? string.Empty,
+                Status = post.Status,
+                RejectComment = post.RejectComment ?? string.Empty,
+                PosterApproverId = post.AuthorId.ToString(),
+                PosterApproverName = post.Author?.Name ?? string.Empty,
+                PublicDate = post.CreatedAt?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty,
+                ArticleTitle = post.Title,
+                Hashtags = new List<string>(),
+                Likes = new List<PostLikeResponseDto>(),
+                Comments = new List<PostCommentResponseDto>()
+            };
+
+            foreach (var reaction in post.Postreactions ?? Enumerable.Empty<Postreaction>())
+            {
+                postDto.Likes.Add(new PostLikeResponseDto
+                {
+                    PostLikeId = reaction.Id.ToString(),
+                    AccountId = reaction.UserId.ToString(),
+                    FullName = reaction.User?.Name ?? string.Empty,
+                    CreatedDate = reaction.CreatedAt ?? DateTime.Now,
+                    ReactionType = reaction.ReactionType?.Name ?? "like"
+                });
+            }
+
+            foreach (var comment in post.Comments ?? Enumerable.Empty<Comment>())
+            {
+                var commentDto = new PostCommentResponseDto
+                {
+                    PostCommentId = comment.Id.ToString(),
+                    FullName = comment.Author?.Name ?? string.Empty,
+                    Content = comment.Content,
+                    Images = comment.Image != null ? new List<string> { comment.Image } : new List<string>(),
+                    CreatedDate = comment.CreatedAt,
+                    Likes = new List<PostCommentLikeResponseDto>(),
+                    Replies = new List<ReplyPostCommentResponseDto>()
+                };
+
+                foreach (var commentReaction in comment.Commentreactions ?? Enumerable.Empty<Commentreaction>())
+                {
+                    commentDto.Likes.Add(new PostCommentLikeResponseDto
+                    {
+                        PostCommentLikeId = commentReaction.Id.ToString(),
+                        AccountId = commentReaction.UserId.ToString(),
+                        FullName = commentReaction.User?.Name ?? string.Empty,
+                        CreatedDate = commentReaction.CreatedAt ?? DateTime.Now
+                    });
+                }
+
+                postDto.Comments.Add(commentDto);
+            }
+
+            return postDto;
+        }
+
         #region Private Methods - Email & Notification (Tiếng Việt)
+
+        private static void EnsurePostHasContentOrImage(string? content, IEnumerable<string> images)
+        {
+            var hasContent = !string.IsNullOrWhiteSpace(content);
+            var hasImages = images.Any();
+
+            if (!hasContent && !hasImages)
+            {
+                throw new ArgumentException(MissingContentOrImageMessage);
+            }
+        }
+
+        private static List<string> NormalizeImages(List<string>? images)
+        {
+            if (images == null)
+            {
+                return new List<string>();
+            }
+
+            return images
+                .Where(image => !string.IsNullOrWhiteSpace(image))
+                .Select(image => image.Trim())
+                .ToList();
+        }
+
+        private static List<string> SplitImages(string? images)
+        {
+            if (string.IsNullOrWhiteSpace(images))
+            {
+                return new List<string>();
+            }
+
+            return images
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(image => image.Trim())
+                .Where(image => !string.IsNullOrWhiteSpace(image))
+                .ToList();
+        }
 
         private async Task GuiThongBaoChoAdmin(Post post, string hanhDong)
         {

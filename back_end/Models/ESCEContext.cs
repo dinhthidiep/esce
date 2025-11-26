@@ -47,7 +47,8 @@ namespace ESCE_SYSTEM.Models
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=DESKTOP-TBDCMBV\\DINHHOANG;Database=ESCE;User Id=sa;Password=12345;");
+                optionsBuilder.UseSqlServer("Server=DESKTOP-68M1JL8\\MSSQLSERVERHUNG;Database=ESCE;Trusted_Connection=True;TrustServerCertificate=True;"
+);
             }
         }
 
@@ -66,7 +67,9 @@ namespace ESCE_SYSTEM.Models
                     .HasMaxLength(255)
                     .HasColumnName("ADDRESS");
 
-                entity.Property(e => e.Avatar).HasColumnName("AVATAR");
+                entity.Property(e => e.Avatar)
+                    .HasColumnType("nvarchar(max)")
+                    .HasColumnName("AVATAR");
 
                 entity.Property(e => e.CreatedAt)
                     .HasColumnType("datetime")

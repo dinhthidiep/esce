@@ -171,6 +171,42 @@ namespace ESCE_SYSTEM.Controllers
             }
         }
 
+        [HttpPost("create")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserAdminDto dto)
+        {
+            try
+            {
+                var user = await _userService.CreateUserByAdminAsync(dto);
+                return Ok(new { message = "User created successfully", user });
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateUserByAdmin(int id, [FromBody] UpdateUserAdminDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("Payload is required.");
+                }
+
+                dto.AccountId = id;
+                var updatedUser = await _userService.UpdateUserByAdminAsync(dto);
+                return Ok(new { message = "User updated successfully", user = updatedUser });
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
         [HttpPut("profile")]
         [Authorize]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateDto)
@@ -215,6 +251,21 @@ namespace ESCE_SYSTEM.Controllers
             {
                 await _userService.UnbanAccount(unbanAccountDto.AccountId);
                 return Ok("Account has been unbanned.");
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            try
+            {
+                await _userService.DeleteAccount(id.ToString());
+                return Ok("Account has been deleted successfully.");
             }
             catch (Exception exception)
             {

@@ -20,6 +20,7 @@ using ESCE_SYSTEM.SignalR;
 using ESCE_SYSTEM.SeedData;
 using ESCE_SYSTEM.Services;
 using ESCE_SYSTEM.Repositories;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -111,6 +112,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = null; // giữ nguyên PascalCase
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 // (Tùy chọn) Cấu hình CORS nếu API được gọi từ frontend
