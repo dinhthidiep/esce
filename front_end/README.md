@@ -1,82 +1,73 @@
-# Travel Login App - Ứng dụng đăng nhập du lịch
+# React + TypeScript + Vite
 
-## Mô tả
-Ứng dụng web du lịch với giao diện đăng nhập đẹp mắt được xây dựng bằng React. Giao diện được thiết kế hiện đại với hiệu ứng gradient, animation mượt mà và responsive hoàn toàn.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Tính năng
-- ✨ Giao diện đăng nhập hiện đại với hiệu ứng gradient
-- 📱 Responsive design cho mọi thiết bị
-- 🔐 Validation form đầy đủ
-- 🎨 Animation và hiệu ứng mượt mà
-- 🌐 Hỗ trợ đăng nhập qua Google và Facebook
-- ⚡ Loading state và error handling
-- 🎯 UX/UI được tối ưu cho trải nghiệm người dùng
+Currently, two official plugins are available:
 
-## Cài đặt và chạy
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-### Yêu cầu hệ thống
-- Node.js (phiên bản 14 trở lên)
-- npm hoặc yarn
+## React Compiler
 
-### Các bước cài đặt
+The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
 
-1. **Cài đặt dependencies:**
-   ```bash
-   npm install
-   ```
+## Expanding the ESLint configuration
 
-2. **Chạy ứng dụng:**
-   ```bash
-   npm start
-   ```
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-3. **Mở trình duyệt:**
-   Truy cập [http://localhost:3000](http://localhost:3000)
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-### Build cho production
-```bash
-npm run build
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## Cấu trúc project
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-src/
-├── components/
-│   ├── LoginForm.js          # Component form đăng nhập chính
-│   └── LoginForm.css         # Styling cho form đăng nhập
-├── App.js                    # Component App chính
-├── App.css                   # Styling cho App
-├── index.js                  # Entry point
-└── index.css                 # Global styles
-```
-
-## Tính năng chi tiết
-
-### Form đăng nhập
-- Validation email và mật khẩu
-- Hiệu ứng focus và hover
-- Loading state khi đăng nhập
-- Error handling và hiển thị lỗi
-
-### Giao diện
-- Background gradient động
-- Card đăng nhập với glassmorphism effect
-- Animation mượt mà
-- Responsive hoàn toàn
-
-### Tương lai
-- Tích hợp API thực tế
-- Dashboard sau đăng nhập
-- Quản lý booking du lịch
-- Tích hợp bản đồ
-
-## Công nghệ sử dụng
-- React 18
-- React Router DOM
-- CSS3 với Flexbox và Grid
-- Font Google (Poppins)
-- Axios (cho API calls)
-
-## Liên hệ
-Nếu có thắc mắc hoặc góp ý, vui lòng liên hệ qua email hoặc tạo issue trên repository.

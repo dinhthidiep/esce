@@ -1,5 +1,6 @@
 ﻿using ESCE_SYSTEM.Services.NotificationService;
 using ESCE_SYSTEM.Services.UserService;
+using ESCE_SYSTEM.DTOs.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -60,6 +61,26 @@ namespace ESCE_SYSTEM.Controllers
                 var id = ParseNotificationId(notificationId);
                 await _notificationService.Delete(id);
                 return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("Send")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> SendNotification([FromBody] SendNotificationDto sendDto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sendDto.UserId) || string.IsNullOrWhiteSpace(sendDto.Message))
+                {
+                    return BadRequest("UserId and Message are required");
+                }
+
+                await _notificationService.SendNotificationToUserAsync(sendDto);
+                return Ok(new { message = "Notification sent successfully" });
             }
             catch (Exception ex)
             {

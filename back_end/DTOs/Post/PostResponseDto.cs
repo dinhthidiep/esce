@@ -29,6 +29,7 @@ namespace ESCE_SYSTEM.DTOs
         public string AccountId { get; set; } = null!;
         public string FullName { get; set; } = null!;
         public DateTime CreatedDate { get; set; }
+        public string ReactionType { get; set; } = "like";
     }
 
     public class PostCommentResponseDto
@@ -59,5 +60,12 @@ namespace ESCE_SYSTEM.DTOs
         public string AccountId { get; set; } = null!;
         public string FullName { get; set; } = null!;
         public DateTime CreatedDate { get; set; }
+    }
+
+    public class PostToggleLikeResponseDto
+    {
+        public bool IsLiked { get; set; }
+        public PostLikeResponseDto? Reaction { get; set; }
+        public int PostId { get; set; }
     }
 }
