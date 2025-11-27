@@ -207,10 +207,10 @@ namespace ESCE_SYSTEM.Services.StatisticsService
                 {
                     Id = s.Id,
                     Name = s.Name,
-                    BookingCount = s.Bookings.Count,
-                    Revenue = s.Bookings
-                        .Where(b => b.Status == "completed")
-                        .Sum(b => b.TotalAmount)
+                    BookingCount = _context.Bookings.Count(b => b.ServiceComboId == s.Id),
+                    Revenue = _context.Bookings
+                        .Where(b => b.ServiceComboId == s.Id && b.Status == "completed")
+                        .Sum(b => (decimal?)b.TotalAmount) ?? 0
                 })
                 .OrderByDescending(s => s.BookingCount)
                 .Take(10)
