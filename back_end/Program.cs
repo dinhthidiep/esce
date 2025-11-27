@@ -21,6 +21,7 @@ using ESCE_SYSTEM.SeedData;
 using ESCE_SYSTEM.Services;
 using ESCE_SYSTEM.Repositories;
 using System.Text.Json.Serialization;
+using ESCE_SYSTEM.Services.StatisticsService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +56,9 @@ builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 
 builder.Services.AddScoped<ICommentReactionService, CommentReactionService>();
 builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
+
+// Statistics Service
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();

@@ -7,17 +7,14 @@ namespace ESCE_SYSTEM.Models
     {
         public int Id { get; set; }
         
-        // Foreign Key to ServiceCombo
         public int ServiceComboId { get; set; }
-        
-        // Foreign Key to Service
         public int ServiceId { get; set; }
-        
         public int Quantity { get; set; } = 1;
+
+        [ForeignKey("ServiceComboId")]
+        public virtual ServiceCombo ServiceCombo { get; set; } = null!;
         
-        // Navigation properties
-        public ServiceCombo ServiceCombo { get; set; } = null!;
-        public Service Service { get; set; } = null!;
+        [ForeignKey("ServiceId")]
+        public virtual Service Service { get; set; } = null!;
     }
 }
-

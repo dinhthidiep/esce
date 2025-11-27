@@ -20,7 +20,7 @@ namespace ESCE_SYSTEM.Models
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        public virtual Servicecombo? Combo { get; set; }
+        public virtual ServiceCombo? Combo { get; set; }
         public virtual Account User { get; set; } = null!;
         public virtual ICollection<SupportResponse> SupportResponses { get; set; }
     }

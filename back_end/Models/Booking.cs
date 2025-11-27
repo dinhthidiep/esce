@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -14,7 +16,6 @@ namespace ESCE_SYSTEM.Models
         [MaxLength(50)]
         public string BookingNumber { get; set; } = string.Empty;
 
-        // Có thể là ServiceCombo hoặc Service riêng lẻ
         public int? ServiceComboId { get; set; }
         public int? ServiceId { get; set; }
 
@@ -28,25 +29,20 @@ namespace ESCE_SYSTEM.Models
         public decimal TotalAmount { get; set; }
 
         [MaxLength(50)]
-        public string ItemType { get; set; } = string.Empty; // "combo" hoặc "service"
+        public string ItemType { get; set; } = string.Empty;
 
         [MaxLength(50)]
-        public string Status { get; set; } = "pending"; // pending / confirmed / processing / completed / cancelled
+        public string Status { get; set; } = "pending";
 
         [MaxLength(1000)]
         public string? Notes { get; set; }
 
         public DateTime BookingDate { get; set; } = DateTime.Now;
-
         public DateTime? ConfirmedDate { get; set; }
-
         public DateTime? CompletedDate { get; set; }
-
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-        // Navigation properties
         [ForeignKey("UserId")]
         public virtual Account User { get; set; } = null!;
 
@@ -57,7 +53,7 @@ namespace ESCE_SYSTEM.Models
         public virtual Service? Service { get; set; }
 
         public virtual ICollection<BookingCoupon> BookingCoupons { get; set; } = new List<BookingCoupon>();
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
         public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
     }
 }
-

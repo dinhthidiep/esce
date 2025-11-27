@@ -3,15 +3,15 @@ using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models
 {
-    public partial class Servicecombo
+    public partial class ServiceCombo
     {
-        public Servicecombo()
+        public ServiceCombo()
         {
             Bookings = new HashSet<Booking>();
             Coupons = new HashSet<Coupon>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
-            ServicecomboDetails = new HashSet<ServicecomboDetail>();
+            ServiceComboDetails = new HashSet<ServiceComboDetail>();
         }
 
         public int Id { get; set; }
@@ -32,6 +32,6 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<Coupon> Coupons { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }
-        public virtual ICollection<ServicecomboDetail> ServicecomboDetails { get; set; }
+        public virtual ICollection<ServiceComboDetail> ServiceComboDetails { get; set; }
     }
 }

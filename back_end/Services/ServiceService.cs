@@ -35,7 +35,7 @@ namespace ESCE_SYSTEM.Services
             existing.Name = service.Name;
             existing.Description = service.Description;
             existing.Price = service.Price;
-            existing.Updated_At = DateTime.Now;
+            existing.UpdatedAt = DateTime.Now;
 
             await _repository.UpdateAsync(existing);
             return existing;

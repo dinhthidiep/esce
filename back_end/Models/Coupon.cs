@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ESCE_SYSTEM.Models
@@ -28,17 +30,15 @@ namespace ESCE_SYSTEM.Models
         [Required]
         public int HostId { get; set; }
 
-        public int? ServiceComboId { get; set; } // Có thể áp dụng cho combo cụ thể hoặc tất cả
+        public int? ServiceComboId { get; set; }
 
         public bool IsActive { get; set; } = true;
 
         public DateTime? ExpiryDate { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-        // Navigation properties
         [ForeignKey("HostId")]
         public virtual Account Host { get; set; } = null!;
 
@@ -48,6 +48,3 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<BookingCoupon> BookingCoupons { get; set; } = new List<BookingCoupon>();
     }
 }
-
-
-
