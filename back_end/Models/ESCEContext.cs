@@ -2,70 +2,87 @@
 
 namespace ESCE_SYSTEM.Models
 {
-    public class ESCEContext : DbContext
+    public class ESCEContext:DbContext
     {
-        public ESCEContext(DbContextOptions<ESCEContext> options) : base(options) { }
-
-        // DbSets
+        public ESCEContext(DbContextOptions<ESCEContext> options) : base (options) {}
+        
+        // Vô hiệu hóa migrations - sử dụng Database.EnsureCreated() thay vì migrations
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // Cấu hình này sẽ được override bởi Program.cs
+            }
+        }
+        
+        // Core entities
         public DbSet<Account> Accounts { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
+        
+        // Service entities
         public DbSet<Service> Services { get; set; } = null!;
         public DbSet<ServiceCombo> ServiceCombos { get; set; } = null!;
         public DbSet<ServiceComboDetail> ServiceComboDetails { get; set; } = null!;
+        
+        // Booking & Payment entities
         public DbSet<Booking> Bookings { get; set; } = null!;
         public DbSet<BookingCoupon> BookingCoupons { get; set; } = null!;
         public DbSet<Coupon> Coupons { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
         public DbSet<Review> Reviews { get; set; } = null!;
-        public DbSet<News> News { get; set; } = null!;
-        public DbSet<SystemLog> SystemLogs { get; set; } = null!;
         
-        // Existing from main
-        public DbSet<AgencieCertificate> AgencieCertificates { get; set; } = null!;
-        public DbSet<Comment> Comments { get; set; } = null!;
-        public DbSet<Commentreaction> Commentreactions { get; set; } = null!;
-        public DbSet<HostCertificate> HostCertificates { get; set; } = null!;
-        public DbSet<Message> Messages { get; set; } = null!;
-        public DbSet<Notification> Notifications { get; set; } = null!;
-        public DbSet<Otp> Otps { get; set; } = null!;
+        // Post & Social entities
         public DbSet<Post> Posts { get; set; } = null!;
+        public DbSet<Comment> Comments { get; set; } = null!;
         public DbSet<Postreaction> Postreactions { get; set; } = null!;
+        public DbSet<Commentreaction> Commentreactions { get; set; } = null!;
         public DbSet<Postsave> Postsaves { get; set; } = null!;
         public DbSet<Reaction> Reactions { get; set; } = null!;
         public DbSet<ReactionType> ReactionTypes { get; set; } = null!;
+        
+        // Communication entities
+        public DbSet<Message> Messages { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
+        
+        // Certificate entities
+        public DbSet<AgencieCertificate> AgencieCertificates { get; set; } = null!;
+        public DbSet<HostCertificate> HostCertificates { get; set; } = null!;
+        
+        // Support entities
         public DbSet<RequestSupport> RequestSupports { get; set; } = null!;
         public DbSet<SupportResponse> SupportResponses { get; set; } = null!;
+        
+        // Other entities
+        public DbSet<News> News { get; set; } = null!;
+        public DbSet<SystemLog> SystemLogs { get; set; } = null!;
+        public DbSet<Otp> Otps { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Account - Role relationship
+            // Configure Account-Role relationship
             modelBuilder.Entity<Account>()
                 .HasOne(a => a.Role)
                 .WithMany(r => r.Accounts)
                 .HasForeignKey(a => a.RoleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Account>()
-                .HasIndex(a => a.Email)
-                .IsUnique();
-
-            // Service - Host relationship
+            // Configure Service-Account (Host) relationship
             modelBuilder.Entity<Service>()
-                .HasOne(s => s.Host)
+                .HasOne<Account>()
                 .WithMany()
                 .HasForeignKey(s => s.HostId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // ServiceCombo - Host relationship
+            // Configure ServiceCombo-Account (Host) relationship
             modelBuilder.Entity<ServiceCombo>()
-                .HasOne(sc => sc.Host)
+                .HasOne<Account>()
                 .WithMany()
                 .HasForeignKey(sc => sc.HostId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // ServiceComboDetail relationships
+            // Configure ServiceComboDetail relationships
             modelBuilder.Entity<ServiceComboDetail>()
                 .HasOne(scd => scd.ServiceCombo)
                 .WithMany(sc => sc.ServiceComboDetails)
@@ -74,16 +91,15 @@ namespace ESCE_SYSTEM.Models
 
             modelBuilder.Entity<ServiceComboDetail>()
                 .HasOne(scd => scd.Service)
-                .WithMany(s => s.ServiceComboDetails)
+                .WithMany()
                 .HasForeignKey(scd => scd.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Coupon relationships
             modelBuilder.Entity<Coupon>()
-                .HasOne(c => c.Host)
-                .WithMany()
-                .HasForeignKey(c => c.HostId)
-                .OnDelete(DeleteBehavior.Restrict);
+                 .HasOne(c => c.Host)
+                 .WithMany(a => a.Coupons)
+                 .HasForeignKey(c => c.HostId)
+                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Coupon>()
                 .HasOne(c => c.ServiceCombo)
@@ -91,11 +107,7 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(c => c.ServiceComboId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Coupon>()
-                .HasIndex(c => c.Code)
-                .IsUnique();
-
-            // Booking relationships
+            // Configure Booking relationships
             modelBuilder.Entity<Booking>()
                 .HasOne(b => b.User)
                 .WithMany(a => a.Bookings)
@@ -114,7 +126,7 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(b => b.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // BookingCoupon relationships
+            // Configure BookingCoupon relationships
             modelBuilder.Entity<BookingCoupon>()
                 .HasOne(bc => bc.Booking)
                 .WithMany(b => b.BookingCoupons)
@@ -127,18 +139,24 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(bc => bc.CouponId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<BookingCoupon>()
-                .HasIndex(bc => new { bc.BookingId, bc.CouponId })
-                .IsUnique();
+            // Configure Payment relationships (sẽ được xử lý bởi người khác)
 
-            // Payment relationships
-            modelBuilder.Entity<Payment>()
-                .HasOne(p => p.Booking)
-                .WithMany(b => b.Payments)
-                .HasForeignKey(p => p.BookingId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Configure News relationships
+            modelBuilder.Entity<News>()
+                .HasOne(n => n.Account)
+                .WithMany(a => a.News)
+                .HasForeignKey(n => n.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // Review relationships
+
+            // Configure SystemLog relationships
+            modelBuilder.Entity<SystemLog>()
+                .HasOne(log => log.User)
+                .WithMany()
+                .HasForeignKey(log => log.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Configure Review relationships
             modelBuilder.Entity<Review>()
                 .HasOne(r => r.Booking)
                 .WithMany(b => b.Reviews)
@@ -151,23 +169,21 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(r => r.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // News relationships
-            modelBuilder.Entity<News>()
-                .HasOne(n => n.Account)
-                .WithMany()
-                .HasForeignKey(n => n.AccountId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // SystemLog relationships
-            modelBuilder.Entity<SystemLog>()
-                .HasOne(log => log.User)
-                .WithMany()
-                .HasForeignKey(log => log.UserId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // Role unique constraint
+            // Configure unique constraints
             modelBuilder.Entity<Role>()
                 .HasIndex(r => r.Name)
+                .IsUnique();
+
+            modelBuilder.Entity<Account>()
+                .HasIndex(a => a.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<Coupon>()
+                .HasIndex(c => c.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<BookingCoupon>()
+                .HasIndex(bc => new { bc.BookingId, bc.CouponId })
                 .IsUnique();
         }
     }

@@ -26,6 +26,7 @@ namespace ESCE_SYSTEM.Models
             ServiceCombos = new HashSet<ServiceCombo>();
             Services = new HashSet<Service>();
             SupportResponses = new HashSet<SupportResponse>();
+            SystemLogs = new HashSet<SystemLog>();
         }
 
         public int Id { get; set; }
@@ -64,5 +65,6 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<ServiceCombo> ServiceCombos { get; set; }
         public virtual ICollection<Service> Services { get; set; }
         public virtual ICollection<SupportResponse> SupportResponses { get; set; }
+        public virtual ICollection<SystemLog> SystemLogs { get; set; }
     }
 }
