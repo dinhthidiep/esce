@@ -100,7 +100,7 @@ namespace ESCE_SYSTEM.DTOs.Statistics
     // Request DTO cho filter
     public class StatisticsFilterDto
     {
-        public string Period { get; set; } = "month"; // day, week, month, year
+        public string Period { get; set; } = "day"; // day, week, month, year
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public int? HostId { get; set; } // Lọc theo Host (nếu cần)

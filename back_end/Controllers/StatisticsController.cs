@@ -25,7 +25,7 @@ namespace ESCE_SYSTEM.Controllers
         /// <param name="endDate">Ngày kết thúc (optional)</param>
         [HttpGet("dashboard")]
         public async Task<ActionResult<DashboardStatisticsDto>> GetDashboardStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -54,7 +54,7 @@ namespace ESCE_SYSTEM.Controllers
         /// <param name="endDate">Ngày kết thúc (optional)</param>
         [HttpGet("time-series")]
         public async Task<ActionResult<TimeSeriesStatisticsDto>> GetTimeSeriesStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -80,7 +80,7 @@ namespace ESCE_SYSTEM.Controllers
         /// </summary>
         [HttpGet("users")]
         public async Task<ActionResult<UserStatisticsDto>> GetUserStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -106,7 +106,7 @@ namespace ESCE_SYSTEM.Controllers
         /// </summary>
         [HttpGet("revenue")]
         public async Task<ActionResult<RevenueStatisticsDto>> GetRevenueStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -132,7 +132,7 @@ namespace ESCE_SYSTEM.Controllers
         /// </summary>
         [HttpGet("service-combos")]
         public async Task<ActionResult<ServiceComboStatisticsDto>> GetServiceComboStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -158,7 +158,7 @@ namespace ESCE_SYSTEM.Controllers
         /// </summary>
         [HttpGet("posts")]
         public async Task<ActionResult<PostStatisticsDto>> GetPostStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
@@ -184,7 +184,7 @@ namespace ESCE_SYSTEM.Controllers
         /// </summary>
         [HttpGet("all")]
         public async Task<IActionResult> GetAllStatistics(
-            [FromQuery] string period = "month",
+            [FromQuery] string period = "day",
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
