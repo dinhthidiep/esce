@@ -1,29 +1,17 @@
-using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models
 {
-    public class News
+    public partial class News
     {
-        public int Id { get; set; }
-
-        [Required]
+        public int NewsId { get; set; }
         public int AccountId { get; set; }
-
-        [Required]
-        [MaxLength(255)]
-        public string Title { get; set; } = string.Empty;
-
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
-
-        [MaxLength(500)]
+        public string NewsTitle { get; set; } = null!;
+        public DateTime? CreatedDate { get; set; }
         public string? Image { get; set; }
-
-        [MaxLength(500)]
         public string? SocialMediaLink { get; set; }
 
-        [ForeignKey("AccountId")]
         public virtual Account Account { get; set; } = null!;
     }
 }

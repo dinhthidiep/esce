@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import './LoginForm.css'
+import '/LoginForm.css'
 import { login } from '~/api/instances/Au'
 import { useNavigate } from 'react-router-dom'
 
