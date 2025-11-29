@@ -1,4 +1,4 @@
-﻿using ESCE_SYSTEM.Models;
+using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace ESCE_SYSTEM.Repositories.OtpRepository
@@ -38,3 +38,4 @@ namespace ESCE_SYSTEM.Repositories.OtpRepository
         }
     }
 }
+

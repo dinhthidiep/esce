@@ -1,4 +1,4 @@
-﻿using ESCE_SYSTEM.Models;
+using ESCE_SYSTEM.Models;
 
 namespace ESCE_SYSTEM.Repositories.OtpRepository
 {
@@ -9,3 +9,4 @@ namespace ESCE_SYSTEM.Repositories.OtpRepository
         Task<Otp> GetByIdAsync(int id);
     }
 }
+
