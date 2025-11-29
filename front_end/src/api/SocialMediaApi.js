@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 // Get comments by post ID API
 export const getCommentsByPostId = async (postId) => {

@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 // Get payments by host ID
 export const getPaymentsByHostId = async (hostId) => {

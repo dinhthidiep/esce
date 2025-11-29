@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 // Create Service API
 export const createService = async (formData, comboId = null) => {
