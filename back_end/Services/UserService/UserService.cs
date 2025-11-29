@@ -827,28 +827,28 @@ namespace ESCE_SYSTEM.Services.UserService
 
             // Delete Reviews
             var reviews = await _dbContext.Reviews
-                .Where(r => r.UserId == id)
+                .Where(r => r.AuthorId == id)
                 .ToListAsync();
             if (reviews.Any())
             {
                 _dbContext.Reviews.RemoveRange(reviews);
             }
 
-            // Delete ServiceCombos (and related ServiceComboDetails)
-            var serviceCombos = await _dbContext.ServiceCombos
+            // Delete Servicecombos (and related ServicecomboDetails)
+            var serviceCombos = await _dbContext.Servicecombos
                 .Where(sc => sc.HostId == id)
                 .ToListAsync();
             if (serviceCombos.Any())
             {
                 var comboIds = serviceCombos.Select(sc => sc.Id).ToList();
-                var comboDetails = await _dbContext.ServiceComboDetails
-                    .Where(sd => comboIds.Contains(sd.ServiceComboId))
+                var comboDetails = await _dbContext.ServicecomboDetails
+                    .Where(sd => comboIds.Contains(sd.ServicecomboId))
                     .ToListAsync();
                 if (comboDetails.Any())
                 {
-                    _dbContext.ServiceComboDetails.RemoveRange(comboDetails);
+                    _dbContext.ServicecomboDetails.RemoveRange(comboDetails);
                 }
-                _dbContext.ServiceCombos.RemoveRange(serviceCombos);
+                _dbContext.Servicecombos.RemoveRange(serviceCombos);
             }
 
             // Delete Services

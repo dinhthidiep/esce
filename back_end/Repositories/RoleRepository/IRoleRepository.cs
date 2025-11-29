@@ -1,4 +1,4 @@
-using ESCE_SYSTEM.Models;
+﻿using ESCE_SYSTEM.Models;
 
 namespace ESCE_SYSTEM.Repositories.RoleRepository
 {
@@ -9,4 +9,3 @@ namespace ESCE_SYSTEM.Repositories.RoleRepository
         Task AddAsync(Role role); // Thêm phương thức này
     }
 }
-

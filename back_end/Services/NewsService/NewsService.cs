@@ -21,10 +21,10 @@ namespace ESCE_SYSTEM.Services.NewsService
             var query = _dbContext.News
                 .Include(n => n.Account)
                     .ThenInclude(a => a.Role)
-                .OrderByDescending(n => n.CreatedDate);
+                .OrderByDescending(n => n.CreatedDate ?? DateTime.MinValue);
 
             var newsList = await query.ToListAsync();
-            var newsIds = newsList.Select(n => n.Id).ToList();
+            var newsIds = newsList.Select(n => n.NewsId).ToList();
 
             var likeMeta = await GetLikeMetaAsync(newsIds, currentUserId);
 
@@ -36,7 +36,7 @@ namespace ESCE_SYSTEM.Services.NewsService
             var news = await _dbContext.News
                 .Include(n => n.Account)
                     .ThenInclude(a => a.Role)
-                .FirstOrDefaultAsync(n => n.Id == newsId);
+                .FirstOrDefaultAsync(n => n.NewsId == newsId);
 
             if (news == null)
             {
@@ -58,7 +58,7 @@ namespace ESCE_SYSTEM.Services.NewsService
             var news = new News
             {
                 AccountId = authorId,
-                Title = dto.Content.Trim(),
+                NewsTitle = dto.Content.Trim(),
                 Image = SerializeImages(dto.Images),
                 SocialMediaLink = string.IsNullOrWhiteSpace(dto.SocialMediaLink) ? null : dto.SocialMediaLink.Trim(),
                 CreatedDate = DateTime.UtcNow.AddHours(7)
@@ -67,7 +67,7 @@ namespace ESCE_SYSTEM.Services.NewsService
             await _dbContext.News.AddAsync(news);
             await _dbContext.SaveChangesAsync();
 
-            return await GetNewsByIdAsync(news.Id, authorId);
+            return await GetNewsByIdAsync(news.NewsId, authorId);
         }
 
         public async Task<NewsDto> UpdateNewsAsync(int newsId, UpdateNewsDto dto)
@@ -75,7 +75,7 @@ namespace ESCE_SYSTEM.Services.NewsService
             var news = await _dbContext.News
                 .Include(n => n.Account)
                     .ThenInclude(a => a.Role)
-                .FirstOrDefaultAsync(n => n.Id == newsId);
+                .FirstOrDefaultAsync(n => n.NewsId == newsId);
 
             if (news == null)
             {
@@ -84,7 +84,7 @@ namespace ESCE_SYSTEM.Services.NewsService
 
             if (!string.IsNullOrWhiteSpace(dto.Content))
             {
-                news.Title = dto.Content.Trim();
+                news.NewsTitle = dto.Content.Trim();
             }
 
             if (dto.Images != null)
@@ -101,13 +101,13 @@ namespace ESCE_SYSTEM.Services.NewsService
 
             await _dbContext.SaveChangesAsync();
 
-            var likeMeta = await GetLikeMetaAsync(new List<int> { news.Id }, null);
+            var likeMeta = await GetLikeMetaAsync(new List<int> { news.NewsId }, null);
             return ToNewsDto(news, likeMeta.counts, likeMeta.likedIds);
         }
 
         public async Task DeleteNewsAsync(int newsId)
         {
-            var news = await _dbContext.News.FirstOrDefaultAsync(n => n.Id == newsId);
+            var news = await _dbContext.News.FirstOrDefaultAsync(n => n.NewsId == newsId);
             if (news == null)
             {
                 throw new InvalidOperationException("Tin tức không tồn tại.");
@@ -124,7 +124,7 @@ namespace ESCE_SYSTEM.Services.NewsService
 
         public async Task<(bool liked, int likesCount)> ToggleLikeAsync(int newsId, int userId)
         {
-            var newsExists = await _dbContext.News.AnyAsync(n => n.Id == newsId);
+            var newsExists = await _dbContext.News.AnyAsync(n => n.NewsId == newsId);
             if (!newsExists)
             {
                 throw new InvalidOperationException("Tin tức không tồn tại.");
@@ -191,12 +191,12 @@ namespace ESCE_SYSTEM.Services.NewsService
 
         private NewsDto ToNewsDto(News news, IDictionary<int, int> likeCounts, ISet<int> likedNews)
         {
-            likeCounts.TryGetValue(news.Id, out var likes);
+            likeCounts.TryGetValue(news.NewsId, out var likes);
 
             return new NewsDto
             {
-                NewsId = news.Id,
-                Content = news.Title,
+                NewsId = news.NewsId,
+                Content = news.NewsTitle,
                 Images = DeserializeImages(news.Image),
                 SocialMediaLink = news.SocialMediaLink,
                 CreatedDate = news.CreatedDate,
@@ -205,7 +205,7 @@ namespace ESCE_SYSTEM.Services.NewsService
                 AuthorAvatar = news.Account?.Avatar,
                 AuthorRole = news.Account?.Role?.Name ?? string.Empty,
                 LikesCount = likes,
-                IsLiked = likedNews.Contains(news.Id)
+                IsLiked = likedNews.Contains(news.NewsId)
             };
         }
 

@@ -23,10 +23,9 @@ namespace ESCE_SYSTEM.Models
             Reactions = new HashSet<Reaction>();
             RequestSupports = new HashSet<RequestSupport>();
             Reviews = new HashSet<Review>();
-            ServiceCombos = new HashSet<ServiceCombo>();
+            Servicecombos = new HashSet<Servicecombo>();
             Services = new HashSet<Service>();
             SupportResponses = new HashSet<SupportResponse>();
-            SystemLogs = new HashSet<SystemLog>();
         }
 
         public int Id { get; set; }
@@ -62,9 +61,8 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<Reaction> Reactions { get; set; }
         public virtual ICollection<RequestSupport> RequestSupports { get; set; }
         public virtual ICollection<Review> Reviews { get; set; }
-        public virtual ICollection<ServiceCombo> ServiceCombos { get; set; }
+        public virtual ICollection<Servicecombo> Servicecombos { get; set; }
         public virtual ICollection<Service> Services { get; set; }
         public virtual ICollection<SupportResponse> SupportResponses { get; set; }
-        public virtual ICollection<SystemLog> SystemLogs { get; set; }
     }
 }

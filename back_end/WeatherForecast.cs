@@ -1,4 +1,4 @@
-namespace ESCE_SYSTEM.esce.back_end
+namespace ESCESYSTEM
 {
     public class WeatherForecast
     {
