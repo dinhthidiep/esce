@@ -10,6 +10,15 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Helpers;
+using ESCE_SYSTEM.Services.UserContextService;
+using ESCE_SYSTEM.Repositories.OtpRepository;
+using ESCE_SYSTEM.Services.NotificationService;
+using ESCE_SYSTEM.Repositories.NotificationRepository;
+using ESCE_SYSTEM.Repositories.MessageRepository;
+using ESCE_SYSTEM.Services.MessageService;
+using ESCE_SYSTEM.Services.NewsService;
+using ESCE_SYSTEM.SignalR;
+using ESCE_SYSTEM.SeedData;
 using System.Text.Json.Serialization;
 // Removed UserContext and Otp namespaces
 
@@ -33,6 +42,7 @@ builder.Services.AddDbContext<ESCEContext>(options =>
 });
 
 // Đăng ký các dịch vụ và repository (trimmed to required domains)
+builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
@@ -61,11 +71,9 @@ builder.Services.AddScoped<INewsRepository, NewsRepository>();
 
 // Register missing service interfaces
 builder.Services.AddScoped<IReviewService, ReviewService>();
-builder.Services.AddScoped<INewsService, NewsService>();
 
 // Đăng ký News
 builder.Services.AddScoped<NewsRepository>();
-builder.Services.AddScoped<NewsService>();
 
 // Đăng ký các helper
 builder.Services.AddScoped<JwtHelper>();   // đổi Singleton -> Scoped

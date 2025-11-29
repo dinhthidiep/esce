@@ -2,7 +2,6 @@
 using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -38,11 +37,11 @@ namespace ESCE_SYSTEM.Controllers
 
         [HttpGet("GetAllPost")]
         [AllowAnonymous]
-        public async Task<ActionResult> GetAllPosts([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult> GetAllPosts()
         {
             try
             {
-                var posts = await _postService.GetPostsPagedAsync(pageNumber, pageSize, null, HttpContext.RequestAborted);
+                var posts = await _postService.GetAllPosts();
                 return Ok(posts);
             }
             catch (Exception ex)

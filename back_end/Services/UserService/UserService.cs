@@ -505,6 +505,35 @@ namespace ESCE_SYSTEM.Services.UserService
             }
         }
 
+        public async Task<UserProfileDto> GetProfileAsync(int userId)
+        {
+            var user = await _dbContext.Accounts
+                .Include(account => account.Role)
+                .FirstOrDefaultAsync(account => account.Id == userId);
+
+            if (user == null)
+            {
+                throw new InvalidOperationException("User not found");
+            }
+
+            return new UserProfileDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Name = user.Name,
+                Avatar = user.Avatar,
+                Phone = user.Phone,
+                Dob = user.Dob,
+                Gender = user.Gender,
+                Address = user.Address,
+                RoleId = user.RoleId,
+                RoleName = user.Role?.Name ?? string.Empty,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
+            };
+        }
+
         public async Task BanAccount(string accountId, string reason)
         {
             if (!int.TryParse(accountId, out int id))
@@ -984,27 +1013,7 @@ namespace ESCE_SYSTEM.Services.UserService
                 .OrderByDescending(agencyCertificate => agencyCertificate.CreatedAt)
                 .ToListAsync();
 
-            return certificates.Select(agencyCertificate => new AgencyCertificateResponseDto
-            {
-                AgencyId = agencyCertificate.AgencyId,
-                AccountId = agencyCertificate.AccountId,
-                CompanyName = agencyCertificate.Companyname,
-                LicenseFile = agencyCertificate.LicenseFile,
-                Phone = agencyCertificate.Phone,
-                Email = agencyCertificate.Email,
-                Website = agencyCertificate.Website,
-                Status = agencyCertificate.Status,
-                RejectComment = agencyCertificate.RejectComment,
-
-                // --- KHẮC PHỤC LỖI CS0104 & CS8601 ---
-                ReviewComments = JsonSerializer.Deserialize<List<ESCE_SYSTEM.DTOs.Users.AgencyCertificateReViewComment>>(agencyCertificate.ReviewComments)
-                                 ?? new List<ESCE_SYSTEM.DTOs.Users.AgencyCertificateReViewComment>(), // Chỉ định rõ Namespace và dùng ??
-
-                CreatedAt = agencyCertificate.CreatedAt,
-                UpdatedAt = agencyCertificate.UpdatedAt,
-                UserName = agencyCertificate.Account?.Name ?? string.Empty,
-                UserEmail = agencyCertificate.Account?.Email ?? string.Empty
-            }).ToList();
+            return certificates.Select<AgencieCertificate, AgencyCertificateResponseDto>(MapAgencyCertificate).ToList();
         }
 
         public async Task<List<HostCertificateResponseDto>> GetAllHostCertificatesAsync(string status = null)
@@ -1022,26 +1031,29 @@ namespace ESCE_SYSTEM.Services.UserService
                 .OrderByDescending(hostCertificate => hostCertificate.CreatedAt)
                 .ToListAsync();
 
-            return certificates.Select(hostCertificate => new HostCertificateResponseDto
-            {
-                CertificateId = hostCertificate.CertificateId,
-                HostId = hostCertificate.HostId,
-                BusinessLicenseFile = hostCertificate.BusinessLicenseFile,
-                BusinessName = hostCertificate.BusinessName,
-                Phone = hostCertificate.Phone,
-                Email = hostCertificate.Email,
-                Status = hostCertificate.Status,
-                RejectComment = hostCertificate.RejectComment,
+            return certificates.Select<Models.HostCertificate, HostCertificateResponseDto>(MapHostCertificate).ToList();
+        }
 
-                // --- KHẮC PHỤC LỖI CS0104 & CS8601 ---
-                ReviewComments = JsonSerializer.Deserialize<List<HostCertificateReViewComment>>(hostCertificate.ReviewComments)
-                                 ?? new List<HostCertificateReViewComment>(), // Chỉ định rõ kiểu và dùng ??
+        public async Task<AgencyCertificateResponseDto?> GetMyAgencyCertificateAsync(int userId)
+        {
+            var certificate = await _dbContext.AgencieCertificates
+                .Include(c => c.Account)
+                .Where(c => c.AccountId == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
 
-                CreatedAt = hostCertificate.CreatedAt,
-                UpdatedAt = hostCertificate.UpdatedAt,
-                HostName = hostCertificate.Host?.Name ?? string.Empty,
-                HostEmail = hostCertificate.Host?.Email ?? string.Empty
-            }).ToList();
+            return certificate == null ? null : MapAgencyCertificate(certificate);
+        }
+
+        public async Task<HostCertificateResponseDto?> GetMyHostCertificateAsync(int userId)
+        {
+            var certificate = await _dbContext.HostCertificates
+                .Include(c => c.Host)
+                .Where(c => c.HostId == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            return certificate == null ? null : MapHostCertificate(certificate);
         }
 
         public async Task RequestUpgradeToAgencyAsync(int userId, RequestAgencyUpgradeDto requestDto)
@@ -1228,6 +1240,55 @@ namespace ESCE_SYSTEM.Services.UserService
             }
 
             return (certificate, user, successRoleId, objectType);
+        }
+
+        private AgencyCertificateResponseDto MapAgencyCertificate(AgencieCertificate agencyCertificate)
+        {
+            var reviewComments =
+                JsonSerializer.Deserialize<List<DTOs.Users.AgencyCertificateReViewComment>>(agencyCertificate.ReviewComments)
+                ?? new List<DTOs.Users.AgencyCertificateReViewComment>();
+
+            return new AgencyCertificateResponseDto
+            {
+                AgencyId = agencyCertificate.AgencyId,
+                AccountId = agencyCertificate.AccountId,
+                CompanyName = agencyCertificate.Companyname,
+                LicenseFile = agencyCertificate.LicenseFile,
+                Phone = agencyCertificate.Phone,
+                Email = agencyCertificate.Email,
+                Website = agencyCertificate.Website,
+                Status = agencyCertificate.Status,
+                RejectComment = agencyCertificate.RejectComment,
+                ReviewComments = reviewComments,
+                CreatedAt = agencyCertificate.CreatedAt,
+                UpdatedAt = agencyCertificate.UpdatedAt,
+                UserName = agencyCertificate.Account?.Name ?? string.Empty,
+                UserEmail = agencyCertificate.Account?.Email ?? string.Empty
+            };
+        }
+
+        private HostCertificateResponseDto MapHostCertificate(Models.HostCertificate hostCertificate)
+        {
+            var reviewComments =
+                JsonSerializer.Deserialize<List<DTOs.Certificates.HostCertificateReViewComment>>(hostCertificate.ReviewComments)
+                ?? new List<DTOs.Certificates.HostCertificateReViewComment>();
+
+            return new HostCertificateResponseDto
+            {
+                CertificateId = hostCertificate.CertificateId,
+                HostId = hostCertificate.HostId,
+                BusinessLicenseFile = hostCertificate.BusinessLicenseFile,
+                BusinessName = hostCertificate.BusinessName,
+                Phone = hostCertificate.Phone,
+                Email = hostCertificate.Email,
+                Status = hostCertificate.Status,
+                RejectComment = hostCertificate.RejectComment,
+                ReviewComments = reviewComments,
+                CreatedAt = hostCertificate.CreatedAt,
+                UpdatedAt = hostCertificate.UpdatedAt,
+                HostName = hostCertificate.Host?.Name ?? string.Empty,
+                HostEmail = hostCertificate.Host?.Email ?? string.Empty
+            };
         }
 
         // Helper class for review comments

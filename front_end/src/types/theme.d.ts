@@ -12,7 +12,7 @@ export interface ThemeContextProviderProps {
   defaultMode?: ThemeMode
 }
 
-interface ThemeContextType {
+export interface ThemeContextType {
   mode: ThemeMode | undefined
   setMode: (mode: ThemeMode) => void
   currentMode: CurrentThemeMode | undefined

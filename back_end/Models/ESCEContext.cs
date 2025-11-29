@@ -148,6 +148,25 @@ namespace ESCE_SYSTEM.Models
                 .HasForeignKey(n => n.AccountId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Configure AgencieCertificate primary key and relationships
+            modelBuilder.Entity<AgencieCertificate>()
+                .HasKey(ac => ac.AgencyId);
+
+            modelBuilder.Entity<AgencieCertificate>()
+                .HasOne(ac => ac.Account)
+                .WithMany()
+                .HasForeignKey(ac => ac.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure HostCertificate primary key and relationships
+            modelBuilder.Entity<HostCertificate>()
+                .HasKey(hc => hc.CertificateId);
+
+            modelBuilder.Entity<HostCertificate>()
+                .HasOne(hc => hc.Host)
+                .WithMany(a => a.HostCertificates)
+                .HasForeignKey(hc => hc.HostId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Configure SystemLog relationships
             modelBuilder.Entity<SystemLog>()

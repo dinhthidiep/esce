@@ -29,11 +29,14 @@ namespace ESCE_SYSTEM.Services.UserService
         Task ApproveUpgradeCertificateAsync(ApproveCertificateDto dto);
         Task RejectUpgradeCertificateAsync(RejectCertificateDto dto);
         Task ReviewUpgradeCertificateAsync(ReviewCertificateDto dto);
+        Task<AgencyCertificateResponseDto?> GetMyAgencyCertificateAsync(int userId);
+        Task<HostCertificateResponseDto?> GetMyHostCertificateAsync(int userId);
 
         // User Management
         Task<List<Account>> GetAllUsersAsync();
         Task<Account> UpdateUserByAdminAsync(UpdateUserAdminDto dto);
         Task<Account> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
+        Task<UserProfileDto> GetProfileAsync(int userId);
         Task BanAccount(string accountId, string reason);
         Task UnbanAccount(string accountId);
         Task DeleteAccount(string accountId);

@@ -14,6 +14,9 @@ import WcIcon from '@mui/icons-material/Wc'
 import HomeIcon from '@mui/icons-material/Home'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import { styled } from '@mui/material/styles'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
+import { fetchProfile } from '~/api/instances/UserApi'
 
 interface UserInfo {
   id?: number
@@ -27,6 +30,8 @@ interface UserInfo {
   gender?: string
   address?: string
   dateOfBirth?: string
+  dob?: string | null
+  roleId?: number
 }
 
 interface ViewProfileProps {
@@ -64,6 +69,8 @@ export default function ViewProfile({ onEdit }: ViewProfileProps) {
     email: 'admin@example.com',
     role: 'Admin'
   })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const getUserInfo = (): UserInfo => {
@@ -83,6 +90,50 @@ export default function ViewProfile({ onEdit }: ViewProfileProps) {
       }
     }
     setUserInfo(getUserInfo())
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadProfile = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const profile = await fetchProfile()
+        if (!isMounted) return
+
+        const normalizedProfile: UserInfo = {
+          id: profile.id,
+          name: profile.name,
+          fullName: profile.name,
+          email: profile.email,
+          avatar: profile.avatar ?? undefined,
+          phone: profile.phone ?? undefined,
+          gender: profile.gender ?? undefined,
+          address: profile.address ?? undefined,
+          dateOfBirth: profile.dob ?? undefined,
+          dob: profile.dob ?? null,
+          roleId: profile.roleId,
+          roleName: profile.roleName
+        }
+
+        setUserInfo(normalizedProfile)
+        localStorage.setItem('userInfo', JSON.stringify(normalizedProfile))
+      } catch (err) {
+        console.error('Failed to load profile', err)
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Không thể tải thông tin hồ sơ.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadProfile()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const getInitials = (name: string) => {
@@ -183,6 +234,16 @@ export default function ViewProfile({ onEdit }: ViewProfileProps) {
         </Box>
 
         <CardContent sx={{ p: 4 }}>
+          {isLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
           {/* Nút chỉnh sửa */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
             <IconButton
