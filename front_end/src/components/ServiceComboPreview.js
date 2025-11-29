@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { getServiceComboById, getServicesByComboId } from '../API/ServiceComboApi';
 import Header from './Header';
 
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 const ServiceComboPreview = () => {
   const location = useLocation();

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import {
   Typography,
@@ -12,15 +12,33 @@ import {
   IconButton,
   Paper,
   Chip,
-  InputAdornment
+  InputAdornment,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Autocomplete,
+  CircularProgress,
+  Snackbar,
+  Alert
 } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import SearchIcon from '@mui/icons-material/Search'
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions'
 import ImageIcon from '@mui/icons-material/Image'
 import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon'
+import AddCommentIcon from '@mui/icons-material/AddComment'
 import Tooltip from '@mui/material/Tooltip'
 import Popover from '@mui/material/Popover'
+import {
+  getUsersForChat,
+  getChattedUsers,
+  getChatHistory,
+  sendChatMessage,
+  type ChatUser,
+  type ChatMessage
+} from '~/api/instances/ChatApi'
 
 type Reaction = {
   emoji: string
@@ -38,6 +56,8 @@ type Message = {
   isRead: boolean
   reactions?: Reaction[]
   image?: string // Base64 image data
+  createdAt?: string
+  createdAtMs?: number
 }
 
 type Conversation = {
@@ -50,188 +70,50 @@ type Conversation = {
   lastMessageTime: string
   unreadCount: number
   messages: Message[]
+  lastActivity: number
+  isHistoryLoaded: boolean
 }
 
-// Mock data - sau này sẽ thay bằng API call
-const mockConversations: Conversation[] = [
-  {
-    id: 1,
-    participantId: 2,
-    participantName: 'Trần Thị B',
-    participantAvatar: '',
-    participantRole: 'Travel agency',
-    lastMessage: 'Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.',
-    lastMessageTime: '10 phút trước',
-    unreadCount: 2,
-    messages: [
-      {
-        id: 1,
-        senderId: 2,
-        senderName: 'Trần Thị B',
+const formatTimestamp = (value?: string) => {
+  if (!value) return 'Vừa xong'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Vừa xong'
+
+  const diffMs = Date.now() - date.getTime()
+  const minutes = Math.floor(diffMs / (60 * 1000))
+  if (minutes < 1) return 'Vừa xong'
+  if (minutes < 60) return `${minutes} phút trước`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} giờ trước`
+
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days} ngày trước`
+
+  return date.toLocaleString('vi-VN')
+}
+
+const mapChatMessage = (
+  payload: ChatMessage,
+  participantName: string,
+  currentUserId: number,
+  currentUserName: string
+): Message => {
+  const createdAt = payload.createdAt ?? new Date().toISOString()
+  const createdAtMs = Date.parse(createdAt)
+
+  return {
+    id: payload.id,
+    senderId: payload.senderId,
+    senderName: payload.senderId === currentUserId ? currentUserName : participantName,
         senderAvatar: '',
-        content: 'Xin chào! Tôi muốn hỏi về tour Đà Lạt.',
-        timestamp: '2 giờ trước',
-        isRead: true
-      },
-      {
-        id: 2,
-        senderId: 1,
-        senderName: 'Admin',
-        senderAvatar: '',
-        content: 'Chào bạn! Bạn muốn hỏi gì về tour Đà Lạt?',
-        timestamp: '1 giờ trước',
-        isRead: true
-      },
-      {
-        id: 3,
-        senderId: 2,
-        senderName: 'Trần Thị B',
-        senderAvatar: '',
-        content: 'Tour có bao gồm vé máy bay không?',
-        timestamp: '45 phút trước',
-        isRead: true
-      },
-      {
-        id: 4,
-        senderId: 1,
-        senderName: 'Admin',
-        senderAvatar: '',
-        content: 'Có, tour đã bao gồm vé máy bay khứ hồi.',
-        timestamp: '30 phút trước',
-        isRead: true
-      },
-      {
-        id: 5,
-        senderId: 2,
-        senderName: 'Trần Thị B',
-        senderAvatar: '',
-        content: 'Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.',
-        timestamp: '10 phút trước',
-        isRead: false
-      }
-    ]
-  },
-  {
-    id: 2,
-    participantId: 3,
-    participantName: 'Lê Văn C',
-    participantAvatar: '',
-    participantRole: 'Host',
-    lastMessage: 'Homestay của tôi có view đẹp lắm!',
-    lastMessageTime: '1 giờ trước',
-    unreadCount: 0,
-    messages: [
-      {
-        id: 6,
-        senderId: 3,
-        senderName: 'Lê Văn C',
-        senderAvatar: '',
-        content: 'Xin chào admin!',
-        timestamp: '3 giờ trước',
-        isRead: true
-      },
-      {
-        id: 7,
-        senderId: 1,
-        senderName: 'Admin',
-        senderAvatar: '',
-        content: 'Chào bạn! Bạn cần hỗ trợ gì?',
-        timestamp: '2 giờ trước',
-        isRead: true
-      },
-      {
-        id: 8,
-        senderId: 3,
-        senderName: 'Lê Văn C',
-        senderAvatar: '',
-        content: 'Homestay của tôi có view đẹp lắm!',
-        timestamp: '1 giờ trước',
-        isRead: true
-      }
-    ]
-  },
-  {
-    id: 3,
-    participantId: 4,
-    participantName: 'Phạm Thị D',
-    participantAvatar: '',
-    participantRole: 'Tourist',
-    lastMessage: 'Tôi muốn đặt tour Hạ Long.',
-    lastMessageTime: '2 giờ trước',
-    unreadCount: 1,
-    messages: [
-      {
-        id: 9,
-        senderId: 4,
-        senderName: 'Phạm Thị D',
-        senderAvatar: '',
-        content: 'Tôi muốn đặt tour Hạ Long.',
-        timestamp: '2 giờ trước',
-        isRead: false
-      }
-    ]
-  },
-  {
-    id: 4,
-    participantId: 5,
-    participantName: 'Hoàng Văn E',
-    participantAvatar: '',
-    participantRole: 'Travel agency',
-    lastMessage: 'Cảm ơn bạn!',
-    lastMessageTime: '1 ngày trước',
-    unreadCount: 0,
-    messages: [
-      {
-        id: 10,
-        senderId: 5,
-        senderName: 'Hoàng Văn E',
-        senderAvatar: '',
-        content: 'Xin chào!',
-        timestamp: '2 ngày trước',
-        isRead: true
-      },
-      {
-        id: 11,
-        senderId: 1,
-        senderName: 'Admin',
-        senderAvatar: '',
-        content: 'Chào bạn!',
-        timestamp: '1 ngày trước',
-        isRead: true
-      },
-      {
-        id: 12,
-        senderId: 5,
-        senderName: 'Hoàng Văn E',
-        senderAvatar: '',
-        content: 'Cảm ơn bạn!',
-        timestamp: '1 ngày trước',
-        isRead: true
-      }
-    ]
-  },
-  {
-    id: 5,
-    participantId: 6,
-    participantName: 'Võ Thị F',
-    participantAvatar: '',
-    participantRole: 'Host',
-    lastMessage: 'Homestay đã sẵn sàng!',
-    lastMessageTime: '2 ngày trước',
-    unreadCount: 0,
-    messages: [
-      {
-        id: 13,
-        senderId: 6,
-        senderName: 'Võ Thị F',
-        senderAvatar: '',
-        content: 'Homestay đã sẵn sàng!',
-        timestamp: '2 ngày trước',
-        isRead: true
-      }
-    ]
+    content: payload.content,
+    timestamp: formatTimestamp(createdAt),
+    isRead: payload.isRead ?? false,
+    createdAt,
+    createdAtMs: Number.isNaN(createdAtMs) ? Date.now() : createdAtMs
   }
-]
+}
 
 const getRoleColor = (role: string) => {
   switch (role) {
@@ -278,12 +160,12 @@ export default function ChatMainContent() {
 
   const userInfo = getUserInfo()
   const currentUser = {
-    id: userInfo.id || 1,
+    id: Number(userInfo.id ?? userInfo.userId ?? 1),
     name: userInfo.name || userInfo.fullName || 'Admin',
     email: userInfo.email || 'admin@example.com'
   }
 
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations)
+  const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
   const [messageText, setMessageText] = useState('')
   const [searchText, setSearchText] = useState('')
@@ -295,7 +177,234 @@ export default function ChatMainContent() {
   }>({})
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState<HTMLElement | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isCreateChatOpen, setIsCreateChatOpen] = useState(false)
+  const [availableChatUsers, setAvailableChatUsers] = useState<ChatUser[]>([])
+  const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null)
+  const [isLoadingChatUsers, setIsLoadingChatUsers] = useState(false)
+  const [createChatError, setCreateChatError] = useState<string | null>(null)
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
+  const [conversationError, setConversationError] = useState<string | null>(null)
+  const [loadingHistoryFor, setLoadingHistoryFor] = useState<number | null>(null)
+  const [initialMessage, setInitialMessage] = useState('')
+  const [isCreatingChat, setIsCreatingChat] = useState(false)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
+
+  const mapApiMessageToUi = useCallback(
+    (payload: ChatMessage, participantName: string) =>
+      mapChatMessage(payload, participantName, currentUser.id, currentUser.name),
+    [currentUser.id, currentUser.name]
+  )
+
+  const upsertConversationWithMessage = useCallback(
+    (participantMeta: { id: number; name: string; role: string }, apiMessage: ChatMessage) => {
+      setConversations((prev) => {
+        const formatted = mapApiMessageToUi(apiMessage, participantMeta.name)
+        let updated = false
+
+        const next = prev.map((conv) => {
+          if (conv.participantId !== participantMeta.id) {
+            return conv
+          }
+
+          updated = true
+          const messages = [...conv.messages, formatted]
+          return {
+            ...conv,
+            participantName: participantMeta.name,
+            participantRole: participantMeta.role,
+            messages,
+            lastMessage: formatted.content,
+            lastMessageTime: formatted.timestamp,
+            lastActivity: formatted.createdAtMs ?? Date.now(),
+            unreadCount: 0,
+            isHistoryLoaded: true
+          }
+        })
+
+        if (updated) {
+          return next
+        }
+
+        return [
+          {
+            id: participantMeta.id,
+            participantId: participantMeta.id,
+            participantName: participantMeta.name,
+            participantAvatar: '',
+            participantRole: participantMeta.role,
+            lastMessage: formatted.content,
+            lastMessageTime: formatted.timestamp,
+            unreadCount: 0,
+            messages: [formatted],
+            lastActivity: formatted.createdAtMs ?? Date.now(),
+            isHistoryLoaded: true
+          },
+          ...prev
+        ]
+      })
+    },
+    [mapApiMessageToUi]
+  )
+
+  const loadConversations = useCallback(async () => {
+    setIsLoadingConversations(true)
+    setConversationError(null)
+    try {
+      const users = await getChattedUsers()
+      setConversations((prev) => {
+        const prevMap = new Map(prev.map((conv) => [conv.participantId, conv]))
+        const mapped = users.map((user) => {
+          const participantId = Number(user.userId)
+          const existing = prevMap.get(participantId)
+          if (existing) {
+            return {
+              ...existing,
+              participantName: user.fullName,
+              participantRole: user.role
+            }
+          }
+          return {
+            id: participantId,
+            participantId,
+            participantName: user.fullName,
+            participantAvatar: '',
+            participantRole: user.role,
+            lastMessage: 'Chưa có tin nhắn',
+            lastMessageTime: '',
+            unreadCount: 0,
+            messages: [],
+            lastActivity: 0,
+            isHistoryLoaded: false
+          }
+        })
+
+        const incomingIds = new Set(mapped.map((conv) => conv.participantId))
+        const preserved = prev.filter((conv) => !incomingIds.has(conv.participantId))
+        return [...mapped, ...preserved]
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải danh sách đoạn chat.'
+      setConversationError(message)
+    } finally {
+      setIsLoadingConversations(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
+
+  const ensureConversationHistory = useCallback(
+    async (participantId: number, participantName: string) => {
+      setLoadingHistoryFor(participantId)
+      try {
+        const history = await getChatHistory(participantId.toString())
+        setConversations((prev) =>
+          prev.map((conv) => {
+            if (conv.participantId !== participantId) {
+              return conv
+            }
+            const messages = history.map((msg) => mapApiMessageToUi(msg, participantName))
+            const lastMessage = messages[messages.length - 1]
+            return {
+              ...conv,
+              messages,
+              lastMessage: lastMessage?.content || 'Chưa có tin nhắn',
+              lastMessageTime: lastMessage?.timestamp || '',
+              lastActivity: lastMessage?.createdAtMs ?? conv.lastActivity,
+              isHistoryLoaded: true
+            }
+          })
+        )
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Không thể tải lịch sử chat.'
+        setSnackbarSeverity('error')
+        setSnackbarMessage(message)
+      } finally {
+        setLoadingHistoryFor((prev) => (prev === participantId ? null : prev))
+      }
+    },
+    [mapApiMessageToUi]
+  )
+
+  const loadChatUsers = async () => {
+    setIsLoadingChatUsers(true)
+    setCreateChatError(null)
+    try {
+      const users = await getUsersForChat()
+      setAvailableChatUsers(users)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.'
+      setCreateChatError(message)
+      setSnackbarSeverity('error')
+      setSnackbarMessage(message)
+    } finally {
+      setIsLoadingChatUsers(false)
+    }
+  }
+
+  const handleOpenCreateChatDialog = () => {
+    setCreateChatError(null)
+    setSelectedChatUser(null)
+    setInitialMessage('')
+    setIsCreateChatOpen(true)
+    if (!availableChatUsers.length) {
+      loadChatUsers()
+    }
+  }
+
+  const handleCloseCreateChatDialog = () => {
+    setIsCreateChatOpen(false)
+    setSelectedChatUser(null)
+    setCreateChatError(null)
+    setInitialMessage('')
+  }
+
+  const handleCreateChatConversation = async () => {
+    if (!selectedChatUser) {
+      setCreateChatError('Vui lòng chọn người dùng để bắt đầu đoạn chat.')
+      return
+    }
+
+    if (!initialMessage.trim()) {
+      setCreateChatError('Vui lòng nhập tin nhắn đầu tiên.')
+      return
+    }
+
+    const participantId = Number(selectedChatUser.userId)
+    if (Number.isNaN(participantId)) {
+      setCreateChatError('ID người dùng không hợp lệ.')
+      return
+    }
+
+    setIsCreatingChat(true)
+    try {
+      const apiMessage = await sendChatMessage({
+        receiverId: selectedChatUser.userId,
+        content: initialMessage.trim()
+      })
+      upsertConversationWithMessage(
+        { id: participantId, name: selectedChatUser.fullName, role: selectedChatUser.role },
+        apiMessage
+      )
+      setSelectedConversationId(participantId)
+      setSnackbarSeverity('success')
+      setSnackbarMessage(`Đã tạo đoạn chat với ${selectedChatUser.fullName}`)
+      handleCloseCreateChatDialog()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tạo đoạn chat.'
+      setCreateChatError(message)
+    } finally {
+      setIsCreatingChat(false)
+    }
+  }
+
+  const handleSnackbarClose = () => {
+    setSnackbarMessage(null)
+  }
 
   // Common emoji reactions
   const commonReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -325,6 +434,9 @@ export default function ChatMainContent() {
   ]
 
   const selectedConversation = conversations.find((conv) => conv.id === selectedConversationId)
+  const isHistoryLoading =
+    selectedConversation && loadingHistoryFor === selectedConversation.participantId
+  const canSendMessage = Boolean(messageText.trim() || imagePreview) && !isSendingMessage
 
   // Reset scroll position when conversation changes
   useEffect(() => {
@@ -350,20 +462,27 @@ export default function ChatMainContent() {
     prevMessagesLengthRef.current = currentLength
   }, [selectedConversation?.messages])
 
-  // Filter conversations by search text and sort by last message time (newest first)
+  const getConversationActivityScore = (conv: Conversation) => {
+    if (conv.lastActivity) {
+      return conv.lastActivity
+    }
+    const lastMessage = conv.messages[conv.messages.length - 1]
+    return lastMessage ? lastMessage.createdAtMs ?? lastMessage.id : 0
+  }
+
+  const conversationUserIds = new Set(conversations.map((conv) => conv.participantId.toString()))
+
+  // Filter conversations by search text and sort by last activity (newest first)
   const filteredConversations = conversations
     .filter((conv) => conv.participantName.toLowerCase().includes(searchText.toLowerCase().trim()))
-    .sort((a, b) => {
-      // Get the last message ID from each conversation (newest message has highest ID or is last in array)
-      const aLastMessageId = a.messages.length > 0 ? a.messages[a.messages.length - 1].id : 0
-      const bLastMessageId = b.messages.length > 0 ? b.messages[b.messages.length - 1].id : 0
-      // Sort descending (newest first)
-      return bLastMessageId - aLastMessageId
-    })
+    .sort((a, b) => getConversationActivityScore(b) - getConversationActivityScore(a))
 
   const handleSelectConversation = (conversationId: number) => {
     setSelectedConversationId(conversationId)
-    // Mark messages as read
+    const selected = conversations.find((conv) => conv.id === conversationId)
+    if (selected && !selected.isHistoryLoaded) {
+      ensureConversationHistory(selected.participantId, selected.participantName)
+    }
     setConversations((prev) =>
       prev.map((conv) => {
         if (conv.id === conversationId) {
@@ -378,43 +497,44 @@ export default function ChatMainContent() {
     )
   }
 
-  const handleSendMessage = () => {
-    if ((!messageText.trim() && !imagePreview) || !selectedConversationId) return
+  const handleSendMessage = async () => {
+    if ((!messageText.trim() && !imagePreview) || !selectedConversationId || isSendingMessage) return
 
-    const newMessage: Message = {
-      id: Date.now(),
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: '',
-      content: messageText.trim() || '',
-      timestamp: 'Vừa xong',
-      isRead: false,
-      image: imagePreview || undefined
+    if (imagePreview) {
+      setSnackbarSeverity('error')
+      setSnackbarMessage('Tính năng gửi ảnh sẽ được cập nhật sau.')
+      return
     }
 
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id === selectedConversationId) {
-          return {
-            ...conv,
-            lastMessage: newMessage.content || '📷 Đã gửi một ảnh',
-            lastMessageTime: newMessage.timestamp,
-            messages: [...conv.messages, newMessage]
-          }
-        }
-        return conv
-      })
-    )
+    const selected = conversations.find((conv) => conv.id === selectedConversationId)
+    if (!selected) return
 
+    setIsSendingMessage(true)
+    try {
+      const apiMessage = await sendChatMessage({
+        receiverId: selected.participantId.toString(),
+        content: messageText.trim()
+      })
+      upsertConversationWithMessage(
+        { id: selected.participantId, name: selected.participantName, role: selected.participantRole },
+        apiMessage
+      )
     setMessageText('')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể gửi tin nhắn.'
+      setSnackbarSeverity('error')
+      setSnackbarMessage(message)
+    } finally {
+      setIsSendingMessage(false)
     setImagePreview(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+      }
     }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isSendingMessage) {
       e.preventDefault()
       handleSendMessage()
     }
@@ -530,14 +650,15 @@ export default function ChatMainContent() {
   }
 
   return (
-    <Box
-      sx={{
-        bgcolor: 'common.white',
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)'
-      }}
-      className="rounded-3xl shadow-3xl overflow-hidden"
-    >
-      <Box className="flex h-[calc(100vh-20rem)]">
+    <>
+      <Box
+        sx={{
+          bgcolor: 'common.white',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)'
+        }}
+        className="rounded-3xl shadow-3xl overflow-hidden"
+      >
+        <Box className="flex h-[calc(100vh-20rem)]">
         {/* Conversations List */}
         <Box
           sx={{
@@ -567,54 +688,88 @@ export default function ChatMainContent() {
               backdropFilter: 'blur(10px)'
             }}
           >
-            <TextField
-              fullWidth
-              placeholder="Tìm kiếm cuộc trò chuyện..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon
-                      fontSize="small"
-                      sx={{
-                        color: 'primary.main',
-                        opacity: 0.7
-                      }}
-                    />
-                  </InputAdornment>
-                )
-              }}
+            <Box
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '1.2rem',
-                  bgcolor: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '1.4rem',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                  transition: 'all 0.3s ease',
-                  '& fieldset': {
-                    borderColor: 'rgba(0, 0, 0, 0.08)',
-                    borderWidth: '1.5px'
-                  },
-                  '&:hover': {
-                    bgcolor: 'rgba(255, 255, 255, 0.95)',
-                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
+                display: 'flex',
+                gap: 1.5,
+                flexDirection: { xs: 'column', md: 'row' }
+              }}
+            >
+              <TextField
+                fullWidth
+                placeholder="Tìm kiếm cuộc trò chuyện..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon
+                        fontSize="small"
+                        sx={{
+                          color: 'primary.main',
+                          opacity: 0.7
+                        }}
+                      />
+                    </InputAdornment>
+                  )
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '1.2rem',
+                    bgcolor: 'rgba(255, 255, 255, 0.8)',
+                    fontSize: '1.4rem',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                    transition: 'all 0.3s ease',
                     '& fieldset': {
-                      borderColor: 'primary.main'
-                    }
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgba(255, 255, 255, 1)',
-                    boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
-                    '& fieldset': {
-                      borderColor: 'primary.main',
-                      borderWidth: '2px'
+                      borderColor: 'rgba(0, 0, 0, 0.08)',
+                      borderWidth: '1.5px'
+                    },
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.95)',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
+                      '& fieldset': {
+                        borderColor: 'primary.main'
+                      }
+                    },
+                    '&.Mui-focused': {
+                      bgcolor: 'rgba(255, 255, 255, 1)',
+                      boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
+                      '& fieldset': {
+                        borderColor: 'primary.main',
+                        borderWidth: '2px'
+                      }
                     }
                   }
-                }
-              }}
-            />
+                }}
+              />
+              <Button
+                variant="contained"
+                startIcon={<AddCommentIcon />}
+                onClick={handleOpenCreateChatDialog}
+                disabled={isLoadingChatUsers}
+                sx={{
+                  minWidth: { xs: '100%', md: '18rem' },
+                  borderRadius: '1.2rem',
+                  fontSize: '1.4rem',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                    boxShadow: '0 6px 16px rgba(25, 118, 210, 0.35)'
+                  },
+                  '&.Mui-disabled': {
+                    background: 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
+                    boxShadow: 'none',
+                    color: 'rgba(0,0,0,0.4)'
+                  }
+                }}
+              >
+                {isLoadingChatUsers ? 'Đang tải...' : 'Tạo đoạn chat'}
+              </Button>
+            </Box>
           </Box>
 
           <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.06)' }} />
@@ -639,7 +794,15 @@ export default function ChatMainContent() {
               }
             }}
           >
-            {filteredConversations.length === 0 ? (
+            {isLoadingConversations ? (
+              <Box className="p-[2.4rem]! flex justify-center!">
+                <CircularProgress />
+              </Box>
+            ) : conversationError ? (
+              <Box className="p-[2.4rem]!">
+                <Alert severity="error">{conversationError}</Alert>
+              </Box>
+            ) : filteredConversations.length === 0 ? (
               <Box className="p-[2.4rem]! text-center!">
                 <Typography
                   className="text-[1.4rem]!"
@@ -891,7 +1054,21 @@ export default function ChatMainContent() {
                 }}
               >
                 <div ref={messagesStartRef} />
-                {selectedConversation.messages.map((message, index) => {
+                {isHistoryLoading ? (
+                  <Box className="flex justify-center items-center h-full">
+                    <CircularProgress />
+                  </Box>
+                ) : selectedConversation.messages.length === 0 ? (
+                  <Box className="flex justify-center items-center h-full">
+                    <Typography
+                      className="text-[1.4rem]!"
+                      sx={{ color: 'text.secondary', opacity: 0.7 }}
+                    >
+                      Hãy gửi tin nhắn đầu tiên để bắt đầu cuộc trò chuyện.
+                    </Typography>
+                  </Box>
+                ) : (
+                  selectedConversation.messages.map((message, index) => {
                   const isCurrentUser = message.senderId === currentUser.id
                   return (
                     <Box
@@ -1180,7 +1357,8 @@ export default function ChatMainContent() {
                       </Box>
                     </Box>
                   )
-                })}
+                  })
+                )}
               </Box>
 
               {/* Message Input */}
@@ -1320,24 +1498,22 @@ export default function ChatMainContent() {
                   />
                   <IconButton
                     onClick={handleSendMessage}
-                    disabled={!messageText.trim() && !imagePreview}
+                    disabled={!canSendMessage}
                     sx={{
-                      background: messageText.trim() || imagePreview
+                      background: canSendMessage
                         ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
                         : 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
                       color: 'common.white',
                       width: 52,
                       height: 52,
-                      boxShadow: messageText.trim() || imagePreview
-                        ? '0 4px 16px rgba(25, 118, 210, 0.4)'
-                        : 'none',
+                      boxShadow: canSendMessage ? '0 4px 16px rgba(25, 118, 210, 0.4)' : 'none',
                       transition: 'all 0.3s ease',
                       '&:hover': {
-                        background: messageText.trim() || imagePreview
+                        background: canSendMessage
                           ? 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)'
                           : 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
                         transform: 'scale(1.05)',
-                        boxShadow: messageText.trim() || imagePreview
+                        boxShadow: canSendMessage
                           ? '0 6px 20px rgba(25, 118, 210, 0.5)'
                           : 'none'
                       },
@@ -1478,8 +1654,132 @@ export default function ChatMainContent() {
             </Box>
           )}
         </Box>
+        </Box>
       </Box>
-    </Box>
+
+      <Dialog
+        open={isCreateChatOpen}
+        onClose={handleCloseCreateChatDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle className="text-[2rem]! font-semibold!">
+          Tạo đoạn chat mới
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography
+            className="text-[1.4rem]!"
+            sx={{ color: 'text.secondary', mb: 2 }}
+          >
+            Chọn người dùng trong hệ thống để bắt đầu trò chuyện riêng tư.
+          </Typography>
+          <Autocomplete
+            options={availableChatUsers}
+            loading={isLoadingChatUsers}
+            value={selectedChatUser}
+            onChange={(_, value) => {
+              setCreateChatError(null)
+              setSelectedChatUser(value)
+            }}
+            getOptionLabel={(option) => `${option.fullName} (${option.email})`}
+            isOptionEqualToValue={(option, value) => option.userId === value?.userId}
+            noOptionsText={isLoadingChatUsers ? 'Đang tải...' : 'Không tìm thấy người dùng'}
+            renderOption={(props, option) => {
+              const isExisting = conversationUserIds.has(option.userId)
+              return (
+                <Box
+                  component="li"
+                  {...props}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <Box sx={{ flex: 1 }}>
+                    <Typography className="text-[1.4rem]! font-semibold!">
+                      {option.fullName}
+                    </Typography>
+                    <Typography
+                      className="text-[1.2rem]!"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {option.email}
+                    </Typography>
+                  </Box>
+                  {isExisting && (
+                    <Chip
+                      label="Đã có đoạn chat"
+                      size="small"
+                      sx={{ fontSize: '1rem', fontWeight: 600 }}
+                    />
+                  )}
+                </Box>
+              )
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Người dùng"
+                placeholder="Nhập tên hoặc email"
+                margin="normal"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {isLoadingChatUsers ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  )
+                }}
+              />
+            )}
+          />
+          <TextField
+            label="Tin nhắn đầu tiên"
+            placeholder="Nhập tin nhắn mở đầu"
+            margin="normal"
+            multiline
+            minRows={2}
+            value={initialMessage}
+            onChange={(e) => setInitialMessage(e.target.value)}
+          />
+          {createChatError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {createChatError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={handleCloseCreateChatDialog}>Hủy</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateChatConversation}
+            disabled={isLoadingChatUsers || !selectedChatUser || isCreatingChat}
+          >
+            {isCreatingChat ? 'Đang tạo...' : 'Bắt đầu chat'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={Boolean(snackbarMessage)}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </>
   )
 }
 

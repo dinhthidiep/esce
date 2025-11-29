@@ -85,14 +85,92 @@
     padding-bottom: var(--spacing-md);
     border-bottom: 1px solid var(--border-color);
     flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.revenue-month-picker {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+}
+
+.revenue-month-btn {
+    padding: 0;
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.revenue-month-btn:hover {
+    border-color: var(--primary-color);
+    background: rgba(0, 123, 255, 0.05);
+    transform: translateY(-1px);
+}
+
+.revenue-month-selected {
+    background: var(--primary-color);
+    color: var(--white);
+    border-color: var(--primary-color);
+    font-weight: bold;
+}
+
+.revenue-month-selected:hover {
+    background: var(--primary-color-dark);
+    border-color: var(--primary-color-dark);
+}
+
+.revenue-year-input {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    background: var(--white);
+    color: var(--text-color);
+    width: 100px;
+    text-align: center;
+}
+
+.revenue-year-input:hover {
+    border-color: var(--primary-color);
+}
+
+.revenue-year-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .revenue-date-filter-group {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    min-width: 250px;
-    flex: 1;
+    gap: var(--spacing-sm);
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.revenue-date-filter-group:first-child {
+    flex: 1 1 auto;
+    min-width: 300px;
+}
+
+.revenue-date-filter-group:last-child {
+    flex: 0 0 auto;
 }
 
 .revenue-filter-date {
@@ -122,6 +200,52 @@
     font-weight: bold;
     color: var(--text-color);
     font-size: 1em;
+    min-width: 50px;
+    flex-shrink: 0;
+}
+
+.revenue-filter-year {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    background: var(--white);
+    color: var(--text-color);
+    width: 100px;
+    text-align: center;
+}
+
+.revenue-filter-year:hover {
+    border-color: var(--primary-color);
+}
+
+.revenue-filter-year:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.revenue-filter-confirm-btn {
+    padding: var(--spacing-xs) var(--spacing-lg);
+    background: var(--primary-color);
+    color: var(--white);
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 120px;
+}
+
+.revenue-filter-confirm-btn:hover {
+    background: var(--primary-color-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.revenue-filter-confirm-btn:active {
+    transform: translateY(0);
 }
 
 .revenue-filter-select {
@@ -145,9 +269,51 @@
     box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
+.revenue-chart-layout {
+    display: flex;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+}
+
 .revenue-chart-wrapper {
+    flex: 1;
     height: 400px;
     position: relative;
+    min-width: 0;
+}
+
+.revenue-total-display {
+    flex-shrink: 0;
+    width: 300px;
+}
+
+.revenue-total-card {
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-hover);
+    text-align: center;
+    color: var(--white);
+}
+
+.revenue-total-label {
+    font-size: 1em;
+    opacity: 0.9;
+    margin-bottom: var(--spacing-sm);
+    font-weight: 500;
+}
+
+.revenue-total-value {
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: var(--spacing-xs);
+    word-break: break-word;
+}
+
+.revenue-total-period {
+    font-size: 0.9em;
+    opacity: 0.8;
+    font-style: italic;
 }
 
 .revenue-chart-empty {
@@ -320,6 +486,22 @@
     
     .revenue-filter-date {
         flex: 1;
+    }
+    
+    .revenue-month-picker {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .revenue-chart-layout {
+        flex-direction: column;
+    }
+    
+    .revenue-total-display {
+        width: 100%;
+    }
+    
+    .revenue-chart-wrapper {
+        height: 300px;
     }
 }
 

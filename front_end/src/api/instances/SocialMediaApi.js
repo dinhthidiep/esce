@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5002/api/tour';
+const API_BASE_URL = 'http://localhost:7267/api/tour';
 
 // Fetch all posts
 export const getAllPosts = async () => {
