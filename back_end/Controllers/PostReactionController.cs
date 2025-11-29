@@ -26,22 +26,11 @@ namespace ESCE_SYSTEM.Controllers
                 // Sử dụng ToggleLikePost để tự động like/unlike
                 var toggleResult = await _postReactionService.ToggleLikePost(postId);
                 
-                if (toggleResult.IsLiked)
+                return Ok(new
                 {
-                    return Ok(new { 
-                        message = "Đã thích bài viết", 
-                        isLiked = true,
-                        reaction = toggleResult.Reaction 
-                    });
-                }
-                else
-                {
-                    return Ok(new { 
-                        message = "Đã bỏ thích bài viết", 
-                        isLiked = false,
-                        reaction = (object?)null 
-                    });
-                }
+                    isLiked = toggleResult.IsLiked,
+                    reaction = toggleResult.IsLiked ? toggleResult.Reaction : null
+                });
             }
             catch (Exception ex)
             {
@@ -81,7 +70,7 @@ namespace ESCE_SYSTEM.Controllers
             try
             {
                 var postId = await _postReactionService.UnlikePost(postReactionId);
-                return Ok(new { message = "Đã bỏ thích bài viết", postReactionId, postId });
+                return Ok(new { postReactionId, postId });
             }
             catch (UnauthorizedAccessException)
             {

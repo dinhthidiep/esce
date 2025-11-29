@@ -30,20 +30,39 @@ namespace ESCE_SYSTEM.Services.MessageService // 👈 Đã thêm namespace
             throw new ArgumentException($"ID người dùng '{userId}' không hợp lệ.");
         }
 
-        public async Task AddNewChatMessage(string senderId, string receiverId, string content)
+        public async Task<Message> AddNewChatMessage(string senderId, string receiverId, string content)
         {
             var senderIntId = ParseUserId(senderId);
             var receiverIntId = ParseUserId(receiverId);
 
-            await _dbContext.Messages.AddAsync(new Message
+            if (senderIntId == receiverIntId)
+            {
+                throw new ArgumentException("Không thể gửi tin nhắn cho chính mình.");
+            }
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                throw new ArgumentException("Nội dung tin nhắn không được để trống.");
+            }
+
+            var receiverExists = await _dbContext.Accounts.AnyAsync(a => a.Id == receiverIntId);
+            if (!receiverExists)
+            {
+                throw new ArgumentException("Người nhận không tồn tại.");
+            }
+
+            var message = new Message
             {
                 SenderId = senderIntId,
                 ReceiverId = receiverIntId,
                 Content = content,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow.AddHours(7),
                 IsRead = false
-            });
+            };
+
+            await _dbContext.Messages.AddAsync(message);
             await _dbContext.SaveChangesAsync();
+            return message;
         }
 
         public async Task<IEnumerable<Message>> GetChatHistory(string userAId, string userBId)
@@ -66,7 +85,7 @@ namespace ESCE_SYSTEM.Services.MessageService // 👈 Đã thêm namespace
             // RoleId = 1 là Admin (từ SeedData cũ)
             var users = await _dbContext.Accounts
                 .Where(a => a.Id != currentUserId && a.RoleId != 1)
-               /* .Include(a => a.Role) // Cần Include Role để lấy tên Role*/
+                .Include(a => a.Role)
                 .ToListAsync();
 
             return users.Select(u => new ChatUserDto
@@ -93,7 +112,7 @@ namespace ESCE_SYSTEM.Services.MessageService // 👈 Đã thêm namespace
             // 2. Lấy thông tin Account và Role
             var users = await _dbContext.Accounts
                 .Where(a => chattedIds.Contains(a.Id))
-               /* .Include(a => a.Role)*/
+                .Include(a => a.Role)
                 .ToListAsync();
 
             return users.Select(u => new ChatUserDto

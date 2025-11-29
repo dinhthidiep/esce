@@ -140,6 +140,34 @@ namespace ESCE_SYSTEM.Controllers
         }
         #endregion
 
+        [HttpGet("my-agency-request")]
+        [Authorize]
+        public async Task<IActionResult> GetMyAgencyRequest()
+        {
+            var userIdString = _userContextService.UserId;
+            if (!int.TryParse(userIdString, out int userId))
+            {
+                return Unauthorized("Invalid user information");
+            }
+
+            var certificate = await _userService.GetMyAgencyCertificateAsync(userId);
+            return Ok(certificate);
+        }
+
+        [HttpGet("my-host-request")]
+        [Authorize]
+        public async Task<IActionResult> GetMyHostRequest()
+        {
+            var userIdString = _userContextService.UserId;
+            if (!int.TryParse(userIdString, out int userId))
+            {
+                return Unauthorized("Invalid user information");
+            }
+
+            var certificate = await _userService.GetMyHostCertificateAsync(userId);
+            return Ok(certificate);
+        }
+
         #region User Management Endpoints
         [HttpGet("users")]
         [Authorize(Roles = "Admin")]
@@ -200,6 +228,27 @@ namespace ESCE_SYSTEM.Controllers
                 dto.AccountId = id;
                 var updatedUser = await _userService.UpdateUserByAdminAsync(dto);
                 return Ok(new { message = "User updated successfully", user = updatedUser });
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(exception.Message);
+            }
+        }
+
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<IActionResult> GetProfile()
+        {
+            try
+            {
+                var userIdString = _userContextService.UserId;
+                if (!int.TryParse(userIdString, out int userId))
+                {
+                    return Unauthorized("Invalid user information");
+                }
+
+                var profile = await _userService.GetProfileAsync(userId);
+                return Ok(profile);
             }
             catch (Exception exception)
             {

@@ -16,6 +16,7 @@ using ESCE_SYSTEM.Services.NotificationService;
 using ESCE_SYSTEM.Repositories.NotificationRepository;
 using ESCE_SYSTEM.Repositories.MessageRepository;
 using ESCE_SYSTEM.Services.MessageService;
+using ESCE_SYSTEM.Services.NewsService;
 using ESCE_SYSTEM.SignalR;
 using ESCE_SYSTEM.SeedData;
 using ESCE_SYSTEM.Services;
@@ -60,6 +61,7 @@ builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 // Đăng ký các helper

@@ -25,6 +25,7 @@ import WcIcon from '@mui/icons-material/Wc'
 import HomeIcon from '@mui/icons-material/Home'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import { styled } from '@mui/material/styles'
+import { updateProfile as updateProfileApi } from '~/api/instances/UserApi'
 
 interface UserInfo {
   id?: number
@@ -38,6 +39,7 @@ interface UserInfo {
   gender?: string
   address?: string
   dateOfBirth?: string
+  dob?: string
 }
 
 interface EditProfileProps {
@@ -123,14 +125,20 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
     }
   }
 
-  const userInfo = getUserInfo()
+const extractDateOnly = (value?: string | null) => {
+  if (!value) return ''
+  const date = value.includes('T') ? value.split('T')[0] : value
+  return date
+}
+
+const userInfo = getUserInfo()
   const [formData, setFormData] = useState<FormState>({
     name: userInfo.name || userInfo.fullName || '',
     email: userInfo.email || '',
     phone: userInfo.phone || '',
     gender: userInfo.gender || '',
     address: userInfo.address || '',
-    dateOfBirth: userInfo.dateOfBirth || '',
+  dateOfBirth: extractDateOnly(userInfo.dateOfBirth || (userInfo as any).dob),
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -142,7 +150,12 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: '',
+  severity: 'success' as 'success' | 'error'
+})
+const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     const updatedUserInfo = getUserInfo()
@@ -152,7 +165,7 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
       phone: updatedUserInfo.phone || '',
       gender: updatedUserInfo.gender || '',
       address: updatedUserInfo.address || '',
-      dateOfBirth: updatedUserInfo.dateOfBirth || '',
+    dateOfBirth: extractDateOnly(updatedUserInfo.dateOfBirth || (updatedUserInfo as any).dob),
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
@@ -242,27 +255,49 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
     }
 
     try {
-      // TODO: Gọi API để cập nhật thông tin
-      // const response = await updateProfile(formData)
-      
-      // Cập nhật localStorage
+      setIsSaving(true)
+      const payload = {
+        Name: formData.name.trim(),
+        Phone: formData.phone ?? '',
+        Avatar: formData.avatar ?? '',
+        Gender: formData.gender ?? '',
+        Address: formData.address ?? '',
+        DOB: formData.dateOfBirth ?? ''
+      }
+
+      const response = await updateProfileApi(payload)
+      const updatedUser = response.user
+
       const updatedUserInfo = {
         ...userInfo,
-        name: formData.name,
-        fullName: formData.name,
-        email: formData.email,
-        avatar: formData.avatar,
-        phone: formData.phone,
-        gender: formData.gender,
-        address: formData.address,
-        dateOfBirth: formData.dateOfBirth
+        id: updatedUser.id,
+        name: updatedUser.name,
+        fullName: updatedUser.name,
+        email: updatedUser.email,
+        avatar: updatedUser.avatar ?? '',
+        phone: updatedUser.phone ?? '',
+        gender: updatedUser.gender ?? '',
+        address: updatedUser.address ?? '',
+        dateOfBirth: extractDateOnly(updatedUser.dob),
+        dob: updatedUser.dob ?? null
       }
-      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo))
 
-      setSnackbar({ 
-        open: true, 
-        message: 'Cập nhật thông tin thành công!', 
-        severity: 'success' 
+      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo))
+      setFormData((prev) => ({
+        ...prev,
+        name: updatedUserInfo.name,
+        phone: updatedUserInfo.phone,
+        gender: updatedUserInfo.gender,
+        address: updatedUserInfo.address,
+        dateOfBirth: updatedUserInfo.dateOfBirth,
+        avatar: updatedUserInfo.avatar
+      }))
+      setAvatarPreview(updatedUserInfo.avatar || null)
+
+      setSnackbar({
+        open: true,
+        message: response.message || 'Cập nhật thông tin thành công!',
+        severity: 'success'
       })
 
       // Reset password fields nếu đã đổi mật khẩu
@@ -287,6 +322,8 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
         message: 'Cập nhật thông tin thất bại. Vui lòng thử lại!', 
         severity: 'error' 
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -880,6 +917,7 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
               <Button
                 onClick={handleSave}
                 variant="contained"
+                disabled={isSaving}
                 sx={{
                   textTransform: 'none',
                   borderRadius: '1.2rem',
@@ -895,7 +933,7 @@ export default function EditProfile({ onCancel, onSave }: EditProfileProps) {
                   }
                 }}
               >
-                Lưu thay đổi
+                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </Button>
             </Box>
           </Box>
