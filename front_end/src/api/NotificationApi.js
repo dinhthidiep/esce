@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 // Mark notification as read
 export const markNotificationAsRead = async (notificationId) => {

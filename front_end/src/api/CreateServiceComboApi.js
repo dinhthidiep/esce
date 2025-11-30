@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 // Create ServiceCombo API
 export const createServiceCombo = async (serviceComboData) => {

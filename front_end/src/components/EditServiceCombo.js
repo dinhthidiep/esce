@@ -5,7 +5,7 @@ import { getAllServices, addServiceToCombo, getServiceComboDetailsByComboId, del
 import Header from './Header';
 import { getCurrentUser } from '../API/SocialMediaApi';
 
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 const EditServiceCombo = () => {
    // State management

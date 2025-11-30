@@ -1,4 +1,4 @@
-import './ServiceComboManager.css';
+// import './ServiceComboManager.css';
 import React, { useEffect, useState } from 'react';
 import { getMyServiceCombos, deleteServiceCombo, getServiceComboById } from '../API/ServiceComboApi';
 import Header from './Header';

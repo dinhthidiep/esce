@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { getCurrentUser } from '../API/SocialMediaApi';
+import { getCurrentUser } from '../api/SocialMediaApi';
 import { useNotification } from '../contexts/NotificationContext';
-import { markNotificationAsRead, deleteNotification } from '../API/NotificationApi';
+import { markNotificationAsRead, deleteNotification } from '../api/NotificationApi';
 
 const Notification = () => {
   const [sidebarActive, setSidebarActive] = useState(false);

@@ -1,4 +1,4 @@
-const backend_url = "http://localhost:5002";
+const backend_url = "http://localhost:7267";
 
 export const createServiceCombo = async (serviceComboData, imageFile = null) => {
   const token = localStorage.getItem('token');

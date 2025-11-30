@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react';
 import './Sidebar.css';
 
 const Sidebar = ({ sidebarActive, userInfo, additionalClassName = '' }) => {

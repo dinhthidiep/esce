@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { getCurrentUser } from '../API/SocialMediaApi';
-import { getAllReviews, getReviewById, createReply, updateReply, deleteReply } from '../API/ReviewApi';
+import { getCurrentUser } from '../api/SocialMediaApi';
+import { getAllReviews, getReviewById, createReply, updateReply, deleteReply } from '../api/ReviewApi';
 
 const DEFAULT_AVATAR_URL = "https://firebasestorage.googleapis.com/v0/b/esce-a4b58.firebasestorage.app/o/default%2Fstock_nimg.jpg?alt=media&token=623cc75c-6625-4d18-ab1e-ff5ca18b49a1";
 
@@ -359,8 +359,6 @@ const ReviewManager = () => {
     );
   }
 
-  const serviceCombos = getUniqueServiceCombos();
-
   return (
     <div className="create-tour-page">
       {/* Sidebar Navigation */}
@@ -437,7 +435,7 @@ const ReviewManager = () => {
                   onChange={(e) => setComboFilter(e.target.value)}
                 >
                   <option value="all">Tất cả</option>
-                  {serviceCombos.map(combo => (
+                  {getUniqueServiceCombos().map(combo => (
                     <option key={combo.id} value={combo.id}>{combo.name}</option>
                   ))}
                 </select>

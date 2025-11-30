@@ -1,9 +1,9 @@
 import './ServiceManager.css';
 import React, { useEffect, useState } from 'react';
-import { getMyServices, deleteService } from '../API/ServiceApi';
+import { getMyServices, deleteService } from '../api/ServiceApi';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { getCurrentUser } from '../API/SocialMediaApi';
+import { getCurrentUser } from '../api/SocialMediaApi';
 
 const ServiceManager = () => {
   const [sidebarActive, setSidebarActive] = useState(false);
