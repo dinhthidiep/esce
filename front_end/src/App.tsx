@@ -23,38 +23,38 @@ function App() {
       <BrowserRouter>
         <Suspense fallback={<div>Đang tải...</div>}>
           <Routes>
-          {/* Các route KHÔNG dùng MainLayout */}
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/otp-verification" element={<OTPVerification />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/service-combo-manager" element={<ServiceComboManager />} />
+            {/* Các route KHÔNG dùng MainLayout */}
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/otp-verification" element={<OTPVerification />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            {/* <Route path="/service-combo-manager" element={<ServiceComboManager />} />
           <Route path="/service-manager" element={<ServiceManager />} />
           <Route path="/booking-manager" element={<BookingManager />} />
           <Route path="/revenue" element={<Revenue />} />
           <Route path="/review-manager" element={<ReviewManager />} />
-          <Route path="/notification" element={<Notification />} />
+          <Route path="/notification" element={<Notification />} /> */}
 
-          {/* Các route DÙNG MainLayout */}
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<DashBoard />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/post" element={<Posts />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/news" element={<News />} />
-            <Route path="/supports" element={<Supports />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/role-upgrade" element={<RoleUpgrade />} />
-            <Route path="/create-tour" element={<CreateTour />} />
-            <Route path="/social-media" element={<SocialMedia />} />
-          </Route>
+            {/* Các route DÙNG MainLayout */}
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<DashBoard />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/post" element={<Posts />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/supports" element={<Supports />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/role-upgrade" element={<RoleUpgrade />} />
+              <Route path="/create-tour" element={<CreateTour />} />
+              <Route path="/social-media" element={<SocialMedia />} />
+            </Route>
 
-          {/* 404 */}
-          <Route path="*" element={<div>404 - Không tìm thấy trang</div>} />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+            {/* 404 */}
+            <Route path="*" element={<div>404 - Không tìm thấy trang</div>} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </NotificationProvider>
   )
 }
