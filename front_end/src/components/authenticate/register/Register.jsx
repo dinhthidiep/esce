@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './Register.css'
-import { requestOtpForRegister } from '~/api/instances/Au'
+import { requestOtpForRegister, checkEmail } from '~/api/instances/Au'
+import { fetchWithFallback, extractErrorMessage } from '~/api/instances/httpClient'
 
 const Register = () => {
   const navigate = useNavigate()
@@ -18,47 +19,64 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
   const [generalError, setGeneralError] = useState('')
 
   useEffect(() => {
     const initGoogle = () => {
       if (!window.google || !window.google.accounts || !window.google.accounts.id) return
       window.google.accounts.id.initialize({
-        client_id: '289291166935-o3fvel5dqb8mac1tfsvbsq5b7c7jdajg.apps.googleusercontent.com',
+        client_id: '772898465184-2lct3e00mcjggjn5tm33m95bquejphv2.apps.googleusercontent.com',
         callback: async (response) => {
           try {
+            setGeneralError('')
             const idToken = response.credential
-            const res = await fetch('https://localhost:7267/api/Auth/logingoogle', {
+            
+            if (!idToken) {
+              setGeneralError('Không nhận được token từ Google. Vui lòng thử lại!')
+              return
+            }
+
+            // Gọi API login với Google - backend sẽ tự động tạo user nếu chưa tồn tại
+            const res = await fetchWithFallback('/api/Auth/logingoogle', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken })
+              body: JSON.stringify({ 
+                idToken, 
+                phoneNumber: form.phone || '' 
+              })
             })
+
+            if (!res.ok) {
+              const errorMessage = await extractErrorMessage(res, 'Không thể đăng ký/đăng nhập bằng Google. Vui lòng thử lại!')
+              setGeneralError(errorMessage)
+              console.error('Google register/login failed:', res.status, errorMessage)
+              return
+            }
+
             const data = await res.json()
-            if (data?.token || data?.Token) {
-              localStorage.setItem('token', data.token || data.Token)
-              if (data.UserInfo || data.userInfo) {
-                localStorage.setItem('userInfo', JSON.stringify(data.UserInfo || data.userInfo))
-              }
-              navigate('/')
+            
+            // Kiểm tra token
+            const token = data?.token || data?.Token
+            if (!token) {
+              setGeneralError('Không nhận được token từ server. Vui lòng thử lại!')
+              console.error('No token in response:', data)
               return
             }
-            const resRegister = await fetch('https://localhost:7267/api/Auth/logingoogle', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken, roleId: 4, phoneNumber: form.phone || '0123456789' })
-            })
-            const dataRegister = await resRegister.json()
-            if (dataRegister?.token || dataRegister?.Token) {
-              localStorage.setItem('token', dataRegister.token || dataRegister.Token)
-              if (dataRegister.UserInfo || dataRegister.userInfo) {
-                localStorage.setItem('userInfo', JSON.stringify(dataRegister.UserInfo || dataRegister.userInfo))
-              }
-              navigate('/')
-              return
+
+            // Lưu token và userInfo
+            localStorage.setItem('token', token)
+            const userInfo = data.UserInfo || data.userInfo
+            if (userInfo) {
+              localStorage.setItem('userInfo', JSON.stringify(userInfo))
             }
-            setGeneralError('Không thể đăng ký/đăng nhập bằng Google. Vui lòng thử lại!')
+
+            // Chuyển đến trang chủ
+            navigate('/')
           } catch (err) {
-            setGeneralError('Không thể đăng ký/đăng nhập bằng Google. Vui lòng thử lại!')
+            console.error('Google register/login error:', err)
+            const errorMessage = err.message || 'Không thể đăng ký/đăng nhập bằng Google. Vui lòng thử lại!'
+            setGeneralError(errorMessage)
           }
         }
       })
@@ -91,6 +109,38 @@ const Register = () => {
     setErrors((prev) => ({ ...prev, [name]: '' }))
   }
 
+  const handleEmailBlur = async () => {
+    // Check email when user leaves the email field
+    if (!form.email || !/\S+@\S+\.\S+/.test(form.email)) {
+      return
+    }
+
+    setCheckingEmail(true)
+    try {
+      const result = await checkEmail(form.email)
+      if (result.isExisting) {
+        setErrors((prev) => ({
+          ...prev,
+          email: 'Email này đã được sử dụng. Vui lòng chọn email khác hoặc đăng nhập.'
+        }))
+      } else {
+        // Clear email error if email is available
+        setErrors((prev) => {
+          const newErrors = { ...prev }
+          if (newErrors.email && newErrors.email.includes('đã được sử dụng')) {
+            delete newErrors.email
+          }
+          return newErrors
+        })
+      }
+    } catch (error) {
+      console.error('Error checking email:', error)
+      // Don't show error if check fails, allow user to proceed
+    } finally {
+      setCheckingEmail(false)
+    }
+  }
+
   const validate = () => {
     const err = {}
     if (!form.email) err.email = 'Email là bắt buộc'
@@ -115,6 +165,16 @@ const Register = () => {
     setErrors({})
 
     try {
+      // Check if email already exists before requesting OTP
+      const emailCheck = await checkEmail(form.email)
+      if (emailCheck.isExisting) {
+        setErrors({
+          email: 'Email này đã được sử dụng. Vui lòng chọn email khác hoặc đăng nhập.'
+        })
+        setLoading(false)
+        return
+      }
+
       // Request OTP for registration
       await requestOtpForRegister(form.email, form.phone || '')
 
@@ -172,8 +232,15 @@ const Register = () => {
                       placeholder="Nhập email của bạn"
                       value={form.email}
                       onChange={handleChange}
+                      onBlur={handleEmailBlur}
                       className={errors?.email ? 'error' : ''}
+                      disabled={checkingEmail}
                     />
+                    {checkingEmail && (
+                      <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#666' }}>
+                        Đang kiểm tra...
+                      </span>
+                    )}
                   </div>
                   {errors?.email && <span className="error-message">{errors?.email}</span>}
                 </div>

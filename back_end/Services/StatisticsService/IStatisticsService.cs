@@ -4,6 +4,12 @@ namespace ESCE_SYSTEM.Services.StatisticsService
 {
     public interface IStatisticsService
     {
+<<<<<<< HEAD
+        Task<StatisticsDto> GetStatisticsAsync();
+    }
+}
+
+=======
         // Thống kê tổng quan dashboard
         Task<DashboardStatisticsDto> GetDashboardStatisticsAsync(StatisticsFilterDto filter);
         
@@ -25,3 +31,4 @@ namespace ESCE_SYSTEM.Services.StatisticsService
 }
 
 
+>>>>>>> 23dee672e153f1e3b54dbddd4634f47a97a71ddc

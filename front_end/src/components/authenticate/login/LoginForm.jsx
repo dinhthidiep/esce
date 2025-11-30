@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import '/LoginForm.css'
+import './LoginForm.css'
 import { login } from '~/api/instances/Au'
 import { useNavigate } from 'react-router-dom'
+import { fetchWithFallback, extractErrorMessage } from '~/api/instances/httpClient'
 
 const LoginForm = () => {
   const navigate = useNavigate()
@@ -18,42 +19,54 @@ const LoginForm = () => {
     const initGoogle = () => {
       if (!window.google || !window.google.accounts || !window.google.accounts.id) return
       window.google.accounts.id.initialize({
-        client_id: '289291166935-o3fvel5dqb8mac1tfsvbsq5b7c7jdajg.apps.googleusercontent.com',
+        client_id: '772898465184-2lct3e00mcjggjn5tm33m95bquejphv2.apps.googleusercontent.com',
         callback: async (response) => {
           try {
+            setGeneralError('')
             const idToken = response.credential
-            const res = await fetch('https://localhost:7267/api/Auth/logingoogle', {
+            
+            if (!idToken) {
+              setGeneralError('Không nhận được token từ Google. Vui lòng thử lại!')
+              return
+            }
+
+            // Gọi API login với Google - backend sẽ tự động tạo user nếu chưa tồn tại
+            const res = await fetchWithFallback('/api/Auth/logingoogle', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ idToken })
             })
+
+            if (!res.ok) {
+              const errorMessage = await extractErrorMessage(res, 'Không thể đăng nhập với Google. Vui lòng thử lại!')
+              setGeneralError(errorMessage)
+              console.error('Google login failed:', res.status, errorMessage)
+              return
+            }
+
             const data = await res.json()
-            if (data?.token || data?.Token) {
-              localStorage.setItem('token', data.token || data.Token)
-              if (data.UserInfo || data.userInfo) {
-                localStorage.setItem('userInfo', JSON.stringify(data.UserInfo || data.userInfo))
-              }
-              navigate('/')
+            
+            // Kiểm tra token
+            const token = data?.token || data?.Token
+            if (!token) {
+              setGeneralError('Không nhận được token từ server. Vui lòng thử lại!')
+              console.error('No token in response:', data)
               return
             }
-            const resRegister = await fetch('https://localhost:7267/api/Auth/logingoogle', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken, roleId: 4, phoneNumber: '0123456789' })
-            })
-            const dataRegister = await resRegister.json()
-            if (dataRegister?.token || dataRegister?.Token) {
-              localStorage.setItem('token', dataRegister.token || dataRegister.Token)
-              if (dataRegister.UserInfo || dataRegister.userInfo) {
-                localStorage.setItem('userInfo', JSON.stringify(dataRegister.UserInfo || dataRegister.userInfo))
-              }
-              navigate('/')
-              return
+
+            // Lưu token và userInfo
+            localStorage.setItem('token', token)
+            const userInfo = data.UserInfo || data.userInfo
+            if (userInfo) {
+              localStorage.setItem('userInfo', JSON.stringify(userInfo))
             }
-            setGeneralError('Không thể đăng nhập với Google. Vui lòng thử lại!')
+
+            // Chuyển đến trang chủ
+            navigate('/')
           } catch (err) {
             console.error('Google login error:', err)
-            setGeneralError('Không thể đăng nhập với Google. Vui lòng thử lại!')
+            const errorMessage = err.message || 'Không thể đăng nhập với Google. Vui lòng thử lại!'
+            setGeneralError(errorMessage)
           }
         }
       })
