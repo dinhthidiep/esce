@@ -9,6 +9,7 @@ import OTPVerification from './components/authenticate/OTPVerify/OTPVerification
 import ResetPassword from './components/authenticate/resetPassword/ResetPassword'
 import CreateTour from './components/createTour/CreateTour'
 import SocialMedia from './components/socialMedia/SocialMedia'
+import GoogleOAuthHelper from './components/GoogleOAuthHelper'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/otp-verification" element={<OTPVerification />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/fix-google-oauth" element={<GoogleOAuthHelper />} />
 
           {/* Các route DÙNG MainLayout */}
           <Route element={<MainLayout />}>

@@ -1,6 +1,5 @@
 import People from '@mui/icons-material/People'
 import HomeIcon from '@mui/icons-material/Home'
-import LegendToggleIcon from '@mui/icons-material/LegendToggle'
 import PostAddIcon from '@mui/icons-material/PostAdd'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'
 import FeedIcon from '@mui/icons-material/Feed'
@@ -20,12 +19,6 @@ export const sidebarConfig = [
     path: '/users',
     icon: <People />,
     badge: 2
-  },
-  {
-    title: 'Thống kê',
-    path: '/static',
-    icon: <LegendToggleIcon />,
-    badge: 0
   },
   {
     title: 'Bài viết',

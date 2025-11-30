@@ -175,7 +175,9 @@ namespace ESCE_SYSTEM.Services.NewsService
                 .Where(img => !string.IsNullOrWhiteSpace(img))
                 .Select(img => img.Trim());
 
-            return string.Join(";", sanitized);
+            // Use a delimiter that won't appear in base64 strings: "|||IMAGE_SEPARATOR|||"
+            // This ensures data URLs like "data:image/jpeg;base64,xxx" won't be broken
+            return string.Join("|||IMAGE_SEPARATOR|||", sanitized);
         }
 
         private static string[] DeserializeImages(string? serializedImages)
@@ -185,8 +187,12 @@ namespace ESCE_SYSTEM.Services.NewsService
                 return Array.Empty<string>();
             }
 
+            // Split by the safe delimiter
             return serializedImages
-                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                .Split(new[] { "|||IMAGE_SEPARATOR|||" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(img => img.Trim())
+                .Where(img => !string.IsNullOrWhiteSpace(img))
+                .ToArray();
         }
 
         private NewsDto ToNewsDto(News news, IDictionary<int, int> likeCounts, ISet<int> likedNews)

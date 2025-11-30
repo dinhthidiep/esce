@@ -608,7 +608,7 @@ namespace ESCE_SYSTEM.Models
                 entity.HasIndex(e => e.PostId, "IX_PostReactions_PostID");
 
                 entity.HasIndex(e => new { e.UserId, e.PostId }, "UQ__POSTREAC__8D29EA4C21AF919E")
-                    .IsUnique();
+                .IsUnique();
 
                 entity.Property(e => e.CreatedAt)
                     .HasColumnType("datetime")
@@ -637,7 +637,7 @@ namespace ESCE_SYSTEM.Models
                 entity.ToTable("POSTSAVES");
 
                 entity.HasIndex(e => new { e.AccountId, e.PostId }, "UQ_PostSave_UserPost")
-                    .IsUnique();
+                .IsUnique();
 
                 entity.Property(e => e.SavedAt)
                     .HasColumnType("datetime")
@@ -690,7 +690,7 @@ namespace ESCE_SYSTEM.Models
                 entity.ToTable("REACTION_TYPES");
 
                 entity.HasIndex(e => e.Name, "UQ__REACTION__737584F61492C36B")
-                    .IsUnique();
+                .IsUnique();
 
                 entity.Property(e => e.Id).HasColumnName("ID");
 
@@ -786,7 +786,7 @@ namespace ESCE_SYSTEM.Models
                 entity.ToTable("ROLES");
 
                 entity.HasIndex(e => e.Name, "UQ__ROLES__D9C1FA000635C206")
-                    .IsUnique();
+                .IsUnique();
 
                 entity.Property(e => e.Id)
                     .ValueGeneratedNever()

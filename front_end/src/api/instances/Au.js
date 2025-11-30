@@ -234,6 +234,39 @@ export const verifyOtpForRegister = async (email, otp) => {
   }
 }
 
+export const checkEmail = async (email) => {
+  try {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return { isExisting: false }
+    }
+
+    const response = await fetch(`${backend_url}/api/Auth/CheckEmail/${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error('Check email error:', errText)
+      // If error, assume email doesn't exist to allow registration
+      return { isExisting: false }
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await response.json()
+      return { isExisting: data.IsExisting || data.isExisting || false }
+    }
+    return { isExisting: false }
+  } catch (error) {
+    console.error('Check email failed:', error)
+    // If error, assume email doesn't exist to allow registration
+    return { isExisting: false }
+  }
+}
+
 export const register = async (userEmail, password, fullName, phone = '') => {
   try {
     const response = await fetch(`${backend_url}/api/Auth/register`, {

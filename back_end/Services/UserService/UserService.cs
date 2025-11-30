@@ -1376,6 +1376,11 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new ArgumentException("ID token cannot be null or empty");
             }
 
+            if (string.IsNullOrWhiteSpace(_jwtSetting?.GoogleClientID))
+            {
+                throw new InvalidOperationException("Google Client ID is not configured");
+            }
+
             try
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings
@@ -1386,7 +1391,11 @@ namespace ESCE_SYSTEM.Services.UserService
             }
             catch (InvalidJwtException exception)
             {
-                throw new InvalidOperationException("Google token validation failed", exception);
+                throw new InvalidOperationException($"Google token validation failed: {exception.Message}. Please check if the Google Client ID matches.", exception);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error verifying Google token: {ex.Message}", ex);
             }
         }
 
