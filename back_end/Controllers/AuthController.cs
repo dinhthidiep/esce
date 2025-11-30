@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using ESCE_SYSTEM.Helpers;
+using System.Linq;
 
 
 namespace ESCE_SYSTEM.Controllers
@@ -32,23 +33,58 @@ namespace ESCE_SYSTEM.Controllers
         {
             try
             {
-                var user = await _userService.GetUserByUsernameAsync(loginRequest.UserEmail);
-                if (user == null || !_userService.VerifyPassword(loginRequest.Password, user.PasswordHash))
-                    return Unauthorized("Email hoặc mật khẩu không đúng.");
+                // Validation đầu vào - kiểm tra ModelState (tự động từ Data Annotations)
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .SelectMany(x => x.Value.Errors.Select(e => e.ErrorMessage))
+                        .ToList();
+                    
+                    return BadRequest(new { message = "Dữ liệu đầu vào không hợp lệ.", errors = errors });
+                }
 
-                //  QUAN TRỌNG: THÊM KIỂM TRA TRẠNG THÁI TÀI KHOẢN
+                if (loginRequest == null)
+                {
+                    return BadRequest(new { message = "Thông tin đăng nhập không được để trống." });
+                }
+
+                // Tìm user theo email
+                var user = await _userService.GetUserByUsernameAsync(loginRequest.UserEmail);
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "Email hoặc mật khẩu không đúng." });
+                }
+
+                // Kiểm tra xem user có password hash hợp lệ không
+                if (string.IsNullOrWhiteSpace(user.PasswordHash))
+                {
+                    return Unauthorized(new { message = "Tài khoản chưa được thiết lập mật khẩu." });
+                }
+
+                // Kiểm tra mật khẩu - QUAN TRỌNG: Phải kiểm tra trước khi tiếp tục
+                bool isPasswordValid = _userService.VerifyPassword(loginRequest.Password, user.PasswordHash);
+                if (!isPasswordValid)
+                {
+                    return Unauthorized(new { message = "Email hoặc mật khẩu không đúng." });
+                }
+
+                // Kiểm tra trạng thái tài khoản - QUAN TRỌNG
                 if (user.IsBanned)
                 {
-                    return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+                    return Unauthorized(new { message = "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên." });
                 }
 
-                if (!user.IsActive)
-                {
-                    return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-                }
+              
 
+                // Lấy thông tin role
                 var role = await _roleService.GetRoleById(user.RoleId);
+                if (role == null)
+                {
+                    return StatusCode(500, new { message = "Không thể lấy thông tin quyền của tài khoản." });
+                }
 
+                // Tạo JWT token
                 var token = _jwtHelper.GenerateToken(new UserTokenDto
                 {
                     Id = user.Id.ToString(),
@@ -56,11 +92,20 @@ namespace ESCE_SYSTEM.Controllers
                     Role = role.Name
                 });
 
-                return Ok(new { token, UserInfo = user.Adapt<UserProfileDto>() });
+                // Trả về response với format nhất quán
+                return Ok(new LoginResponseDto 
+                { 
+                    Token = token, 
+                    UserInfo = user.Adapt<UserProfileDto>() 
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng nhập.", error = ex.Message });
             }
         }
 
@@ -94,10 +139,7 @@ namespace ESCE_SYSTEM.Controllers
                     return Unauthorized("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
                 }
 
-                if (!user.IsActive)
-                {
-                    return Unauthorized("Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-                }
+             
 
                 var role = await _roleService.GetRoleById(user.RoleId);
                 var token = _jwtHelper.GenerateToken(new UserTokenDto
@@ -116,24 +158,80 @@ namespace ESCE_SYSTEM.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterUserDto user)
+        public async Task<IActionResult> Register([FromBody] RegisterUserDto registerRequest)
         {
-            var existingUser = await _userService.GetUserByUsernameAsync(user.UserEmail);
-            if (existingUser != null) return BadRequest("Username already exists.");
-
-            // 🔴 Thay đổi quan trọng: Gán RoleId mặc định là 4 (Customer) khi đăng ký thường
-           // user.RoleId = 4;
-
-            // ❌ Bỏ qua kiểm tra role cũ: if (user.RoleId != 3 && user.RoleId != 4) {...}
-
             try
             {
-                await _userService.CreateUserAsync(user, true, false);
-                return Ok("User registered successfully.");
+                // Validation đầu vào - kiểm tra ModelState (tự động từ Data Annotations)
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .SelectMany(x => x.Value.Errors.Select(e => e.ErrorMessage))
+                        .ToList();
+                    
+                    return BadRequest(new { message = "Dữ liệu đầu vào không hợp lệ.", errors = errors });
+                }
+
+                if (registerRequest == null)
+                {
+                    return BadRequest(new { message = "Thông tin đăng ký không được để trống." });
+                }
+
+                // Kiểm tra email đã tồn tại chưa
+                var existingUser = await _userService.GetUserByUsernameAsync(registerRequest.UserEmail);
+                if (existingUser != null)
+                {
+                    return Conflict(new { message = "Email này đã được sử dụng. Vui lòng chọn email khác hoặc đăng nhập." });
+                }
+
+                // Tạo user mới với Role 4 (Customer) và yêu cầu verify OTP
+                // verifyOtp = true: yêu cầu verify OTP trước khi đăng ký
+                // isGoogleAccount = false: đây là đăng ký thường
+                // roleId = 4: Customer role (mặc định)
+                await _userService.CreateUserAsync(registerRequest, verifyOtp: true, isGoogleAccount: false, roleId: 4);
+
+                // Sau khi đăng ký thành công, lấy user vừa tạo
+                var newUser = await _userService.GetUserByUsernameAsync(registerRequest.UserEmail);
+                if (newUser == null)
+                {
+                    return StatusCode(500, new { message = "Đăng ký thành công nhưng không thể lấy thông tin tài khoản." });
+                }
+
+                // Lấy thông tin role
+                var role = await _roleService.GetRoleById(newUser.RoleId);
+                if (role == null)
+                {
+                    return StatusCode(500, new { message = "Không thể lấy thông tin quyền của tài khoản." });
+                }
+
+                // Tạo JWT token để tự động đăng nhập sau khi đăng ký
+                var token = _jwtHelper.GenerateToken(new UserTokenDto
+                {
+                    Id = newUser.Id.ToString(),
+                    UserEmail = newUser.Email,
+                    Role = role.Name
+                });
+
+                // Trả về response với format nhất quán (giống Login)
+                return Ok(new LoginResponseDto
+                {
+                    Token = token,
+                    UserInfo = newUser.Adapt<UserProfileDto>()
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Xử lý lỗi từ CreateUserAsync (OTP chưa verify, email đã tồn tại, etc.)
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng ký.", error = ex.Message });
             }
         }
 
@@ -199,8 +297,36 @@ namespace ESCE_SYSTEM.Controllers
         {
             try
             {
+                if (requestOtpDto == null || string.IsNullOrWhiteSpace(requestOtpDto.Email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+
                 await _userService.RequestOtpForgetPassword(requestOtpDto);
-                return Ok();
+                return Ok(new { message = "OTP code has been sent to your email" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while sending OTP", error = ex.Message });
+            }
+        }
+
+        // Đồng bộ với frontend: POST /api/Auth/VerifyOtpForgetPassword
+        [HttpPost("VerifyOtpForgetPassword")]
+        public async Task<IActionResult> VerifyOtpForgetPassword([FromBody] VerifyOtpDto verifyOtpDto)
+        {
+            try
+            {
+                var result = await _userService.VerifyOtp(verifyOtpDto);
+                return Ok(new { message = "OTP verified successfully", verified = result });
             }
             catch (Exception ex)
             {
@@ -209,16 +335,23 @@ namespace ESCE_SYSTEM.Controllers
         }
 
         [HttpPut("ResetPassword")]
-        public async Task<IActionResult> ResetPassword(ResetPasswordDto resetPassword)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPassword)
         {
             try
             {
+                if (resetPassword == null || string.IsNullOrWhiteSpace(resetPassword.Email) || 
+                    string.IsNullOrWhiteSpace(resetPassword.NewPassword) || 
+                    string.IsNullOrWhiteSpace(resetPassword.Otp))
+                {
+                    return BadRequest(new { message = "Email, NewPassword, and Otp are required" });
+                }
+
                 await _userService.ResetPassword(resetPassword);
-                return Ok();
+                return Ok(new { message = "Password has been reset successfully" });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

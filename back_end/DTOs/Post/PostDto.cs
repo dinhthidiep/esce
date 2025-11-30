@@ -1,10 +1,24 @@
-﻿namespace ESCE_SYSTEM.DTOs.Post
+﻿using System.Collections.Generic;
+
+namespace ESCE_SYSTEM.DTOs
 {
     public class PostDto
     {
-        public string Title { get; set; } = null!;
-        public string Content { get; set; } = null!;
-        public string? Image { get; set; } // Sử dụng 1 string cho Image URL
-        
+        public string PostContent { get; set; } = null!;
+        public List<string>? Images { get; set; }
+        public string PosterName { get; set; } = null!;
+        public List<string> Hashtags { get; set; } = new List<string>();
+        public string? ArticleTitle { get; set; }
+    }
+
+    public class ApprovePostDto
+    {
+        public string PostId { get; set; } = null!;
+    }
+
+    public class RejectPostDto
+    {
+        public string PostId { get; set; } = null!;
+        public string Comment { get; set; } = null!;
     }
 }

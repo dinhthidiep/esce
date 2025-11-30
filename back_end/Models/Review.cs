@@ -1,19 +1,36 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ESCE_SYSTEM.Models
 {
-    public partial class Review
+    public class Review
     {
+        [Key]
         public int Id { get; set; }
-        public int ComboId { get; set; }
-        public int AuthorId { get; set; }
-        public int? ParentReviewId { get; set; }
-        public int? Rating { get; set; }
-        public string Content { get; set; } = null!;
-        public DateTime? CreatedAt { get; set; }
 
-        public virtual Account Author { get; set; } = null!;
-        public virtual Servicecombo Combo { get; set; } = null!;
+        [Required]
+        public int BookingId { get; set; }
+
+        [Required]
+        public int UserId { get; set; }
+
+        [Required]
+        [Range(1, 5)]
+        public int Rating { get; set; }
+
+        [MaxLength(1000)]
+        public string? Comment { get; set; }
+
+        public DateTime CreatedDate { get; set; } = DateTime.Now;
+
+        [MaxLength(50)]
+        public string Status { get; set; } = "pending";
+
+        [ForeignKey("BookingId")]
+        public virtual Booking Booking { get; set; } = null!;
+
+        [ForeignKey("UserId")]
+        public virtual Account User { get; set; } = null!;
     }
 }

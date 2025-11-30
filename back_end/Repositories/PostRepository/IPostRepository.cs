@@ -2,14 +2,21 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace ESCE_SYSTEM.Repositories.PostRepository
+namespace ESCE_SYSTEM.Repositories
 {
     public interface IPostRepository
     {
-        Task<List<Post>> GetAllAsync();
-        Task<Post?> GetByIdAsync(int id); // Thay đổi từ string sang int ID
-        Task AddAsync(Post post);
-        Task UpdateAsync(Post post);
-        Task DeleteAsync(Post post); // Xóa theo đối tượng hoặc ID
+        Task<Post> GetByIdAsync(int id);
+        Task<IEnumerable<Post>> GetAllAsync();
+        Task<IEnumerable<Post>> GetApprovedPostsAsync();
+        Task<IEnumerable<Post>> GetPendingPostsAsync();
+        Task<IEnumerable<Post>> GetByAuthorIdAsync(int authorId);
+        Task<Post> AddAsync(Post post);
+        Task<Post> UpdateAsync(Post post);
+        Task<bool> DeleteAsync(int id);
+        Task<bool> SoftDeleteAsync(int id);
+        Task<int> GetCommentsCountAsync(int postId);
+        Task<int> GetReactionsCountAsync(int postId);
+        Task<int> GetSavesCountAsync(int postId);
     }
 }

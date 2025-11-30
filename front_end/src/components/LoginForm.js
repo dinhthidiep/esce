@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
-import googleAuthService from '../services/googleAuth';
+import { login } from '../API/Au';
+import { useNavigate } from 'react-router-dom';
+import { signInToFirebase } from '../services/firebaseAuth';
 
 const LoginForm = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [generalError, setGeneralError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,42 +57,46 @@ const LoginForm = () => {
     }
     
     setIsLoading(true);
+    setGeneralError('');
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Step 1: Login to backend
+      const response = await login(formData.email, formData.password);
       
-      // Here you would typically make an API call to your backend
-      console.log('Login data:', formData);
-      alert('Đăng nhập thành công! Chào mừng đến với Travel App!');
+      // Lưu token vào localStorage
+      if (response.Token || response.token) {
+        localStorage.setItem('token', response.Token || response.token);
+      }
+      
+      // Lưu thông tin user nếu có (backend có thể trả về UserInfo hoặc userInfo)
+      const userInfo = response.UserInfo || response.userInfo;
+      if (userInfo) {
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+      }
+      
+      // Step 2: Sign in to Firebase Auth (required for Firebase Storage)
+      try {
+        await signInToFirebase(formData.email, formData.password);
+        console.log('Firebase Auth sign-in successful');
+      } catch (firebaseError) {
+        // If Firebase Auth fails, log but don't block login
+        // User can still use the app, but image uploads might fail
+        console.warn('Firebase Auth sign-in failed (image uploads may not work):', firebaseError);
+        // Don't throw - allow user to continue with backend login
+      }
+      
+      // Đăng nhập thành công - chuyển hướng hoặc hiển thị thông báo
+      alert('Đăng nhập thành công! Chào mừng đến với ESCE!');
+      
+      // Chuyển hướng đến trang chủ hoặc dashboard
+      navigate('/'); // Hoặc navigate('/dashboard') tùy theo route của bạn
       
     } catch (error) {
       console.error('Login error:', error);
-      alert('Đăng nhập thất bại. Vui lòng thử lại!');
+      const errorMessage = error.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      setGeneralError(errorMessage);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    
-    try {
-      const result = await googleAuthService.signIn();
-      
-      if (result.success) {
-        console.log('Google Login Success:', result.user);
-        alert(`Đăng nhập Google thành công! Chào mừng ${result.user.name}!`);
-        // Here you would typically send the user data to your backend
-        // to create/login the user account
-      } else {
-        alert(`Đăng nhập Google thất bại: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Google Login Error:', error);
-      alert('Có lỗi xảy ra khi đăng nhập Google. Vui lòng thử lại!');
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -103,6 +110,8 @@ const LoginForm = () => {
 
         <h3 className="title">Đăng nhập</h3>
         <p className="subtitle">Nhập thông tin tài khoản để đăng nhập</p>
+
+        
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -120,6 +129,7 @@ const LoginForm = () => {
             </div>
             {errors.email && <span className="error-message">{errors.email}</span>}
           </div>
+          
 
           <div className="form-group">
             <label htmlFor="password">Mật khẩu</label>
@@ -138,6 +148,19 @@ const LoginForm = () => {
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 
+          {generalError && (
+          <div className="error-message general-error" style={{ 
+            marginBottom: '1rem', 
+            padding: '0.75rem', 
+            backgroundColor: '#fee', 
+            color: '#c33', 
+            borderRadius: '4px',
+            textAlign: 'center'
+          }}>
+            {generalError}
+          </div>
+        )}
+        
           <div className="form-options">
             <label className="remember-me">
               <input type="checkbox" />
@@ -165,22 +188,9 @@ const LoginForm = () => {
 
         <div className="divider"><span>HOẶC</span></div>
 
-        <button 
-          className="google-button"
-          onClick={handleGoogleLogin}
-          disabled={isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <>
-              <div className="spinner"></div>
-              Đang đăng nhập...
-            </>
-          ) : (
-            <>
-              <span className="g-icon">G</span>
-              Đăng nhập bằng Google
-            </>
-          )}
+        <button className="google-button">
+          <span className="g-icon">G</span>
+          Đăng nhập bằng Google
         </button>
 
         <div className="signup-link">

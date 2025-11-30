@@ -17,7 +17,7 @@ public class NotificationHub : Hub
         _notificationService = notificationService;
     }
 
-    // ⚠️ Phương thức này hiện không cần thiết vì ta dùng SendToUser để gửi notification
+    //  Phương thức này hiện không cần thiết vì ta dùng SendToUser để gửi notification
     /*public async Task SendNotification(NotificationDto notification)
     {
         await Clients.All.SendAsync("ReceiveNotification", notification);
@@ -36,7 +36,7 @@ public class NotificationHub : Hub
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // 🟢 Tải thông báo chưa đọc (Service sẽ chuyển đổi ID string -> int)
+            //  Tải thông báo chưa đọc (Service sẽ chuyển đổi ID string -> int)
             var unReadNotifications = await _notificationService.GetNotificationUnReadByUserIdAsyc(userId);
 
             // Gửi thông báo cũ tới người dùng

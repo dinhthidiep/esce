@@ -16,8 +16,12 @@ using ESCE_SYSTEM.Services.NotificationService;
 using ESCE_SYSTEM.Repositories.NotificationRepository;
 using ESCE_SYSTEM.Repositories.MessageRepository;
 using ESCE_SYSTEM.Services.MessageService;
+using ESCE_SYSTEM.Services.NewsService;
 using ESCE_SYSTEM.SignalR;
 using ESCE_SYSTEM.SeedData;
+using ESCE_SYSTEM.Services;
+using ESCE_SYSTEM.Repositories;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,8 +41,27 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<MessageRepository, MessageRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+
+builder.Services.AddScoped<IPostReactionService, PostReactionService>();
+builder.Services.AddScoped<IPostReactionRepository, PostReactionRepository>();
+
+builder.Services.AddScoped<IPostSaveService, PostSaveService>();
+builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
+
+builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+
+builder.Services.AddScoped<ICommentReactionService, CommentReactionService>();
+builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
+
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 // Đăng ký Service, ServiceCombo, ServiceComboDetail
@@ -109,6 +132,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = null; // giữ nguyên PascalCase
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 // (Tùy chọn) Cấu hình CORS nếu API được gọi từ frontend

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Register.css';
-import googleAuthService from '../services/googleAuth';
+import { requestOtpForRegister } from '../API/Au';
 
 const Register = () => {
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', agree: false });
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', phone: '', agree: false });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -33,31 +34,27 @@ const Register = () => {
     e.preventDefault();
     const err = validate();
     if (Object.keys(err).length) { setErrors(err); return; }
+    
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    alert('Đăng ký thành công!');
-  };
-
-  const handleGoogleSignup = async () => {
-    setIsGoogleLoading(true);
+    setErrors({});
     
     try {
-      const result = await googleAuthService.signIn();
+      // Request OTP for registration
+      await requestOtpForRegister(form.email, form.phone || '');
       
-      if (result.success) {
-        console.log('Google Signup Success:', result.user);
-        alert(`Đăng ký Google thành công! Chào mừng ${result.user.name}!`);
-        // Here you would typically send the user data to your backend
-        // to create the user account
-      } else {
-        alert(`Đăng ký Google thất bại: ${result.error}`);
-      }
+      // Store registration data temporarily to complete registration after OTP verification
+      localStorage.setItem('pendingRegistration', JSON.stringify({
+        userEmail: form.email,
+        password: form.password,
+        fullName: form.name,
+        phone: form.phone || ''
+      }));
+      
+      // Navigate to OTP verification page
+      navigate(`/otp-verification?email=${encodeURIComponent(form.email)}&type=register`);
     } catch (error) {
-      console.error('Google Signup Error:', error);
-      alert('Có lỗi xảy ra khi đăng ký Google. Vui lòng thử lại!');
-    } finally {
-      setIsGoogleLoading(false);
+      setErrors({ submit: error.message || 'Không thể gửi mã OTP. Vui lòng thử lại.' });
+      setLoading(false);
     }
   };
 
@@ -87,6 +84,14 @@ const Register = () => {
               <input id="email" name="email" type="email" placeholder="nhập email của bạn" value={form.email} onChange={handleChange} className={errors.email ? 'error' : ''} />
             </div>
             {errors.email && <span className="error-message">{errors.email}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">Số điện thoại (tùy chọn)</label>
+            <div className="input-wrapper">
+              <input id="phone" name="phone" type="tel" placeholder="nhập số điện thoại" value={form.phone} onChange={handleChange} className={errors.phone ? 'error' : ''} />
+            </div>
+            {errors.phone && <span className="error-message">{errors.phone}</span>}
           </div>
 
           <div className="form-group">
@@ -128,29 +133,19 @@ const Register = () => {
                         </label>
           </div>
 
+          {errors.submit && (
+            <div className="error-message" style={{ marginBottom: '1rem', textAlign: 'center' }}>
+              {errors.submit}
+            </div>
+          )}
+
           <button type="submit" className={`login-button ${loading ? 'loading' : ''}`} disabled={loading}>
-            {loading ? <><div className="spinner"></div>Đang đăng ký...</> : 'Đăng ký'}
+            {loading ? <><div className="spinner"></div>Đang gửi mã OTP...</> : 'Đăng ký'}
           </button>
         </form>
 
         <div className="divider"><span>HOẶC</span></div>
-        <button 
-          className="google-button"
-          onClick={handleGoogleSignup}
-          disabled={isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <>
-              <div className="spinner"></div>
-              Đang đăng ký...
-            </>
-          ) : (
-            <>
-              <span className="g-icon">G</span>
-              Đăng ký bằng Google
-            </>
-          )}
-        </button>
+        <button className="google-button"><span className="g-icon">G</span> Đăng ký bằng Google</button>
 
         <div className="signup-link">Đã có tài khoản? <a href="/login">Đăng nhập ngay</a></div>
       </div>
