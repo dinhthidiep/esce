@@ -9,18 +9,32 @@ import OTPVerification from './components/authenticate/OTPVerify/OTPVerification
 import ResetPassword from './components/authenticate/resetPassword/ResetPassword'
 import CreateTour from './components/createTour/CreateTour'
 import SocialMedia from './components/socialMedia/SocialMedia'
+import ServiceComboManager from './components/ServiceComboManager'
+import ServiceManager from './components/ServiceManager'
+import BookingManager from './components/BookingManager'
+import Revenue from './components/Revenue'
+import ReviewManager from './components/ReviewManager'
+import Notification from './components/Notification'
+import { NotificationProvider } from './contexts/NotificationContext'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Suspense fallback={<div>Đang tải...</div>}>
-        <Routes>
+    <NotificationProvider>
+      <BrowserRouter>
+        <Suspense fallback={<div>Đang tải...</div>}>
+          <Routes>
           {/* Các route KHÔNG dùng MainLayout */}
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/otp-verification" element={<OTPVerification />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/service-combo-manager" element={<ServiceComboManager />} />
+          <Route path="/service-manager" element={<ServiceManager />} />
+          <Route path="/booking-manager" element={<BookingManager />} />
+          <Route path="/revenue" element={<Revenue />} />
+          <Route path="/review-manager" element={<ReviewManager />} />
+          <Route path="/notification" element={<Notification />} />
 
           {/* Các route DÙNG MainLayout */}
           <Route element={<MainLayout />}>
@@ -41,6 +55,7 @@ function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
+    </NotificationProvider>
   )
 }
 

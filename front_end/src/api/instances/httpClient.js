@@ -1,5 +1,5 @@
-const backend_url_https = "https://localhost:7267";
-const backend_url_http = "http://localhost:5002";
+const backend_url_https = "http://localhost:7267";
+const backend_url_http = "http://localhost:7267";
 
 export const getAuthToken = () => {
   return localStorage.getItem("token") || "";

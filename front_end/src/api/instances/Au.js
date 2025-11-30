@@ -1,4 +1,4 @@
-export const backend_url = 'https://localhost:7267'
+export const backend_url = 'http://localhost:7267'
 
 export const login = async (userEmail, password) => {
   try {

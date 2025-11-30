@@ -361,7 +361,7 @@ const CreateTourCombo = () => {
       console.log('Creating tour combo:', comboData)
 
       // Make API call to create tour combo
-      const response = await fetch('http://localhost:5002/api/tour/create-tour-combo', {
+      const response = await fetch('http://localhost:7267/api/tour/create-tour-combo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

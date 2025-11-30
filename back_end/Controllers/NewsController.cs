@@ -1,65 +1,95 @@
+using ESCE_SYSTEM.DTOs.News;
+using ESCE_SYSTEM.Services.NewsService;
+using ESCE_SYSTEM.Services.UserContextService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ESCE_SYSTEM.Services;
-using ESCE_SYSTEM.Models;
 
 namespace ESCE_SYSTEM.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/news")]
     public class NewsController : ControllerBase
     {
-        private readonly INewsService _service;
+        private readonly INewsService _newsService;
+        private readonly IUserContextService _userContextService;
 
-        public NewsController(INewsService service)
+        public NewsController(INewsService newsService, IUserContextService userContextService)
         {
-            _service = service;
+            _newsService = newsService;
+            _userContextService = userContextService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAllNews()
         {
-            var result = await _service.GetAllAsync();
+            var currentUserId = TryGetCurrentUserId();
+            var result = await _newsService.GetAllNewsAsync(currentUserId);
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        [HttpGet("{newsId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetNewsById(int newsId)
         {
-            var result = await _service.GetByIdAsync(id);
-            if (result == null) return NotFound();
-            return Ok(result);
-        }
-
-        [HttpGet("account/{accountId}")]
-        public async Task<IActionResult> GetByAccountId(int accountId)
-        {
-            var result = await _service.GetByAccountIdAsync(accountId);
+            var currentUserId = TryGetCurrentUserId();
+            var result = await _newsService.GetNewsByIdAsync(newsId, currentUserId);
             return Ok(result);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(News news)
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateNews([FromBody] CreateNewsDto dto)
         {
-            var result = await _service.CreateAsync(news);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var authorId = _userContextService.GetCurrentUserId();
+            var result = await _newsService.CreateNewsAsync(authorId, dto);
             return Ok(result);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, News news)
+        [HttpPut("{newsId:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateNews(int newsId, [FromBody] UpdateNewsDto dto)
         {
-            var result = await _service.UpdateAsync(id, news);
-            if (result == null) return NotFound();
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var result = await _newsService.UpdateNewsAsync(newsId, dto);
             return Ok(result);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        [HttpDelete("{newsId:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteNews(int newsId)
         {
-            var deleted = await _service.DeleteAsync(id);
-            if (!deleted) return NotFound();
-            return Ok("Deleted successfully");
+            await _newsService.DeleteNewsAsync(newsId);
+            return NoContent();
+        }
+
+        [HttpPost("{newsId:int}/like")]
+        [Authorize]
+        public async Task<IActionResult> ToggleLike(int newsId)
+        {
+            var userId = _userContextService.GetCurrentUserId();
+            var (liked, likesCount) = await _newsService.ToggleLikeAsync(newsId, userId);
+            return Ok(new { liked, likesCount });
+        }
+
+        private int? TryGetCurrentUserId()
+        {
+            var userIdString = _userContextService.UserId;
+            if (int.TryParse(userIdString, out var userId))
+            {
+                return userId;
+            }
+            return null;
         }
     }
 }
-
 

@@ -1,6 +1,5 @@
 ﻿using ESCE_SYSTEM.Models;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace ESCE_SYSTEM.Repositories
@@ -11,7 +10,6 @@ namespace ESCE_SYSTEM.Repositories
         Task<IEnumerable<Post>> GetAllAsync();
         Task<IEnumerable<Post>> GetApprovedPostsAsync();
         Task<IEnumerable<Post>> GetPendingPostsAsync();
-        Task<(IEnumerable<Post> Posts, int TotalCount)> GetPagedAsync(int pageNumber, int pageSize, string statusFilter = null, CancellationToken cancellationToken = default);
         Task<IEnumerable<Post>> GetByAuthorIdAsync(int authorId);
         Task<Post> AddAsync(Post post);
         Task<Post> UpdateAsync(Post post);
