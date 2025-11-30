@@ -16,12 +16,8 @@ using ESCE_SYSTEM.Services.NotificationService;
 using ESCE_SYSTEM.Repositories.NotificationRepository;
 using ESCE_SYSTEM.Repositories.MessageRepository;
 using ESCE_SYSTEM.Services.MessageService;
-using ESCE_SYSTEM.Services.NewsService;
 using ESCE_SYSTEM.SignalR;
 using ESCE_SYSTEM.SeedData;
-using ESCE_SYSTEM.Services;
-using ESCE_SYSTEM.Repositories;
-using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,46 +37,9 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<MessageRepository, MessageRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
-
-builder.Services.AddScoped<IPostReactionService, PostReactionService>();
-builder.Services.AddScoped<IPostReactionRepository, PostReactionRepository>();
-
-builder.Services.AddScoped<IPostSaveService, PostSaveService>();
-builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
-
-builder.Services.AddScoped<ICommentService, CommentService>();
-builder.Services.AddScoped<ICommentRepository, CommentRepository>();
-
-builder.Services.AddScoped<ICommentReactionService, CommentReactionService>();
-builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
-
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
-builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-
-// Đăng ký Service, ServiceCombo, ServiceComboDetail
-builder.Services.AddScoped<ServiceRepository>();
-builder.Services.AddScoped<ServiceService>();
-builder.Services.AddScoped<ServiceComboRepository>();
-builder.Services.AddScoped<ServiceComboService>();
-builder.Services.AddScoped<ServiceComboDetailRepository>();
-builder.Services.AddScoped<ServiceComboDetailService>();
-
-// Đăng ký Booking và Review
-builder.Services.AddScoped<BookingRepository>();
-builder.Services.AddScoped<BookingService>();
-builder.Services.AddScoped<ReviewRepository>();
-builder.Services.AddScoped<ReviewService>();
-
-// Đăng ký News
-builder.Services.AddScoped<NewsRepository>();
-builder.Services.AddScoped<NewsService>();
 
 // Đăng ký các helper
 builder.Services.AddScoped<JwtHelper>();   // đổi Singleton -> Scoped
@@ -132,7 +91,6 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = null; // giữ nguyên PascalCase
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 // (Tùy chọn) Cấu hình CORS nếu API được gọi từ frontend
@@ -187,38 +145,131 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-//Default data
-using (var scope = app.Services.CreateScope())
-{
-    var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
-
-    var roleService = scope.ServiceProvider.GetRequiredService<IRoleService>();
-    var roleRepository = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
-    var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-    await SeedData.Initialize(userService, roleService, roleRepository, userRepository);
-}
-
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var services = scope.ServiceProvider;
+    var config = services.GetRequiredService<IConfiguration>();
+    var db = services.GetRequiredService<ESCEContext>();
+
+    var seedDemo = config.GetValue<bool>("Demo:SeedDemoAccounts");
+    if (seedDemo)
+    {
+        db.Database.Migrate();
+
+        // Ensure roles
+        string[] roleNames = new[] { "Tourist", "Host", "Agency" };
+        foreach (var roleName in roleNames)
+        {
+            if (!db.Roles.Any(r => r.Name == roleName))
+            {
+                db.Roles.Add(new Role { Name = roleName, Description = $"{roleName} role" });
+            }
+        }
+        db.SaveChanges();
+
+        var touristRole = db.Roles.First(r => r.Name == "Tourist");
+        var hostRole = db.Roles.First(r => r.Name == "Host");
+        var agencyRole = db.Roles.First(r => r.Name == "Agency");
+
+        // Demo users
+        var demoPassword = config.GetValue<string>("Demo:DemoPassword") ?? "123456";
+        var hostEmail = config.GetValue<string>("Demo:HostEmail") ?? "host@demo.local";
+        var agencyEmail = config.GetValue<string>("Demo:AgencyEmail") ?? "agency@demo.local";
+        var touristEmail = config.GetValue<string>("Demo:TouristEmail") ?? "tourist@demo.local";
+
+// Seed minimal data when using in-memory DB
+if (useInMemoryDb)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ESCEContext>();
+    db.Database.EnsureCreated();
+
+    if (!db.Roles.Any())
+    {
+        db.Roles.Add(new Role { Name = "user" });
+        db.SaveChanges();
+    }
+
+    if (!db.Accounts.Any())
+    {
+        var roleId = db.Roles.Select(r => r.Id).First();
+        db.Accounts.Add(new Account
+        {
+            Name = "Test User",
+            Email = "test@example.com",
+            PasswordHash = "x",
+            RoleId = roleId,
+            CreatedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+    }
+
+    var userId = db.Accounts.Select(a => a.Id).First();
+
+    if (!db.Services.Any())
+    {
+        db.Services.Add(new Service
+        {
+            Name = "Test Service",
+            Description = "Sample service",
+            Price = 100000,
+            HostId = userId
+        });
+        db.SaveChanges();
+    }
+
+    if (!db.ServiceCombos.Any())
+    {
+        db.ServiceCombos.Add(new ServiceCombo
+        {
+            Name = "Test Combo",
+            Address = "123 Test St",
+            Description = "Sample combo",
+            Price = 200000,
+            AvailableSlots = 10,
+            HostId = userId,
+            Status = "open"
+        });
+        db.SaveChanges();
+    }
+
+    if (!db.Bookings.Any())
+    {
+        var serviceId = db.Services.Select(s => s.Id).First();
+        db.Bookings.Add(new Booking
+        {
+            UserId = userId,
+            ServiceId = serviceId,
+            Quantity = 2,
+            UnitPrice = 100000,
+            TotalAmount = 200000,
+            ItemType = "service",
+            BookingNumber = "SEED1",
+            Status = "pending",
+            Notes = "seed"
+        });
+        db.SaveChanges();
+    }
 }
 
 app.UseHttpsRedirection();
 
-// Sử dụng CORS (nếu cần)
+// Enable static files serving
+app.UseStaticFiles();
+
 app.UseCors("AllowAll");
 
-// Sử dụng Authentication trước Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// 🟢 MAP CÁC SIGNALR HUBS
-app.MapHub<NotificationHub>("/hubs/notification");
-app.MapHub<ChatHub>("/hubs/chat");
+// Redirect root to index.html
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/index.html");
+    return Task.CompletedTask;
+});
 
 app.Run();
