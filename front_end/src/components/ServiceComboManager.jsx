@@ -1,14 +1,14 @@
-import './ServiceComboManager.css';
+// import './ServiceComboManager.css';
 import React, { useEffect, useState } from 'react';
-import { getMyServiceCombos, deleteServiceCombo, getServiceComboById } from '../api/ServiceComboApi';
+import { getMyServiceCombos, deleteServiceCombo, getServiceComboById } from '../API/ServiceComboApi';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { getCurrentUser } from '../api/SocialMediaApi';
+import { getCurrentUser } from '../API/SocialMediaApi';
 
-const backend_url = "http://localhost:7267";
+const backend_url = "http://localhost:5002";
 // Default image from Firebase Storage
 const DEFAULT_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/esce-a4b58.firebasestorage.app/o/default%2Fstock_nimg.jpg?alt=media&token=623cc75c-6625-4d18-ab1e-ff5ca18b49a1';
-import { deleteService } from '../api/ServiceApi';
+import { deleteService } from '../API/ServiceApi';
 
 const ServiceComboManager = () => {
   const [sidebarActive, setSidebarActive] = useState(false);
@@ -151,13 +151,7 @@ const ServiceComboManager = () => {
           setFilteredServices(applyFilters(serviceArray, '', 'all', 'newest'));
         }
       } catch (e) {
-        console.error('Error loading service combos:', e);
-        if (mounted) {
-          setError(e.message || 'Failed to load service combos');
-          // Set empty arrays to prevent blank page
-          setServices([]);
-          setFilteredServices([]);
-        }
+        if (mounted) setError(e.message || 'Failed to load service combos');
       } finally {
         if (mounted) setLoading(false);
       }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ESCE_SYSTEM.Models
 {
@@ -12,5 +13,8 @@ namespace ESCE_SYSTEM.Models
         public DateTime? CreatedAt { get; set; }
         public int? UserId { get; set; }
         public string? Module { get; set; }
+
+        [ForeignKey("UserId")]
+        public virtual Account? User { get; set; }
     }
 }

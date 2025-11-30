@@ -1,13 +1,13 @@
-import './Revenue.css';
+// import './Revenue.css';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { getCurrentUser } from '../api/SocialMediaApi';
-import { getAllBookings } from '../api/BookingApi';
-import { getPaymentsByHostId } from '../api/PaymentApi';
-import { getMyServiceCombos } from '../api/ServiceComboApi';
-import { getAllReviews } from '../api/ReviewApi';
+import { getCurrentUser } from '../API/SocialMediaApi';
+import { getAllBookings } from '../API/BookingApi';
+import { getPaymentsByHostId } from '../API/PaymentApi';
+import { getMyServiceCombos } from '../API/ServiceComboApi';
+import { getAllReviews } from '../API/ReviewApi';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -39,15 +39,14 @@ const Revenue = () => {
   const [payments, setPayments] = useState([]);
   const [serviceCombos, setServiceCombos] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth() + 1; // 1-12
-  
-  // Filter state - applied immediately
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  
+  const [fromDate, setFromDate] = useState(() => {
+    return new Date().toISOString().split('T')[0]; // Current system date
+  });
+  const [toDate, setToDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
   const [comboSortBy, setComboSortBy] = useState('rating'); // 'rating' or 'revenue'
+  const [chartViewBy, setChartViewBy] = useState('month'); // 'month' or 'year'
   const navigate = useNavigate();
 
   const toggleSidebar = () => setSidebarActive(!sidebarActive);
@@ -174,24 +173,23 @@ const Revenue = () => {
     return status === 'success';
   });
 
-  // Filter payments by selected month and year
-  const paymentsForSelectedMonth = successfulPayments.filter(payment => {
+  // Filter payments by date range
+  const paymentsForDateRange = successfulPayments.filter(payment => {
     const date = payment.PaymentDate || payment.paymentDate || payment.CreatedAt || payment.createdAt;
     if (!date) return false;
-    const paymentDate = new Date(date);
-    return paymentDate.getMonth() + 1 === selectedMonth && 
-           paymentDate.getFullYear() === selectedYear;
+    const paymentDate = new Date(date).toISOString().split('T')[0];
+    return paymentDate >= fromDate && paymentDate <= toDate;
   });
 
-  // Calculate total revenue for selected month
-  const totalRevenue = paymentsForSelectedMonth.reduce((sum, payment) => {
+  // Calculate total revenue for date range
+  const totalRevenue = paymentsForDateRange.reduce((sum, payment) => {
     const amount = payment.Amount || payment.amount || 0;
     return sum + Number(amount);
   }, 0);
 
-  // Group payments by date for the chart (within the selected month)
+  // Group payments by date for the chart
   const paymentsByDate = {};
-  paymentsForSelectedMonth.forEach(payment => {
+  paymentsForDateRange.forEach(payment => {
     const date = payment.PaymentDate || payment.paymentDate || payment.CreatedAt || payment.createdAt;
     if (!date) return;
     
@@ -206,7 +204,8 @@ const Revenue = () => {
     paymentsByDate[dateKey] += Number(amount);
   });
 
-  // Create chart data - get all dates in the selected month and sort them
+  // Create chart data - get all dates in range and sort them
+  // If no payments, create a simple chart with just the date range endpoints
   const allDates = Object.keys(paymentsByDate).sort();
   let chartLabels, chartData;
   
@@ -217,23 +216,13 @@ const Revenue = () => {
     });
     chartData = allDates.map(date => paymentsByDate[date] || 0);
   } else {
-    // If no data, show empty chart with month days
-    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-    chartLabels = Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      return `${day.toString().padStart(2, '0')}/${selectedMonth.toString().padStart(2, '0')}`;
-    });
-    chartData = Array(daysInMonth).fill(0);
-  }
-  
-  // Helper function to get month name
-  const getMonthName = (month) => {
-    const monthNames = [
-      'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-      'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+    // If no data, show empty chart with date range
+    chartLabels = [
+      new Date(fromDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+      new Date(toDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
     ];
-    return monthNames[month - 1] || `Tháng ${month}`;
-  };
+    chartData = [0, 0];
+  }
   
   // Calculate average ratings and total revenue for each service combo
   const combosWithRatings = serviceCombos.map(combo => {
@@ -271,13 +260,19 @@ const Revenue = () => {
         return false;
       }
       
-      // Filter by selected month and year
+      // Filter by date based on chartViewBy
       const bookingDate = booking.CreatedAt || booking.createdAt || booking.BookingDate || booking.bookingDate;
       if (!bookingDate) return false;
       
       const bookingDateObj = new Date(bookingDate);
-      return bookingDateObj.getMonth() + 1 === selectedMonth && 
-             bookingDateObj.getFullYear() === selectedYear;
+      if (chartViewBy === 'month') {
+        // Filter by current month
+        return bookingDateObj.getMonth() + 1 === currentMonth && 
+               bookingDateObj.getFullYear() === currentYear;
+      } else {
+        // Filter by current year
+        return bookingDateObj.getFullYear() === currentYear;
+      }
     });
     
     // Get payments for these bookings
@@ -324,7 +319,7 @@ const Revenue = () => {
   
   // Helper function to get image URL
   const getComboImageUrl = (combo) => {
-    const backend_url = "http://localhost:7267";
+    const backend_url = "http://localhost:5002";
     const DEFAULT_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/esce-a4b58.firebasestorage.app/o/default%2Fstock_nimg.jpg?alt=media&token=623cc75c-6625-4d18-ab1e-ff5ca18b49a1';
     
     const imageName = combo.ImageUrl || combo.Image || combo.image || '';
@@ -392,7 +387,7 @@ const Revenue = () => {
       },
       title: {
         display: true,
-        text: `Doanh thu ${getMonthName(selectedMonth)} ${selectedYear}`
+        text: `Doanh thu từ ${new Date(fromDate).toLocaleDateString('vi-VN')} đến ${new Date(toDate).toLocaleDateString('vi-VN')}`
       },
       tooltip: {
         callbacks: {
@@ -504,49 +499,43 @@ const Revenue = () => {
           <div className="revenue-chart-section">
             <h3 className="revenue-section-title">Doanh thu</h3>
             <div className="revenue-chart-container">
-              {/* Month and Year Calendar Picker */}
+              {/* Date Range Filter */}
               <div className="revenue-date-filter">
                 <div className="revenue-date-filter-group">
-                  <label className="revenue-filter-label">Tháng:</label>
-                  <div className="revenue-month-picker">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
-                      <button
-                        key={month}
-                        className={`revenue-month-btn ${
-                          selectedMonth === month ? 'revenue-month-selected' : ''
-                        }`}
-                        onClick={() => setSelectedMonth(month)}
-                      >
-                        {month}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="revenue-date-filter-group">
-                  <label className="revenue-filter-label">Năm:</label>
+                  <label htmlFor="from-date" className="revenue-filter-label">Từ ngày:</label>
                   <input
-                    type="number"
-                    className="revenue-year-input"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    min="2000"
-                    max="2100"
+                    type="date"
+                    id="from-date"
+                    className="revenue-filter-date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
                   />
                 </div>
+                <div className="revenue-date-filter-group">
+                  <label htmlFor="to-date" className="revenue-filter-label">Đến ngày:</label>
+                  <input
+                    type="date"
+                    id="to-date"
+                    className="revenue-filter-date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
+                <div className="revenue-date-filter-group">
+                  <label htmlFor="chart-view-by" className="revenue-filter-label">Xem theo:</label>
+                  <select
+                    id="chart-view-by"
+                    className="revenue-filter-select"
+                    value={chartViewBy}
+                    onChange={(e) => setChartViewBy(e.target.value)}
+                  >
+                    <option value="month">Theo tháng</option>
+                    <option value="year">Theo năm</option>
+                  </select>
+                </div>
               </div>
-              <div className="revenue-chart-layout">
-                <div className="revenue-chart-wrapper">
-                  <Line data={chartConfig} options={chartOptions} />
-                </div>
-                <div className="revenue-total-display">
-                  <div className="revenue-total-card">
-                    <div className="revenue-total-label">Tổng doanh thu</div>
-                    <div className="revenue-total-value">{formatCurrency(totalRevenue)}</div>
-                    <div className="revenue-total-period">
-                      {getMonthName(selectedMonth)} {selectedYear}
-                    </div>
-                  </div>
-                </div>
+              <div className="revenue-chart-wrapper">
+                <Line data={chartConfig} options={chartOptions} />
               </div>
             </div>
           </div>
@@ -566,6 +555,18 @@ const Revenue = () => {
                   >
                     <option value="rating">Đánh giá</option>
                     <option value="revenue">Doanh thu</option>
+                  </select>
+                </div>
+                <div className="revenue-combo-filter">
+                  <label htmlFor="combo-view-by" className="revenue-filter-label">Xem theo:</label>
+                  <select
+                    id="combo-view-by"
+                    className="revenue-filter-select"
+                    value={chartViewBy}
+                    onChange={(e) => setChartViewBy(e.target.value)}
+                  >
+                    <option value="month">Theo tháng</option>
+                    <option value="year">Theo năm</option>
                   </select>
                 </div>
               </div>

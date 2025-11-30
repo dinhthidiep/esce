@@ -827,28 +827,28 @@ namespace ESCE_SYSTEM.Services.UserService
 
             // Delete Reviews
             var reviews = await _dbContext.Reviews
-                .Where(r => r.AuthorId == id)
+                .Where(r => r.UserId == id)
                 .ToListAsync();
             if (reviews.Any())
             {
                 _dbContext.Reviews.RemoveRange(reviews);
             }
 
-            // Delete Servicecombos (and related ServicecomboDetails)
-            var serviceCombos = await _dbContext.Servicecombos
+            // Delete ServiceCombos (and related ServiceComboDetails)
+            var serviceCombos = await _dbContext.ServiceCombos
                 .Where(sc => sc.HostId == id)
                 .ToListAsync();
             if (serviceCombos.Any())
             {
                 var comboIds = serviceCombos.Select(sc => sc.Id).ToList();
-                var comboDetails = await _dbContext.ServicecomboDetails
-                    .Where(sd => comboIds.Contains(sd.ServicecomboId))
+                var comboDetails = await _dbContext.ServiceComboDetails
+                    .Where(sd => comboIds.Contains(sd.ServiceComboId))
                     .ToListAsync();
                 if (comboDetails.Any())
                 {
-                    _dbContext.ServicecomboDetails.RemoveRange(comboDetails);
+                    _dbContext.ServiceComboDetails.RemoveRange(comboDetails);
                 }
-                _dbContext.Servicecombos.RemoveRange(serviceCombos);
+                _dbContext.ServiceCombos.RemoveRange(serviceCombos);
             }
 
             // Delete Services
@@ -1376,6 +1376,11 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new ArgumentException("ID token cannot be null or empty");
             }
 
+            if (string.IsNullOrWhiteSpace(_jwtSetting?.GoogleClientID))
+            {
+                throw new InvalidOperationException("Google Client ID is not configured");
+            }
+
             try
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings
@@ -1386,7 +1391,11 @@ namespace ESCE_SYSTEM.Services.UserService
             }
             catch (InvalidJwtException exception)
             {
-                throw new InvalidOperationException("Google token validation failed", exception);
+                throw new InvalidOperationException($"Google token validation failed: {exception.Message}. Please check if the Google Client ID matches.", exception);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error verifying Google token: {ex.Message}", ex);
             }
         }
 

@@ -151,9 +151,20 @@ namespace ESCE_SYSTEM.Controllers
 
                 return Ok(new LoginResponseDto { Token = token, UserInfo = user.Adapt<UserProfileDto>() });
             }
+            catch (InvalidOperationException ex)
+            {
+                // Google token validation failed or user creation failed
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                // Log the full exception for debugging
+                Console.WriteLine($"Google login error: {ex}");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình đăng nhập với Google.", error = ex.Message });
             }
         }
 

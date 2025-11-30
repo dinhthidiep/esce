@@ -19,6 +19,7 @@ export default defineConfig([
       globals: globals.browser
     },
     rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'react-refresh/only-export-components': 'warn',
       'react-hooks/rules-of-hooks': 'error',
@@ -33,7 +34,7 @@ export default defineConfig([
       'react/display-name': 0,
       'no-console': 1,
       'no-lonely-if': 1,
-      'no-unused-vars': 1,
+      'no-unused-vars': 0,
       'no-trailing-spaces': 1,
       'no-multi-spaces': 1,
       'no-multiple-empty-lines': 1,

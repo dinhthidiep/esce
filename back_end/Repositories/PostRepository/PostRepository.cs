@@ -125,10 +125,26 @@ namespace ESCE_SYSTEM.Repositories
             var post = await _context.Posts.FindAsync(id);
             if (post == null) return false;
 
+            // Check if already deleted
+            if (post.IsDeleted)
+            {
+                return true; // Already deleted, return success
+            }
+
             post.IsDeleted = true;
             post.UpdatedAt = DateTime.Now;
-            await _context.SaveChangesAsync();
-            return true;
+            
+            var result = await _context.SaveChangesAsync();
+            
+            // Verify the change was saved
+            if (result > 0)
+            {
+                // Reload from database to confirm
+                await _context.Entry(post).ReloadAsync();
+                return post.IsDeleted; // Should be true if saved correctly
+            }
+            
+            return false;
         }
 
         public async Task<int> GetCommentsCountAsync(int postId)
