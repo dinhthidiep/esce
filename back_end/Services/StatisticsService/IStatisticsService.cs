@@ -24,3 +24,4 @@ namespace ESCE_SYSTEM.Services.StatisticsService
     }
 }
 
+
