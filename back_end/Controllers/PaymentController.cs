@@ -47,10 +47,10 @@ namespace ESCE_SYSTEM.Controllers
         public async Task<IActionResult> GetStatus([FromRoute] int bookingId)
         {
             var payment = await _db.Payments.Where(p => p.BookingId == bookingId)
-                .OrderByDescending(p => p.CreatedAt)
+                .OrderByDescending(p => p.PaymentDate)
                 .FirstOrDefaultAsync();
             if (payment == null) return NotFound();
-            return Ok(new { payment.Status, payment.TransactionId, payment.Amount });
+            return Ok(new { payment.Status, payment.Method, payment.Amount });
         }
     }
 }

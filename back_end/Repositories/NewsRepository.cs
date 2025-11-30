@@ -24,7 +24,7 @@ namespace ESCE_SYSTEM.Repositories
         {
             return await _context.News
                 .Include(n => n.Account)
-                .FirstOrDefaultAsync(n => n.Id == id);
+                .FirstOrDefaultAsync(n => n.NewsId == id);
         }
 
         public async Task<IEnumerable<News>> GetByAccountIdAsync(int accountId)

@@ -18,13 +18,14 @@ namespace ESCE_SYSTEM.Models
         public int UsageLimit { get; set; }
         public int? UsageCount { get; set; }
         public int HostId { get; set; }
-        public int ServicecomboId { get; set; }
+        public int? ServiceComboId { get; set; }
         public bool? IsActive { get; set; }
+        public DateTime? ExpiryDate { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
         public virtual Account Host { get; set; } = null!;
-        public virtual Servicecombo Servicecombo { get; set; } = null!;
+        public virtual ServiceCombo? ServiceCombo { get; set; }
         public virtual ICollection<BookingCoupon> BookingCoupons { get; set; }
     }
 }

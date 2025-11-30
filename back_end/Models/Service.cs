@@ -7,7 +7,7 @@ namespace ESCE_SYSTEM.Models
     {
         public Service()
         {
-            ServicecomboDetails = new HashSet<ServicecomboDetail>();
+            ServiceComboDetails = new HashSet<ServiceComboDetail>();
         }
 
         public int Id { get; set; }
@@ -19,6 +19,6 @@ namespace ESCE_SYSTEM.Models
         public DateTime? UpdatedAt { get; set; }
 
         public virtual Account Host { get; set; } = null!;
-        public virtual ICollection<ServicecomboDetail> ServicecomboDetails { get; set; }
+        public virtual ICollection<ServiceComboDetail> ServiceComboDetails { get; set; }
     }
 }

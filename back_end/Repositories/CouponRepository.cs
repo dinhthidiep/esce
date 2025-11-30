@@ -1,11 +1,9 @@
 ﻿using ESCE_SYSTEM.Models;
 using Microsoft.EntityFrameworkCore;
-using Google;
 
 namespace ESCE_SYSTEM.Repositories
 {
-    
-        public class CouponRepository : ICouponRepository
+    public class CouponRepository : ICouponRepository
         {
             private readonly ESCEContext _context;
 
@@ -61,7 +59,7 @@ namespace ESCE_SYSTEM.Repositories
                 return await _context.Coupons
                     .Include(c => c.Host)
                     .Include(c => c.ServiceCombo)
-                    .Where(c => c.IsActive && (c.ExpiryDate == null || c.ExpiryDate > DateTime.Now))
+                    .Where(c => c.IsActive.HasValue && c.IsActive.Value && (c.ExpiryDate == null || c.ExpiryDate > DateTime.Now))
                     .ToListAsync();
             }
 

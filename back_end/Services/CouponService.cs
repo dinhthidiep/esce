@@ -84,7 +84,7 @@ namespace ESCE_SYSTEM.Services
             if (coupon == null) return false;
 
             // Kiểm tra coupon có active không
-            if (!coupon.IsActive) return false;
+            if (!coupon.IsActive.HasValue || !coupon.IsActive.Value) return false;
 
             // Kiểm tra hạn sử dụng
             if (coupon.ExpiryDate.HasValue && coupon.ExpiryDate < DateTime.Now) return false;
