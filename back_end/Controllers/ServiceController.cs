@@ -42,10 +42,10 @@ namespace ESCE_SYSTEM.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update (int id, Service service)
+        public async Task<IActionResult> Update(int id, Service service)
         {
             var result = await _service.UpdateAsync(id, service);
-            if (result == null ) return NotFound();
+            if (result == null) return NotFound();
             return Ok(result);
         }
 
@@ -56,7 +56,7 @@ namespace ESCE_SYSTEM.Controllers
             if (!deleted) return NotFound();
             return Ok("Deleted");
         }
-        
+
 
 
     }

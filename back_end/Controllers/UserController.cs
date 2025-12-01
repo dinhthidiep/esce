@@ -1,7 +1,7 @@
 ﻿using ESCE_SYSTEM.DTOs.BanUnbanUser;
 using ESCE_SYSTEM.DTOs.Certificates;
-using ESCE_SYSTEM.Services.UserService;
-using ESCE_SYSTEM.DTOs.Users;
+using ESCE_SYSTEM.Services.UserService; // Lỗi CS0246: Kiểm tra lại IUserService
+using ESCE_SYSTEM.DTOs.Users; // Lỗi CS0246: Kiểm tra lại UpdateProfileDto
 using ESCE_SYSTEM.Services.UserContextService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -140,34 +140,6 @@ namespace ESCE_SYSTEM.Controllers
         }
         #endregion
 
-        [HttpGet("my-agency-request")]
-        [Authorize]
-        public async Task<IActionResult> GetMyAgencyRequest()
-        {
-            var userIdString = _userContextService.UserId;
-            if (!int.TryParse(userIdString, out int userId))
-            {
-                return Unauthorized("Invalid user information");
-            }
-
-            var certificate = await _userService.GetMyAgencyCertificateAsync(userId);
-            return Ok(certificate);
-        }
-
-        [HttpGet("my-host-request")]
-        [Authorize]
-        public async Task<IActionResult> GetMyHostRequest()
-        {
-            var userIdString = _userContextService.UserId;
-            if (!int.TryParse(userIdString, out int userId))
-            {
-                return Unauthorized("Invalid user information");
-            }
-
-            var certificate = await _userService.GetMyHostCertificateAsync(userId);
-            return Ok(certificate);
-        }
-
         #region User Management Endpoints
         [HttpGet("users")]
         [Authorize(Roles = "Admin")]
@@ -192,63 +164,6 @@ namespace ESCE_SYSTEM.Controllers
             {
                 var user = await _userService.GetAccountByIdAsync(id);
                 return Ok(user);
-            }
-            catch (Exception exception)
-            {
-                return BadRequest(exception.Message);
-            }
-        }
-
-        [HttpPost("create")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserAdminDto dto)
-        {
-            try
-            {
-                var user = await _userService.CreateUserByAdminAsync(dto);
-                return Ok(new { message = "User created successfully", user });
-            }
-            catch (Exception exception)
-            {
-                return BadRequest(exception.Message);
-            }
-        }
-
-        [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateUserByAdmin(int id, [FromBody] UpdateUserAdminDto dto)
-        {
-            try
-            {
-                if (dto == null)
-                {
-                    return BadRequest("Payload is required.");
-                }
-
-                dto.AccountId = id;
-                var updatedUser = await _userService.UpdateUserByAdminAsync(dto);
-                return Ok(new { message = "User updated successfully", user = updatedUser });
-            }
-            catch (Exception exception)
-            {
-                return BadRequest(exception.Message);
-            }
-        }
-
-        [HttpGet("profile")]
-        [Authorize]
-        public async Task<IActionResult> GetProfile()
-        {
-            try
-            {
-                var userIdString = _userContextService.UserId;
-                if (!int.TryParse(userIdString, out int userId))
-                {
-                    return Unauthorized("Invalid user information");
-                }
-
-                var profile = await _userService.GetProfileAsync(userId);
-                return Ok(profile);
             }
             catch (Exception exception)
             {
@@ -300,21 +215,6 @@ namespace ESCE_SYSTEM.Controllers
             {
                 await _userService.UnbanAccount(unbanAccountDto.AccountId);
                 return Ok("Account has been unbanned.");
-            }
-            catch (Exception exception)
-            {
-                return BadRequest(exception.Message);
-            }
-        }
-
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(int id)
-        {
-            try
-            {
-                await _userService.DeleteAccount(id.ToString());
-                return Ok("Account has been deleted successfully.");
             }
             catch (Exception exception)
             {

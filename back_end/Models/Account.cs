@@ -1,4 +1,6 @@
-﻿using System;
+﻿// File: Models/Account.cs
+
+using System;
 using System.Collections.Generic;
 
 namespace ESCE_SYSTEM.Models
@@ -13,7 +15,8 @@ namespace ESCE_SYSTEM.Models
             Comments = new HashSet<Comment>();
             Coupons = new HashSet<Coupon>();
             HostCertificates = new HashSet<HostCertificate>();
-            Messages = new HashSet<Message>();
+            Messages = new HashSet<Message>(); // Tin nhắn gửi
+            MessagesReceived = new HashSet<Message>(); // BỔ SUNG: Tin nhắn nhận (Receiver)
             News = new HashSet<News>();
             Notifications = new HashSet<Notification>();
             Otps = new HashSet<Otp>();
@@ -51,7 +54,8 @@ namespace ESCE_SYSTEM.Models
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Coupon> Coupons { get; set; }
         public virtual ICollection<HostCertificate> HostCertificates { get; set; }
-        public virtual ICollection<Message> Messages { get; set; }
+        public virtual ICollection<Message> Messages { get; set; } // Tin nhắn đã gửi (Sender)
+        public virtual ICollection<Message> MessagesReceived { get; set; } // BỔ SUNG: Tin nhắn đã nhận (Receiver)
         public virtual ICollection<News> News { get; set; }
         public virtual ICollection<Notification> Notifications { get; set; }
         public virtual ICollection<Otp> Otps { get; set; }

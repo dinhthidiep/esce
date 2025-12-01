@@ -12,9 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using ESCE_SYSTEM.DTOs.Notifications;
 using Microsoft.AspNetCore.SignalR;
 using ESCE_SYSTEM.SignalR;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Globalization;
 
@@ -77,6 +75,11 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new ArgumentException("UserEmail cannot be null or empty");
             }
 
+            if (string.IsNullOrWhiteSpace(user.FullName))
+            {
+                throw new ArgumentException("FullName cannot be null or empty");
+            }
+
             if (!isGoogleAccount && string.IsNullOrWhiteSpace(user.Password))
             {
                 throw new ArgumentException("Password cannot be null or empty for non-Google accounts");
@@ -118,7 +121,7 @@ namespace ESCE_SYSTEM.Services.UserService
             {
                 Email = user.UserEmail.ToLower().Trim(),
                 PasswordHash = passwordHash,
-                Name = string.IsNullOrWhiteSpace(user.FullName) ? null : user.FullName.Trim(),
+                Name = user.FullName.Trim(),
                 Phone = string.IsNullOrEmpty(user.Phone) ? null : user.Phone.Trim(),
                 RoleId = roleId,
                 IsActive = isGoogleAccount || !verifyOtp,
@@ -131,74 +134,6 @@ namespace ESCE_SYSTEM.Services.UserService
             {
                 _dbContext.Accounts.Add(account);
                 await _dbContext.SaveChangesAsync();
-            }
-            catch (DbUpdateException exception)
-            {
-                throw new Exception($"Error creating account: {exception.InnerException?.Message ?? exception.Message}", exception);
-            }
-        }
-
-        public async Task<Account> CreateUserByAdminAsync(CreateUserAdminDto dto)
-        {
-            if (dto == null)
-            {
-                throw new ArgumentNullException(nameof(dto), "User data cannot be null");
-            }
-
-            if (string.IsNullOrWhiteSpace(dto.UserEmail))
-            {
-                throw new ArgumentException("UserEmail cannot be null or empty");
-            }
-
-            if (string.IsNullOrWhiteSpace(dto.Password))
-            {
-                throw new ArgumentException("Password cannot be null or empty");
-            }
-
-            if (await _dbContext.Accounts.AnyAsync(account => account.Email.ToLower() == dto.UserEmail.ToLower()))
-            {
-                throw new InvalidOperationException("Email already exists in the system");
-            }
-
-            var roleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Tourist", "Customer" },
-                { "Customer", "Customer" },
-                { "Host", "Host" },
-                { "TravelAgency", "Agency" },
-                { "Travel agency", "Agency" },
-                { "Agency", "Agency" }
-            };
-
-            var normalizedRole = dto.Role?.Trim() ?? "Customer";
-            var targetRoleName = roleNameMap.TryGetValue(normalizedRole, out var mappedRole)
-                ? mappedRole
-                : normalizedRole;
-
-            var role = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Name == targetRoleName);
-            if (role == null)
-            {
-                throw new InvalidOperationException($"Role '{dto.Role}' không tồn tại trong hệ thống");
-            }
-
-            var account = new Account
-            {
-                Email = dto.UserEmail.ToLower().Trim(),
-                PasswordHash = HashPassword(dto.Password),
-                Name = string.IsNullOrWhiteSpace(dto.FullName) ? null : dto.FullName.Trim(),
-                Phone = string.IsNullOrEmpty(dto.Phone) ? null : dto.Phone.Trim(),
-                RoleId = role.Id,
-                IsActive = dto.IsActive,
-                IsBanned = dto.IsBanned,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            try
-            {
-                _dbContext.Accounts.Add(account);
-                await _dbContext.SaveChangesAsync();
-                return account;
             }
             catch (DbUpdateException exception)
             {
@@ -292,113 +227,9 @@ namespace ESCE_SYSTEM.Services.UserService
         public async Task<List<Account>> GetAllUsersAsync()
         {
             return await _dbContext.Accounts
-                .Include(a => a.Role) // vẫn include để lấy Role.Name
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => new Account
-                {
-                    Id = a.Id,
-                    Name = a.Name,
-                    Email = a.Email,
-                    Avatar = a.Avatar,
-                    Phone = a.Phone,
-                    Dob = a.Dob,
-                    Gender = a.Gender,
-                    Address = a.Address,
-                    RoleId = a.RoleId,
-                    //RoleName = a.Role.Name,                    // lấy tên role luôn
-                    IsActive = a.IsActive ?? false,
-                    IsBanned = a.IsBanned,
-                    CreatedAt = a.CreatedAt ?? DateTime.MinValue,
-                    UpdatedAt = a.UpdatedAt ?? DateTime.MinValue
-                })
+                .Include(account => account.Role)
+                .OrderByDescending(account => account.CreatedAt)
                 .ToListAsync();
-        }
-
-        public async Task<Account> UpdateUserByAdminAsync(UpdateUserAdminDto dto)
-        {
-            if (dto == null)
-            {
-                throw new ArgumentNullException(nameof(dto));
-            }
-
-            var account = await _dbContext.Accounts
-                .Include(a => a.Role)
-                .FirstOrDefaultAsync(a => a.Id == dto.AccountId);
-
-            if (account == null)
-            {
-                throw new InvalidOperationException($"Account not found with ID: {dto.AccountId}");
-            }
-
-            // Update Name
-            if (!string.IsNullOrWhiteSpace(dto.Name))
-            {
-                account.Name = dto.Name.Trim();
-            }
-
-            // Update Avatar
-            if (dto.Avatar != null)
-            {
-                account.Avatar = string.IsNullOrWhiteSpace(dto.Avatar) ? null : dto.Avatar.Trim();
-            }
-
-            // Update Phone
-            if (dto.Phone != null)
-            {
-                account.Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
-            }
-
-            // Update DOB
-            if (dto.DOB.HasValue)
-            {
-                account.Dob = dto.DOB.Value;
-            }
-
-            // Update Gender
-            if (dto.Gender != null)
-            {
-                account.Gender = string.IsNullOrWhiteSpace(dto.Gender) ? null : dto.Gender.Trim();
-            }
-
-            // Update Address
-            if (dto.Address != null)
-            {
-                account.Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim();
-            }
-
-            // Update RoleId
-            if (dto.RoleId.HasValue)
-            {
-                var role = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == dto.RoleId.Value);
-                if (role == null)
-                {
-                    throw new InvalidOperationException($"Role với ID {dto.RoleId.Value} không tồn tại trong hệ thống");
-                }
-                account.RoleId = dto.RoleId.Value;
-            }
-
-            // Update IsBanned
-            if (dto.IsBanned.HasValue)
-            {
-                account.IsBanned = dto.IsBanned.Value;
-                // Nếu bị ban thì set IsActive = false
-                if (dto.IsBanned.Value)
-                {
-                    account.IsActive = false;
-                }
-            }
-
-            account.UpdatedAt = DateTime.UtcNow;
-
-            try
-            {
-                await _dbContext.SaveChangesAsync();
-                return account;
-            }
-            catch (DbUpdateException exception)
-            {
-                throw new Exception($"Error updating account: {exception.InnerException?.Message ?? exception.Message}", exception);
-            }
         }
 
         public async Task<Account> UpdateProfileAsync(int userId, UpdateProfileDto updateDto)
@@ -505,35 +336,6 @@ namespace ESCE_SYSTEM.Services.UserService
             }
         }
 
-        public async Task<UserProfileDto> GetProfileAsync(int userId)
-        {
-            var user = await _dbContext.Accounts
-                .Include(account => account.Role)
-                .FirstOrDefaultAsync(account => account.Id == userId);
-
-            if (user == null)
-            {
-                throw new InvalidOperationException("User not found");
-            }
-
-            return new UserProfileDto
-            {
-                Id = user.Id,
-                Email = user.Email,
-                Name = user.Name,
-                Avatar = user.Avatar,
-                Phone = user.Phone,
-                Dob = user.Dob,
-                Gender = user.Gender,
-                Address = user.Address,
-                RoleId = user.RoleId,
-                RoleName = user.Role?.Name ?? string.Empty,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
-            };
-        }
-
         public async Task BanAccount(string accountId, string reason)
         {
             if (!int.TryParse(accountId, out int id))
@@ -586,286 +388,6 @@ namespace ESCE_SYSTEM.Services.UserService
 
             await SendWebNotificationAsync(account, "Unban", "Account",
                 accountId, "Your account has been unbanned");
-        }
-
-        public async Task DeleteAccount(string accountId)
-        {
-            if (!int.TryParse(accountId, out int id))
-            {
-                throw new ArgumentException($"Invalid account ID: {accountId}");
-            }
-
-            var account = await GetAccountByIdAsync(id);
-
-            // Check if account is Admin - prevent deleting admin accounts
-            if (account.RoleId == 1) // Assuming 1 is Admin role ID
-            {
-                throw new InvalidOperationException("Cannot delete admin account");
-            }
-
-            // Delete all related records first
-            // Delete AgencieCertificates
-            var agencieCertificates = await _dbContext.AgencieCertificates
-                .Where(ac => ac.AccountId == id)
-                .ToListAsync();
-            if (agencieCertificates.Any())
-            {
-                _dbContext.AgencieCertificates.RemoveRange(agencieCertificates);
-            }
-
-            // Delete HostCertificates
-            var hostCertificates = await _dbContext.HostCertificates
-                .Where(hc => hc.HostId == id)
-                .ToListAsync();
-            if (hostCertificates.Any())
-            {
-                _dbContext.HostCertificates.RemoveRange(hostCertificates);
-            }
-
-            // Delete Bookings (and related BookingCoupons)
-            var bookings = await _dbContext.Bookings
-                .Where(b => b.UserId == id)
-                .ToListAsync();
-            if (bookings.Any())
-            {
-                var bookingIds = bookings.Select(b => b.Id).ToList();
-                var bookingCoupons = await _dbContext.BookingCoupons
-                    .Where(bc => bookingIds.Contains(bc.BookingId))
-                    .ToListAsync();
-                if (bookingCoupons.Any())
-                {
-                    _dbContext.BookingCoupons.RemoveRange(bookingCoupons);
-                }
-                _dbContext.Bookings.RemoveRange(bookings);
-            }
-
-            // Delete Payments related to bookings
-            if (bookings.Any())
-            {
-                var bookingIds = bookings.Select(b => b.Id).ToList();
-                var payments = await _dbContext.Payments
-                    .Where(p => bookingIds.Contains(p.BookingId))
-                    .ToListAsync();
-                if (payments.Any())
-                {
-                    _dbContext.Payments.RemoveRange(payments);
-                }
-            }
-
-            // Delete Commentreactions (reactions by user)
-            var commentReactions = await _dbContext.Commentreactions
-                .Where(cr => cr.UserId == id)
-                .ToListAsync();
-            if (commentReactions.Any())
-            {
-                _dbContext.Commentreactions.RemoveRange(commentReactions);
-            }
-
-            // Delete Comments by user (and reactions to these comments)
-            var comments = await _dbContext.Comments
-                .Where(c => c.AuthorId == id)
-                .ToListAsync();
-            if (comments.Any())
-            {
-                // Delete reactions to these comments first
-                var commentIds = comments.Select(c => c.Id).ToList();
-                var reactionsToComments = await _dbContext.Commentreactions
-                    .Where(cr => commentIds.Contains(cr.CommentId))
-                    .ToListAsync();
-                if (reactionsToComments.Any())
-                {
-                    _dbContext.Commentreactions.RemoveRange(reactionsToComments);
-                }
-                _dbContext.Comments.RemoveRange(comments);
-            }
-
-            // Delete Coupons
-            var coupons = await _dbContext.Coupons
-                .Where(c => c.HostId == id)
-                .ToListAsync();
-            if (coupons.Any())
-            {
-                _dbContext.Coupons.RemoveRange(coupons);
-            }
-
-            // Delete Messages (both sent and received)
-            var messages = await _dbContext.Messages
-                .Where(m => m.SenderId == id || m.ReceiverId == id)
-                .ToListAsync();
-            if (messages.Any())
-            {
-                _dbContext.Messages.RemoveRange(messages);
-            }
-
-            // Delete News
-            var news = await _dbContext.News
-                .Where(n => n.AccountId == id)
-                .ToListAsync();
-            if (news.Any())
-            {
-                _dbContext.News.RemoveRange(news);
-            }
-
-            // Delete Notifications
-            var notifications = await _dbContext.Notifications
-                .Where(n => n.UserId == id)
-                .ToListAsync();
-            if (notifications.Any())
-            {
-                _dbContext.Notifications.RemoveRange(notifications);
-            }
-
-            // Delete Otps
-            var otps = await _dbContext.Otps
-                .Where(o => o.UserId == id)
-                .ToListAsync();
-            if (otps.Any())
-            {
-                _dbContext.Otps.RemoveRange(otps);
-            }
-
-            // Delete Postreactions
-            var postReactions = await _dbContext.Postreactions
-                .Where(pr => pr.UserId == id)
-                .ToListAsync();
-            if (postReactions.Any())
-            {
-                _dbContext.Postreactions.RemoveRange(postReactions);
-            }
-
-            // Delete Posts (and related reactions, comments, saves)
-            var posts = await _dbContext.Posts
-                .Where(p => p.AuthorId == id)
-                .ToListAsync();
-            if (posts.Any())
-            {
-                var postIds = posts.Select(p => p.Id).ToList();
-                
-                // Delete reactions to these posts
-                var reactionsToPosts = await _dbContext.Postreactions
-                    .Where(pr => postIds.Contains(pr.PostId))
-                    .ToListAsync();
-                if (reactionsToPosts.Any())
-                {
-                    _dbContext.Postreactions.RemoveRange(reactionsToPosts);
-                }
-
-                // Delete saves of these posts
-                var savesOfPosts = await _dbContext.Postsaves
-                    .Where(ps => postIds.Contains(ps.PostId))
-                    .ToListAsync();
-                if (savesOfPosts.Any())
-                {
-                    _dbContext.Postsaves.RemoveRange(savesOfPosts);
-                }
-
-                // Delete comments on these posts (all comments, not just user's comments)
-                // Note: User's own comments were already deleted above
-                var commentsOnPosts = await _dbContext.Comments
-                    .Where(c => postIds.Contains(c.PostId))
-                    .ToListAsync();
-                if (commentsOnPosts.Any())
-                {
-                    var commentIds = commentsOnPosts.Select(c => c.Id).ToList();
-                    // Delete reactions to these comments
-                    var reactionsToPostComments = await _dbContext.Commentreactions
-                        .Where(cr => commentIds.Contains(cr.CommentId))
-                        .ToListAsync();
-                    if (reactionsToPostComments.Any())
-                    {
-                        _dbContext.Commentreactions.RemoveRange(reactionsToPostComments);
-                    }
-                    _dbContext.Comments.RemoveRange(commentsOnPosts);
-                }
-
-                _dbContext.Posts.RemoveRange(posts);
-            }
-
-            // Delete Postsaves
-            var postSaves = await _dbContext.Postsaves
-                .Where(ps => ps.AccountId == id)
-                .ToListAsync();
-            if (postSaves.Any())
-            {
-                _dbContext.Postsaves.RemoveRange(postSaves);
-            }
-
-            // Delete Reactions
-            var reactions = await _dbContext.Reactions
-                .Where(r => r.UserId == id)
-                .ToListAsync();
-            if (reactions.Any())
-            {
-                _dbContext.Reactions.RemoveRange(reactions);
-            }
-
-            // Delete RequestSupports (and related SupportResponses)
-            var requestSupports = await _dbContext.RequestSupports
-                .Where(rs => rs.UserId == id)
-                .ToListAsync();
-            if (requestSupports.Any())
-            {
-                var supportIds = requestSupports.Select(rs => rs.Id).ToList();
-                var supportResponses = await _dbContext.SupportResponses
-                    .Where(sr => supportIds.Contains(sr.SupportId))
-                    .ToListAsync();
-                if (supportResponses.Any())
-                {
-                    _dbContext.SupportResponses.RemoveRange(supportResponses);
-                }
-                _dbContext.RequestSupports.RemoveRange(requestSupports);
-            }
-
-            // Delete SupportResponses where user is responder
-            var supportResponsesAsResponder = await _dbContext.SupportResponses
-                .Where(sr => sr.ResponderId == id)
-                .ToListAsync();
-            if (supportResponsesAsResponder.Any())
-            {
-                _dbContext.SupportResponses.RemoveRange(supportResponsesAsResponder);
-            }
-
-            // Delete Reviews
-            var reviews = await _dbContext.Reviews
-                .Where(r => r.UserId == id)
-                .ToListAsync();
-            if (reviews.Any())
-            {
-                _dbContext.Reviews.RemoveRange(reviews);
-            }
-
-            // Delete ServiceCombos (and related ServiceComboDetails)
-            var serviceCombos = await _dbContext.ServiceCombos
-                .Where(sc => sc.HostId == id)
-                .ToListAsync();
-            if (serviceCombos.Any())
-            {
-                var comboIds = serviceCombos.Select(sc => sc.Id).ToList();
-                var comboDetails = await _dbContext.ServiceComboDetails
-                    .Where(sd => comboIds.Contains(sd.ServiceComboId))
-                    .ToListAsync();
-                if (comboDetails.Any())
-                {
-                    _dbContext.ServiceComboDetails.RemoveRange(comboDetails);
-                }
-                _dbContext.ServiceCombos.RemoveRange(serviceCombos);
-            }
-
-            // Delete Services
-            var services = await _dbContext.Services
-                .Where(s => s.HostId == id)
-                .ToListAsync();
-            if (services.Any())
-            {
-                _dbContext.Services.RemoveRange(services);
-            }
-
-            // Save all deletions
-            await _dbContext.SaveChangesAsync();
-
-            // Finally, delete the account
-            _dbContext.Accounts.Remove(account);
-            await _dbContext.SaveChangesAsync();
         }
 
         public async Task<Account> GetAccountById(int accountId)
@@ -1013,7 +535,27 @@ namespace ESCE_SYSTEM.Services.UserService
                 .OrderByDescending(agencyCertificate => agencyCertificate.CreatedAt)
                 .ToListAsync();
 
-            return certificates.Select<AgencieCertificate, AgencyCertificateResponseDto>(MapAgencyCertificate).ToList();
+            return certificates.Select(agencyCertificate => new AgencyCertificateResponseDto
+            {
+                AgencyId = agencyCertificate.AgencyId,
+                AccountId = agencyCertificate.AccountId,
+                CompanyName = agencyCertificate.Companyname,
+                LicenseFile = agencyCertificate.LicenseFile,
+                Phone = agencyCertificate.Phone,
+                Email = agencyCertificate.Email,
+                Website = agencyCertificate.Website,
+                Status = agencyCertificate.Status,
+                RejectComment = agencyCertificate.RejectComment,
+
+                // --- KHẮC PHỤC LỖI CS0104 & CS8601 ---
+                ReviewComments = JsonSerializer.Deserialize<List<ESCE_SYSTEM.DTOs.Users.AgencyCertificateReViewComment>>(agencyCertificate.ReviewComments)
+                                 ?? new List<ESCE_SYSTEM.DTOs.Users.AgencyCertificateReViewComment>(), // Chỉ định rõ Namespace và dùng ??
+
+                CreatedAt = agencyCertificate.CreatedAt,
+                UpdatedAt = agencyCertificate.UpdatedAt,
+                UserName = agencyCertificate.Account?.Name ?? string.Empty,
+                UserEmail = agencyCertificate.Account?.Email ?? string.Empty
+            }).ToList();
         }
 
         public async Task<List<HostCertificateResponseDto>> GetAllHostCertificatesAsync(string status = null)
@@ -1031,29 +573,26 @@ namespace ESCE_SYSTEM.Services.UserService
                 .OrderByDescending(hostCertificate => hostCertificate.CreatedAt)
                 .ToListAsync();
 
-            return certificates.Select<Models.HostCertificate, HostCertificateResponseDto>(MapHostCertificate).ToList();
-        }
+            return certificates.Select(hostCertificate => new HostCertificateResponseDto
+            {
+                CertificateId = hostCertificate.CertificateId,
+                HostId = hostCertificate.HostId,
+                BusinessLicenseFile = hostCertificate.BusinessLicenseFile,
+                BusinessName = hostCertificate.BusinessName,
+                Phone = hostCertificate.Phone,
+                Email = hostCertificate.Email,
+                Status = hostCertificate.Status,
+                RejectComment = hostCertificate.RejectComment,
 
-        public async Task<AgencyCertificateResponseDto?> GetMyAgencyCertificateAsync(int userId)
-        {
-            var certificate = await _dbContext.AgencieCertificates
-                .Include(c => c.Account)
-                .Where(c => c.AccountId == userId)
-                .OrderByDescending(c => c.CreatedAt)
-                .FirstOrDefaultAsync();
+                // --- KHẮC PHỤC LỖI CS0104 & CS8601 ---
+                ReviewComments = JsonSerializer.Deserialize<List<HostCertificateReViewComment>>(hostCertificate.ReviewComments)
+                                 ?? new List<HostCertificateReViewComment>(), // Chỉ định rõ kiểu và dùng ??
 
-            return certificate == null ? null : MapAgencyCertificate(certificate);
-        }
-
-        public async Task<HostCertificateResponseDto?> GetMyHostCertificateAsync(int userId)
-        {
-            var certificate = await _dbContext.HostCertificates
-                .Include(c => c.Host)
-                .Where(c => c.HostId == userId)
-                .OrderByDescending(c => c.CreatedAt)
-                .FirstOrDefaultAsync();
-
-            return certificate == null ? null : MapHostCertificate(certificate);
+                CreatedAt = hostCertificate.CreatedAt,
+                UpdatedAt = hostCertificate.UpdatedAt,
+                HostName = hostCertificate.Host?.Name ?? string.Empty,
+                HostEmail = hostCertificate.Host?.Email ?? string.Empty
+            }).ToList();
         }
 
         public async Task RequestUpgradeToAgencyAsync(int userId, RequestAgencyUpgradeDto requestDto)
@@ -1242,55 +781,6 @@ namespace ESCE_SYSTEM.Services.UserService
             return (certificate, user, successRoleId, objectType);
         }
 
-        private AgencyCertificateResponseDto MapAgencyCertificate(AgencieCertificate agencyCertificate)
-        {
-            var reviewComments =
-                JsonSerializer.Deserialize<List<DTOs.Users.AgencyCertificateReViewComment>>(agencyCertificate.ReviewComments)
-                ?? new List<DTOs.Users.AgencyCertificateReViewComment>();
-
-            return new AgencyCertificateResponseDto
-            {
-                AgencyId = agencyCertificate.AgencyId,
-                AccountId = agencyCertificate.AccountId,
-                CompanyName = agencyCertificate.Companyname,
-                LicenseFile = agencyCertificate.LicenseFile,
-                Phone = agencyCertificate.Phone,
-                Email = agencyCertificate.Email,
-                Website = agencyCertificate.Website,
-                Status = agencyCertificate.Status,
-                RejectComment = agencyCertificate.RejectComment,
-                ReviewComments = reviewComments,
-                CreatedAt = agencyCertificate.CreatedAt,
-                UpdatedAt = agencyCertificate.UpdatedAt,
-                UserName = agencyCertificate.Account?.Name ?? string.Empty,
-                UserEmail = agencyCertificate.Account?.Email ?? string.Empty
-            };
-        }
-
-        private HostCertificateResponseDto MapHostCertificate(Models.HostCertificate hostCertificate)
-        {
-            var reviewComments =
-                JsonSerializer.Deserialize<List<DTOs.Certificates.HostCertificateReViewComment>>(hostCertificate.ReviewComments)
-                ?? new List<DTOs.Certificates.HostCertificateReViewComment>();
-
-            return new HostCertificateResponseDto
-            {
-                CertificateId = hostCertificate.CertificateId,
-                HostId = hostCertificate.HostId,
-                BusinessLicenseFile = hostCertificate.BusinessLicenseFile,
-                BusinessName = hostCertificate.BusinessName,
-                Phone = hostCertificate.Phone,
-                Email = hostCertificate.Email,
-                Status = hostCertificate.Status,
-                RejectComment = hostCertificate.RejectComment,
-                ReviewComments = reviewComments,
-                CreatedAt = hostCertificate.CreatedAt,
-                UpdatedAt = hostCertificate.UpdatedAt,
-                HostName = hostCertificate.Host?.Name ?? string.Empty,
-                HostEmail = hostCertificate.Host?.Email ?? string.Empty
-            };
-        }
-
         // Helper class for review comments
         private class ReviewComment
         {
@@ -1376,11 +866,6 @@ namespace ESCE_SYSTEM.Services.UserService
                 throw new ArgumentException("ID token cannot be null or empty");
             }
 
-            if (string.IsNullOrWhiteSpace(_jwtSetting?.GoogleClientID))
-            {
-                throw new InvalidOperationException("Google Client ID is not configured");
-            }
-
             try
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings
@@ -1391,11 +876,7 @@ namespace ESCE_SYSTEM.Services.UserService
             }
             catch (InvalidJwtException exception)
             {
-                throw new InvalidOperationException($"Google token validation failed: {exception.Message}. Please check if the Google Client ID matches.", exception);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Error verifying Google token: {ex.Message}", ex);
+                throw new InvalidOperationException("Google token validation failed", exception);
             }
         }
 
