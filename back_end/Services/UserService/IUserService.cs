@@ -10,7 +10,6 @@ namespace ESCE_SYSTEM.Services.UserService
         // Authentication & Basic User Management
         Task<Account> GetUserByUsernameAsync(string userEmail);
         Task CreateUserAsync(RegisterUserDto account, bool verifyOtp, bool isGoogleAccount, int roleId = 4);
-        Task<Account> CreateUserByAdminAsync(CreateUserAdminDto dto);
         bool VerifyPassword(string enteredPassword, string storedHash);
         Task RequestOtp(RequestOtpDto requestOtpDto);
         Task<bool> VerifyOtp(VerifyOtpDto verifyOtpDto);
@@ -29,17 +28,12 @@ namespace ESCE_SYSTEM.Services.UserService
         Task ApproveUpgradeCertificateAsync(ApproveCertificateDto dto);
         Task RejectUpgradeCertificateAsync(RejectCertificateDto dto);
         Task ReviewUpgradeCertificateAsync(ReviewCertificateDto dto);
-        Task<AgencyCertificateResponseDto?> GetMyAgencyCertificateAsync(int userId);
-        Task<HostCertificateResponseDto?> GetMyHostCertificateAsync(int userId);
 
         // User Management
         Task<List<Account>> GetAllUsersAsync();
-        Task<Account> UpdateUserByAdminAsync(UpdateUserAdminDto dto);
-        Task<Account> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
-        Task<UserProfileDto> GetProfileAsync(int userId);
+        Task<Account> UpdateProfileAsync(int userId, UpdateProfileDto updateDto); // Đã sửa lỗi CS0246
         Task BanAccount(string accountId, string reason);
         Task UnbanAccount(string accountId);
-        Task DeleteAccount(string accountId);
         Task<Account> GetAccountById(int accountId);
         Task<Account> GetAccountByIdAsync(int accountId);
         // **BỔ SUNG: Phương thức lấy ID của tất cả Admin và Host**

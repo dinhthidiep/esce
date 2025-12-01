@@ -74,7 +74,7 @@ namespace ESCE_SYSTEM.SeedData
                 var newAdmin = new RegisterUserDto
                 {
                     UserEmail = "admin@gmail.com",
-                    Password = "123",
+                    Password = "123456",
                     FullName = "System Admin",
                     Phone = "123456789"
 

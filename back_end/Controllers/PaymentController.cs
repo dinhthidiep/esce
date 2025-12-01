@@ -1,4 +1,4 @@
-using ESCE_SYSTEM.Models;
+﻿using ESCE_SYSTEM.Models;
 using ESCE_SYSTEM.Services.PaymentService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +54,3 @@ namespace ESCE_SYSTEM.Controllers
         }
     }
 }
-
-
-

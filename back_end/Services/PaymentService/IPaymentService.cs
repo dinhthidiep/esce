@@ -1,4 +1,4 @@
-using ESCE_SYSTEM.Models;
+﻿using ESCE_SYSTEM.Models;
 
 namespace ESCE_SYSTEM.Services.PaymentService
 {
@@ -14,6 +14,3 @@ namespace ESCE_SYSTEM.Services.PaymentService
         Task<bool> HandleWebhookAsync(HttpRequest request);
     }
 }
-
-
-
