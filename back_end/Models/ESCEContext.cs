@@ -48,7 +48,7 @@ namespace ESCE_SYSTEM.Models
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Server=King\\SQLEXPRESS;Database=ESCE;User Id=sa;Password=12345;");
+                optionsBuilder.UseSqlServer("Server=DESKTOP-68M1JL8\\MSSQLSERVERHUNG;Database=ESCE1;Integrated Security=True;TrustServerCertificate=True");
             }
         }
 
@@ -69,7 +69,7 @@ namespace ESCE_SYSTEM.Models
                 entity.Property(e => e.Name).HasMaxLength(100).HasColumnName("NAME");
                 entity.Property(e => e.Password).HasMaxLength(32).IsUnicode(false).HasColumnName("PASSWORD");
                 entity.Property(e => e.PasswordHash).HasMaxLength(500).IsUnicode(false).HasColumnName("PASSWORD_HASH");
-                entity.Property(e => e.IsBanned).HasColumnName("IS_BANNED").HasDefaultValueSql("((0))");
+                entity.Property(e => e.IS_BANNED).HasColumnName("IS_BANNED").HasDefaultValueSql("((0))");
                 entity.Property(e => e.Phone).HasMaxLength(10).IsUnicode(false).HasColumnName("PHONE");
                 entity.Property(e => e.RoleId).HasColumnName("ROLE_ID");
                 entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("UPDATED_AT").HasDefaultValueSql("(getdate())");
@@ -519,7 +519,7 @@ namespace ESCE_SYSTEM.Models
             {
                 entity.ToTable("ROLES");
                 entity.HasIndex(e => e.Name, "UQ__ROLES__D9C1FA000635C206").IsUnique();
-                entity.Property(e => e.Id).ValueGeneratedNever().HasColumnName("ID");
+                entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Description).HasMaxLength(255).HasColumnName("DESCRIPTION");
                 entity.Property(e => e.Name).HasMaxLength(50).HasColumnName("NAME");
             });

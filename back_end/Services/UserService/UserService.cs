@@ -345,13 +345,13 @@ namespace ESCE_SYSTEM.Services.UserService
 
             var account = await GetAccountByIdAsync(id);
 
-            if (account.IsActive == false || account.IsBanned)
+            if (account.IsActive == false || account.IS_BANNED)
             {
                 throw new InvalidOperationException("Account is already banned");
             }
 
             account.IsActive = false;
-            account.IsBanned = true;
+            account.IS_BANNED = true;
             account.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
@@ -372,13 +372,13 @@ namespace ESCE_SYSTEM.Services.UserService
 
             var account = await GetAccountByIdAsync(id);
 
-            if (account.IsActive == true && !account.IsBanned)
+            if (account.IsActive == true && !account.IS_BANNED)
             {
                 throw new InvalidOperationException("Account is not banned");
             }
 
             account.IsActive = true;
-            account.IsBanned = false;
+            account.IS_BANNED = false;
             account.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
