@@ -139,5 +139,3 @@ namespace ESCE_SYSTEM.Controllers
         public string CouponCode { get; set; } = string.Empty;
     }
 }
-
-

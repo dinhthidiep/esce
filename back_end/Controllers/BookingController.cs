@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using ESCE_SYSTEM.Services;
 using ESCE_SYSTEM.Models;
 
@@ -87,11 +87,11 @@ namespace ESCE_SYSTEM.Controllers
         public async Task<IActionResult> CalculateTotalAmount([FromBody] CalculateAmountRequest request)
         {
             var totalAmount = await _service.CalculateTotalAmountAsync(
-                request.ServiceComboId, 
-                request.ServiceId, 
-                request.Quantity, 
+                request.ServiceComboId,
+                request.ServiceId,
+                request.Quantity,
                 request.ItemType);
-            
+
             return Ok(new { TotalAmount = totalAmount });
         }
 

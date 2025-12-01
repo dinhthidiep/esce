@@ -37,7 +37,8 @@ namespace ESCE_SYSTEM.Migrations
                         .HasColumnName("ADDRESS");
 
                     b.Property<string>("Avatar")
-                        .HasColumnType("nvarchar(max)")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("AVATAR");
 
                     b.Property<DateTime?>("CreatedAt")
