@@ -1,4 +1,5 @@
-const backend_url = "http://localhost:7267";
+// Dùng HTTPS khớp với back_end
+const backend_url = "https://localhost:7267";
 
 // Get coupons by service combo ID
 export const getCouponsByComboId = async (comboId) => {

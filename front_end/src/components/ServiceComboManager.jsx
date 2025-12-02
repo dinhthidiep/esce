@@ -5,7 +5,8 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import { getCurrentUser } from '../API/SocialMediaApi';
 
-const backend_url = "http://localhost:5002";
+// Ưu tiên dùng HTTPS khớp với back_end
+const backend_url = "https://localhost:7267";
 // Default image from Firebase Storage
 const DEFAULT_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/esce-a4b58.firebasestorage.app/o/default%2Fstock_nimg.jpg?alt=media&token=623cc75c-6625-4d18-ab1e-ff5ca18b49a1';
 import { deleteService } from '../API/ServiceApi';

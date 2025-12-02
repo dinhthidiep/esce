@@ -69,7 +69,7 @@ namespace ESCE_SYSTEM.Models
                 entity.Property(e => e.Name).HasMaxLength(100).HasColumnName("NAME");
                 entity.Property(e => e.Password).HasMaxLength(32).IsUnicode(false).HasColumnName("PASSWORD");
                 entity.Property(e => e.PasswordHash).HasMaxLength(500).IsUnicode(false).HasColumnName("PASSWORD_HASH");
-                entity.Property(e => e.IsBanned).HasColumnName("IS_BANNED").HasDefaultValueSql("((0))");
+                entity.Property(e => e.IS_BANNED).HasColumnName("IS_BANNED").HasDefaultValueSql("((0))");
                 entity.Property(e => e.Phone).HasMaxLength(10).IsUnicode(false).HasColumnName("PHONE");
                 entity.Property(e => e.RoleId).HasColumnName("ROLE_ID");
                 entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("UPDATED_AT").HasDefaultValueSql("(getdate())");
@@ -519,7 +519,7 @@ namespace ESCE_SYSTEM.Models
             {
                 entity.ToTable("ROLES");
                 entity.HasIndex(e => e.Name, "UQ__ROLES__D9C1FA000635C206").IsUnique();
-                entity.Property(e => e.Id).ValueGeneratedNever().HasColumnName("ID");
+                entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Description).HasMaxLength(255).HasColumnName("DESCRIPTION");
                 entity.Property(e => e.Name).HasMaxLength(50).HasColumnName("NAME");
             });

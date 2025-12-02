@@ -5,10 +5,22 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace ESCE_SYSTEM.Migrations
 {
-    public partial class AllowNullUserIdForOtp : Migration
+    public partial class InitialSetupClean : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "REACTION_TYPES",
+                columns: table => new
+                {
+                    ID = table.Column<byte>(type: "tinyint", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_REACTION_TYPES", x => x.ID);
+                });
+
             migrationBuilder.CreateTable(
                 name: "ROLES",
                 columns: table => new
@@ -31,23 +43,24 @@ namespace ESCE_SYSTEM.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     NAME = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     EMAIL = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    PASSWORD_HASH = table.Column<string>(type: "varchar(32)", unicode: false, maxLength: 32, nullable: false),
-                    PASSWORD_SALT = table.Column<string>(type: "varchar(32)", unicode: false, maxLength: 32, nullable: true),
-                    AVATAR = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    PASSWORD_HASH = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
+                    PASSWORD = table.Column<string>(type: "varchar(32)", unicode: false, maxLength: 32, nullable: true),
+                    AVATAR = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PHONE = table.Column<string>(type: "varchar(10)", unicode: false, maxLength: 10, nullable: true),
                     DOB = table.Column<DateTime>(type: "date", nullable: true),
                     GENDER = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
                     ADDRESS = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    IS_ACTIVE = table.Column<bool>(type: "bit", nullable: true, defaultValueSql: "((1))"),
+                    IS_ACTIVE = table.Column<bool>(type: "bit", nullable: false, defaultValueSql: "((1))"),
                     CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
                     UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    ROLE_ID = table.Column<int>(type: "int", nullable: false)
+                    ROLE_ID = table.Column<int>(type: "int", nullable: false),
+                    IS_BANNED = table.Column<bool>(type: "bit", nullable: false, defaultValueSql: "((0))")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ACCOUNTS", x => x.ID);
                     table.ForeignKey(
-                        name: "FK__ACCOUNTS__ROLE_I__2B3F6F97",
+                        name: "FK_ACCOUNTS_ROLES",
                         column: x => x.ROLE_ID,
                         principalTable: "ROLES",
                         principalColumn: "ID");
@@ -57,27 +70,26 @@ namespace ESCE_SYSTEM.Migrations
                 name: "AGENCIE_CERTIFICATES",
                 columns: table => new
                 {
-                    AgencyId = table.Column<int>(type: "int", nullable: false)
+                    AGENCY_ID = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    AccountId = table.Column<int>(type: "int", nullable: false),
+                    ACCOUNT_ID = table.Column<int>(type: "int", nullable: false),
                     COMPANYNAME = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    LicenseFile = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
-                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Website = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('pending')"),
-                    RejectComment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    ReviewComments = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    Image = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    LICENSE_FILE = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    PHONE = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EMAIL = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    WEBSITE = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('pending')"),
+                    REJECT_COMMENT = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    REVIEW_COMMENTS = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK__AGENCIE___95C546DB5FDFFD15", x => x.AgencyId);
+                    table.PrimaryKey("PK__AGENCIE___95C546DB5FDFFD15", x => x.AGENCY_ID);
                     table.ForeignKey(
                         name: "FK__AGENCIE_C__Accou__3B75D760",
-                        column: x => x.AccountId,
+                        column: x => x.ACCOUNT_ID,
                         principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
@@ -88,24 +100,23 @@ namespace ESCE_SYSTEM.Migrations
                 {
                     CertificateId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    HostId = table.Column<int>(type: "int", nullable: false),
-                    BusinessLicenseFile = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
-                    BusinessName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('pending')"),
-                    RejectComment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    ReviewComments = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    Image = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    HOST_ID = table.Column<int>(type: "int", nullable: false),
+                    BUSINESS_LICENSE_FILE = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    BUSINESS_NAME = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    PHONE = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EMAIL = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('pending')"),
+                    REJECT_COMMENT = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    REVIEW_COMMENTS = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK__HOST_CER__BBF8A7C1722F012C", x => x.CertificateId);
                     table.ForeignKey(
                         name: "FK__HOST_CERT__HostI__35BCFE0A",
-                        column: x => x.HostId,
+                        column: x => x.HOST_ID,
                         principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
@@ -126,6 +137,11 @@ namespace ESCE_SYSTEM.Migrations
                 {
                     table.PrimaryKey("PK_MESSAGES", x => x.ID);
                     table.ForeignKey(
+                        name: "FK__MESSAGES__RECEIV__02084FDB",
+                        column: x => x.RECEIVER_ID,
+                        principalTable: "ACCOUNTS",
+                        principalColumn: "ID");
+                    table.ForeignKey(
                         name: "FK__MESSAGES__SENDER__02084FDA",
                         column: x => x.SENDER_ID,
                         principalTable: "ACCOUNTS",
@@ -136,20 +152,20 @@ namespace ESCE_SYSTEM.Migrations
                 name: "NEWS",
                 columns: table => new
                 {
-                    NewsId = table.Column<int>(type: "int", nullable: false)
+                    NEWS_ID = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    AccountId = table.Column<int>(type: "int", nullable: false),
-                    NewsTitle = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    CreatedDate = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    Image = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    SocialMediaLink = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                    ACCOUNT_ID = table.Column<int>(type: "int", nullable: false),
+                    NEWS_TITLE = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    CREATED_DATE = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    IMAGE = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SOCIAL_MEDIA_LINK = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_NEWS", x => x.NewsId);
+                    table.PrimaryKey("PK_NEWS", x => x.NEWS_ID);
                     table.ForeignKey(
                         name: "FK__NEWS__AccountId__123EB7A3",
-                        column: x => x.AccountId,
+                        column: x => x.ACCOUNT_ID,
                         principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
@@ -164,7 +180,7 @@ namespace ESCE_SYSTEM.Migrations
                     MESSAGE = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     IS_READ = table.Column<bool>(type: "bit", nullable: true, defaultValueSql: "((0))"),
                     CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    Title = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    TITLE = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -182,7 +198,7 @@ namespace ESCE_SYSTEM.Migrations
                 {
                     ID = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    USER_ID = table.Column<int>(type: "int", nullable: false),
+                    USER_ID = table.Column<int>(type: "int", nullable: true),
                     CODE = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
                     EMAIL = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     EXPIRATION_TIME = table.Column<DateTime>(type: "datetime", nullable: false),
@@ -208,9 +224,16 @@ namespace ESCE_SYSTEM.Migrations
                     TITLE = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
                     CONTENT = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     AUTHOR_ID = table.Column<int>(type: "int", nullable: false),
-                    IMAGE = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IMAGE = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValueSql: "('Pending')"),
+                    REJECT_COMMENT = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    REVIEW_COMMENTS = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IS_DELETED = table.Column<bool>(type: "bit", nullable: false, defaultValueSql: "((0))"),
+                    COMMENTS_COUNT = table.Column<int>(type: "int", nullable: false, defaultValueSql: "((0))"),
+                    REACTIONS_COUNT = table.Column<int>(type: "int", nullable: false, defaultValueSql: "((0))"),
+                    SAVES_COUNT = table.Column<int>(type: "int", nullable: false, defaultValueSql: "((0))")
                 },
                 constraints: table =>
                 {
@@ -279,10 +302,10 @@ namespace ESCE_SYSTEM.Migrations
                     PRICE = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     AVAILABLE_SLOTS = table.Column<int>(type: "int", nullable: false),
                     IMAGE = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('open')"),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValueSql: "('open')"),
                     CANCELLATION_POLICY = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
                     HOST_ID = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -291,6 +314,29 @@ namespace ESCE_SYSTEM.Migrations
                     table.ForeignKey(
                         name: "FK__SERVICECO__HOST___45F365D3",
                         column: x => x.HOST_ID,
+                        principalTable: "ACCOUNTS",
+                        principalColumn: "ID");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SYSTEM_LOGS",
+                columns: table => new
+                {
+                    LOG_ID = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    LOG_LEVEL = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    MESSAGE = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    STACK_TRACE = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    USER_ID = table.Column<int>(type: "int", nullable: true),
+                    MODULE = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SYSTEM_LOGS", x => x.LOG_ID);
+                    table.ForeignKey(
+                        name: "FK_SYSTEM_LOGS_ACCOUNTS",
+                        column: x => x.USER_ID,
                         principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
@@ -306,7 +352,10 @@ namespace ESCE_SYSTEM.Migrations
                     PARENT_COMMENT_ID = table.Column<int>(type: "int", nullable: true),
                     CONTENT = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    IMAGE = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                    IMAGE = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    REACTIONS_COUNT = table.Column<int>(type: "int", nullable: false, defaultValueSql: "((0))"),
+                    IS_DELETED = table.Column<bool>(type: "bit", nullable: false, defaultValueSql: "((0))")
                 },
                 constraints: table =>
                 {
@@ -324,20 +373,84 @@ namespace ESCE_SYSTEM.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "POSTREACTIONS",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    PostId = table.Column<int>(type: "int", nullable: false),
+                    ReactionTypeId = table.Column<byte>(type: "tinyint", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_POSTREACTIONS", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK__POSTREACT__PostI__6DCC4D03",
+                        column: x => x.PostId,
+                        principalTable: "POSTS",
+                        principalColumn: "ID",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK__POSTREACT__React__6EC0713C",
+                        column: x => x.ReactionTypeId,
+                        principalTable: "REACTION_TYPES",
+                        principalColumn: "ID");
+                    table.ForeignKey(
+                        name: "FK__POSTREACT__UserI__6CD828CA",
+                        column: x => x.UserId,
+                        principalTable: "ACCOUNTS",
+                        principalColumn: "ID");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "POSTSAVES",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    PostId = table.Column<int>(type: "int", nullable: false),
+                    AccountId = table.Column<int>(type: "int", nullable: false),
+                    SavedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_POSTSAVES", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK__POSTSAVES__Accou__671F4F74",
+                        column: x => x.AccountId,
+                        principalTable: "ACCOUNTS",
+                        principalColumn: "ID");
+                    table.ForeignKey(
+                        name: "FK__POSTSAVES__PostI__681373AD",
+                        column: x => x.PostId,
+                        principalTable: "POSTS",
+                        principalColumn: "ID",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "BOOKINGS",
                 columns: table => new
                 {
                     ID = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     USER_ID = table.Column<int>(type: "int", nullable: false),
-                    COMBO_ID = table.Column<int>(type: "int", nullable: false),
-                    BOOKING_DATE = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
-                    START_DATE = table.Column<DateTime>(type: "date", nullable: false),
-                    END_DATE = table.Column<DateTime>(type: "date", nullable: false),
+                    BOOKING_NUMBER = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    COMBO_ID = table.Column<int>(type: "int", nullable: true),
+                    SERVICE_ID = table.Column<int>(type: "int", nullable: true),
                     QUANTITY = table.Column<int>(type: "int", nullable: false),
+                    UNIT_PRICE = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     TOTAL_AMOUNT = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    NOTES = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true, defaultValueSql: "('pending')")
+                    ITEM_TYPE = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValueSql: "('pending')"),
+                    NOTES = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    BOOKING_DATE = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
+                    CONFIRMED_DATE = table.Column<DateTime>(type: "datetime", nullable: true),
+                    COMPLETED_DATE = table.Column<DateTime>(type: "datetime", nullable: true),
+                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
+                    UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
                 },
                 constraints: table =>
                 {
@@ -346,6 +459,11 @@ namespace ESCE_SYSTEM.Migrations
                         name: "FK__BOOKINGS__COMBO___59FA5E80",
                         column: x => x.COMBO_ID,
                         principalTable: "SERVICECOMBO",
+                        principalColumn: "ID");
+                    table.ForeignKey(
+                        name: "FK__BOOKINGS__SERVIC__59FA5E81",
+                        column: x => x.SERVICE_ID,
+                        principalTable: "SERVICE",
                         principalColumn: "ID");
                     table.ForeignKey(
                         name: "FK__BOOKINGS__USER_I__59063A47",
@@ -367,8 +485,9 @@ namespace ESCE_SYSTEM.Migrations
                     USAGE_LIMIT = table.Column<int>(type: "int", nullable: false),
                     USAGE_COUNT = table.Column<int>(type: "int", nullable: true, defaultValueSql: "((0))"),
                     HOST_ID = table.Column<int>(type: "int", nullable: false),
-                    SERVICECOMBO_ID = table.Column<int>(type: "int", nullable: false),
+                    SERVICECOMBO_ID = table.Column<int>(type: "int", nullable: true),
                     IS_ACTIVE = table.Column<bool>(type: "bit", nullable: true, defaultValueSql: "((1))"),
+                    EXPIRY_DATE = table.Column<DateTime>(type: "datetime", nullable: true),
                     CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
                     UPDATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
                 },
@@ -418,34 +537,6 @@ namespace ESCE_SYSTEM.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "REVIEWS",
-                columns: table => new
-                {
-                    ID = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    COMBO_ID = table.Column<int>(type: "int", nullable: false),
-                    AUTHOR_ID = table.Column<int>(type: "int", nullable: false),
-                    PARENT_REVIEW_ID = table.Column<int>(type: "int", nullable: true),
-                    RATING = table.Column<int>(type: "int", nullable: true),
-                    CONTENT = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CREATED_AT = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_REVIEWS", x => x.ID);
-                    table.ForeignKey(
-                        name: "FK__REVIEWS__AUTHOR___693CA210",
-                        column: x => x.AUTHOR_ID,
-                        principalTable: "ACCOUNTS",
-                        principalColumn: "ID");
-                    table.ForeignKey(
-                        name: "FK__REVIEWS__COMBO_I__68487DD7",
-                        column: x => x.COMBO_ID,
-                        principalTable: "SERVICECOMBO",
-                        principalColumn: "ID");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "SERVICECOMBO_DETAIL",
                 columns: table => new
                 {
@@ -453,7 +544,7 @@ namespace ESCE_SYSTEM.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     SERVICECOMBO_ID = table.Column<int>(type: "int", nullable: false),
                     SERVICE_ID = table.Column<int>(type: "int", nullable: false),
-                    QUANTITY = table.Column<int>(type: "int", nullable: true, defaultValueSql: "((1))")
+                    QUANTITY = table.Column<int>(type: "int", nullable: false, defaultValueSql: "((1))")
                 },
                 constraints: table =>
                 {
@@ -467,6 +558,38 @@ namespace ESCE_SYSTEM.Migrations
                         name: "FK__SERVICECO__SERVI__4AB81AF0",
                         column: x => x.SERVICE_ID,
                         principalTable: "SERVICE",
+                        principalColumn: "ID");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "COMMENTREACTIONS",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CommentId = table.Column<int>(type: "int", nullable: false),
+                    ReactionTypeId = table.Column<byte>(type: "tinyint", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_COMMENTREACTIONS", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK__COMMENTRE__Comme__74794A92",
+                        column: x => x.CommentId,
+                        principalTable: "COMMENTS",
+                        principalColumn: "ID",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK__COMMENTRE__React__756D6ECB",
+                        column: x => x.ReactionTypeId,
+                        principalTable: "REACTION_TYPES",
+                        principalColumn: "ID");
+                    table.ForeignKey(
+                        name: "FK__COMMENTRE__UserI__73852659",
+                        column: x => x.UserId,
+                        principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
 
@@ -489,6 +612,34 @@ namespace ESCE_SYSTEM.Migrations
                         name: "FK__PAYMENTS__BOOKIN__6477ECF3",
                         column: x => x.BOOKING_ID,
                         principalTable: "BOOKINGS",
+                        principalColumn: "ID");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "REVIEWS",
+                columns: table => new
+                {
+                    ID = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    BOOKING_ID = table.Column<int>(type: "int", nullable: false),
+                    USER_ID = table.Column<int>(type: "int", nullable: false),
+                    RATING = table.Column<int>(type: "int", nullable: false),
+                    COMMENT = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CREATED_DATE = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
+                    STATUS = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValueSql: "('pending')")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_REVIEWS", x => x.ID);
+                    table.ForeignKey(
+                        name: "FK__REVIEWS__BOOKING_I__68487DD7",
+                        column: x => x.BOOKING_ID,
+                        principalTable: "BOOKINGS",
+                        principalColumn: "ID");
+                    table.ForeignKey(
+                        name: "FK__REVIEWS__USER_ID__693CA210",
+                        column: x => x.USER_ID,
+                        principalTable: "ACCOUNTS",
                         principalColumn: "ID");
                 });
 
@@ -556,9 +707,9 @@ namespace ESCE_SYSTEM.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AGENCIE_CERTIFICATES_AccountId",
+                name: "IX_AGENCIE_CERTIFICATES_ACCOUNT_ID",
                 table: "AGENCIE_CERTIFICATES",
-                column: "AccountId");
+                column: "ACCOUNT_ID");
 
             migrationBuilder.CreateIndex(
                 name: "IX_BOOKING_COUPONS_COUPON_ID",
@@ -577,17 +728,38 @@ namespace ESCE_SYSTEM.Migrations
                 column: "COMBO_ID");
 
             migrationBuilder.CreateIndex(
+                name: "IX_BOOKINGS_SERVICE_ID",
+                table: "BOOKINGS",
+                column: "SERVICE_ID");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_BOOKINGS_USER_ID",
                 table: "BOOKINGS",
                 column: "USER_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_COMMENTS_AUTHOR_ID",
+                name: "IX_CommentReactions_CommentID",
+                table: "COMMENTREACTIONS",
+                column: "CommentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_COMMENTREACTIONS_ReactionTypeId",
+                table: "COMMENTREACTIONS",
+                column: "ReactionTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ__COMMENTR__ABB381B18C8E7178",
+                table: "COMMENTREACTIONS",
+                columns: new[] { "UserId", "CommentId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_AuthorID",
                 table: "COMMENTS",
                 column: "AUTHOR_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_COMMENTS_POST_ID",
+                name: "IX_Comments_PostID",
                 table: "COMMENTS",
                 column: "POST_ID");
 
@@ -608,9 +780,14 @@ namespace ESCE_SYSTEM.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_HOST_CERTIFICATES_HostId",
+                name: "IX_HOST_CERTIFICATES_HOST_ID",
                 table: "HOST_CERTIFICATES",
-                column: "HostId");
+                column: "HOST_ID");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MESSAGES_RECEIVER_ID",
+                table: "MESSAGES",
+                column: "RECEIVER_ID");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MESSAGES_SENDER_ID",
@@ -618,9 +795,9 @@ namespace ESCE_SYSTEM.Migrations
                 column: "SENDER_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_NEWS_AccountId",
+                name: "IX_NEWS_ACCOUNT_ID",
                 table: "NEWS",
-                column: "AccountId");
+                column: "ACCOUNT_ID");
 
             migrationBuilder.CreateIndex(
                 name: "IX_NOTIFICATIONS_USER_ID",
@@ -638,9 +815,42 @@ namespace ESCE_SYSTEM.Migrations
                 column: "BOOKING_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_POSTS_AUTHOR_ID",
+                name: "IX_PostReactions_PostID",
+                table: "POSTREACTIONS",
+                column: "PostId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_POSTREACTIONS_ReactionTypeId",
+                table: "POSTREACTIONS",
+                column: "ReactionTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ__POSTREAC__8D29EA4C21AF919E",
+                table: "POSTREACTIONS",
+                columns: new[] { "UserId", "PostId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Posts_AuthorID",
                 table: "POSTS",
                 column: "AUTHOR_ID");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_POSTSAVES_PostId",
+                table: "POSTSAVES",
+                column: "PostId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_PostSave_UserPost",
+                table: "POSTSAVES",
+                columns: new[] { "AccountId", "PostId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "UQ__REACTION__737584F61492C36B",
+                table: "REACTION_TYPES",
+                column: "Name",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_REACTIONS_USER_ID",
@@ -658,14 +868,14 @@ namespace ESCE_SYSTEM.Migrations
                 column: "USER_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_REVIEWS_AUTHOR_ID",
+                name: "IX_REVIEWS_BOOKING_ID",
                 table: "REVIEWS",
-                column: "AUTHOR_ID");
+                column: "BOOKING_ID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_REVIEWS_COMBO_ID",
+                name: "IX_REVIEWS_USER_ID",
                 table: "REVIEWS",
-                column: "COMBO_ID");
+                column: "USER_ID");
 
             migrationBuilder.CreateIndex(
                 name: "UQ__ROLES__D9C1FA000635C206",
@@ -702,6 +912,11 @@ namespace ESCE_SYSTEM.Migrations
                 name: "IX_SUPPORT_RESPONSES_SUPPORT_ID",
                 table: "SUPPORT_RESPONSES",
                 column: "SUPPORT_ID");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SYSTEM_LOGS_USER_ID",
+                table: "SYSTEM_LOGS",
+                column: "USER_ID");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -713,7 +928,7 @@ namespace ESCE_SYSTEM.Migrations
                 name: "BOOKING_COUPONS");
 
             migrationBuilder.DropTable(
-                name: "COMMENTS");
+                name: "COMMENTREACTIONS");
 
             migrationBuilder.DropTable(
                 name: "HOST_CERTIFICATES");
@@ -734,6 +949,12 @@ namespace ESCE_SYSTEM.Migrations
                 name: "PAYMENTS");
 
             migrationBuilder.DropTable(
+                name: "POSTREACTIONS");
+
+            migrationBuilder.DropTable(
+                name: "POSTSAVES");
+
+            migrationBuilder.DropTable(
                 name: "REACTIONS");
 
             migrationBuilder.DropTable(
@@ -746,19 +967,28 @@ namespace ESCE_SYSTEM.Migrations
                 name: "SUPPORT_RESPONSES");
 
             migrationBuilder.DropTable(
+                name: "SYSTEM_LOGS");
+
+            migrationBuilder.DropTable(
                 name: "COUPONS");
 
             migrationBuilder.DropTable(
-                name: "POSTS");
+                name: "COMMENTS");
+
+            migrationBuilder.DropTable(
+                name: "REACTION_TYPES");
 
             migrationBuilder.DropTable(
                 name: "BOOKINGS");
 
             migrationBuilder.DropTable(
-                name: "SERVICE");
+                name: "REQUEST_SUPPORTS");
 
             migrationBuilder.DropTable(
-                name: "REQUEST_SUPPORTS");
+                name: "POSTS");
+
+            migrationBuilder.DropTable(
+                name: "SERVICE");
 
             migrationBuilder.DropTable(
                 name: "SERVICECOMBO");

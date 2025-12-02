@@ -45,7 +45,7 @@ namespace ESCE_SYSTEM.Models
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int RoleId { get; set; }
-        public bool IsBanned { get; set; }
+        public bool IS_BANNED { get; set; }
 
         public virtual Role Role { get; set; } = null!;
         public virtual ICollection<AgencieCertificate> AgencieCertificates { get; set; }

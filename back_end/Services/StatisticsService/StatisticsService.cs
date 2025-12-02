@@ -123,8 +123,8 @@ namespace ESCE_SYSTEM.Services.StatisticsService
             var (startDate, endDate, _, _) = GetDateRange(filter);
 
             var totalUsers = await _context.Accounts.CountAsync();
-            var activeUsers = await _context.Accounts.CountAsync(a => a.IsActive == true && !a.IsBanned);
-            var bannedUsers = await _context.Accounts.CountAsync(a => a.IsBanned);
+            var activeUsers = await _context.Accounts.CountAsync(a => a.IsActive == true && !a.IS_BANNED);
+            var bannedUsers = await _context.Accounts.CountAsync(a => a.IS_BANNED);
             var newUsersThisPeriod = await _context.Accounts
                 .CountAsync(a => a.CreatedAt >= startDate && a.CreatedAt <= endDate);
 
