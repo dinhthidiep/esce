@@ -36,12 +36,18 @@ const LazyImage = ({
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     if (!hasError && currentSrc !== fallbackSrc) {
       // Thử load fallback nếu chưa thử
-      console.warn(`Không thể load ảnh "${currentSrc}", thử fallback: ${fallbackSrc}`)
+      // Chỉ log trong development mode để tránh spam console
+      if (import.meta.env.DEV) {
+        console.warn(`⚠️ [LazyImage] Không thể load ảnh "${currentSrc}", thử fallback: ${fallbackSrc}`)
+      }
       setHasError(true)
       setCurrentSrc(fallbackSrc)
     } else {
       // Nếu fallback cũng lỗi, vẫn hiển thị ảnh (có thể là broken image)
-      console.error(`Không thể load cả ảnh và fallback: ${currentSrc}`)
+      // Chỉ log trong development mode
+      if (import.meta.env.DEV) {
+        console.error(`❌ [LazyImage] Không thể load cả ảnh và fallback: ${currentSrc}`)
+      }
     }
   }
 
@@ -65,4 +71,8 @@ const LazyImage = ({
 }
 
 export default LazyImage
+
+
+
+
 

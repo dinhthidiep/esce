@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '~/components/Header'
+import Footer from '~/components/Footer'
 import Button from '~/components/ui/Button'
 import { Card, CardContent } from '~/components/ui/Card'
 import LazyImage from '~/components/LazyImage'
@@ -271,9 +272,12 @@ const AboutPage = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   )
 }
 
 export default AboutPage
+
+
 

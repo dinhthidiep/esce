@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, type ChangeEvent, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
 import Header from '~/components/Header'
+import Footer from '~/components/Footer'
 import Button from '~/components/ui/Button'
 import { Card, CardContent } from '~/components/ui/Card'
 import Badge from '~/components/ui/Badge'
@@ -20,25 +20,14 @@ import {
 } from '~/components/icons'
 import { formatPrice, createSlug, getImageUrl } from '~/lib/utils'
 import { useTours } from '~/hooks/useTours'
-import { API_BASE_URL } from '~/config/api'
+import axiosInstance from '~/utils/axiosInstance'
+import { API_ENDPOINTS } from '~/config/api'
+import type { ServiceItem } from '~/types/serviceCombo'
+import type { ServiceComboResponse } from '~/types/serviceCombo'
 import './ServicesPage.css'
 
 // Sử dụng đường dẫn public URL thay vì import
 const baNaHillImage = '/img/banahills.jpg'
-
-interface ServiceItem {
-  id: number | null
-  name: string
-  slug: string
-  image: string
-  rating: number
-  price: number
-  address: string
-  availableSlots: number
-  status: string
-  description: string
-  originalPrice?: number
-}
 
 interface TourCardProps {
   tour: ServiceItem
@@ -50,11 +39,12 @@ interface TourCardProps {
 
 type SortBy = 'popular' | 'price-low' | 'price-high' | 'name'
 type ViewMode = 'grid' | 'list'
+type PriceRange = 'all' | 'under-500k' | '500k-1m' | '1m-2m' | '2m-3m' | 'over-3m'
 
 const ServicesPage = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [searchName, setSearchName] = useState('')
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000000])
+  const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRange>('all')
   const [sortBy, setSortBy] = useState<SortBy>('popular')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [favorites, setFavorites] = useState<Set<number>>(new Set())
@@ -89,12 +79,12 @@ const ServicesPage = () => {
       if (!tours || tours.length === 0) return
 
       const ratingPromises = tours.map(async (tour) => {
-        const id = tour.Id !== undefined ? tour.Id : tour.id !== undefined ? tour.id : null
+        const id = tour.Id
         if (!id) return null
 
         try {
-          const response = await axios.get<{ AverageRating?: number }>(
-            `${API_BASE_URL}/Review/servicecombo/${id}/average-rating`
+          const response = await axiosInstance.get<{ AverageRating?: number }>(
+            `/Review/servicecombo/${id}/average-rating`
           )
           const rating = response.data.AverageRating || 0
           return { id, rating: parseFloat(String(rating)) || 0 }
@@ -119,54 +109,68 @@ const ServicesPage = () => {
     fetchRatings()
   }, [tours])
 
-  // Max price cố định: 5,000,000đ
-  const maxPrice = 5000000
 
   // Transform API data to display format
   // API trả về PascalCase (Id, Name, Price, etc.) nên cần xử lý cả hai trường hợp
   const allServices = useMemo(() => {
+    console.log('🔄 [ServicesPage] Processing tours data:')
+    console.log('  - tours:', tours)
+    console.log('  - tours length:', tours?.length || 0)
+    console.log('  - toursLoading:', toursLoading)
+    console.log('  - toursError:', toursError)
+    
     if (!tours || tours.length === 0) {
-      console.log('ServicesPage: Không có tours từ API')
+      console.warn('⚠️ [ServicesPage] Không có tours từ API hoặc mảng rỗng')
+      console.warn('  - tours is:', tours)
+      console.warn('  - Loading:', toursLoading)
+      console.warn('  - Error:', toursError)
       return []
     }
 
-    console.log(`ServicesPage: Nhận được ${tours.length} tours từ API`)
-    console.log('Sample tour data:', tours[0])
+    console.log(`✅ [ServicesPage] Nhận được ${tours.length} tour(s) từ API`)
+    console.log('  - Sample tour data:', tours[0])
+    console.log('  - Full tours array:', JSON.stringify(tours, null, 2))
 
+    // Log tất cả status để debug
+    console.log('🔍 [ServicesPage] Kiểm tra status của tất cả tours:')
+    tours.forEach((tour, index) => {
+      const status = tour.Status || 'N/A'
+      const id = tour.Id || 'N/A'
+      const name = tour.Name || 'N/A'
+      console.log(`  Tour ${index + 1}: ID=${id}, Name="${name}", Status="${status}"`)
+    })
+
+    // Backend trả về PascalCase (Id, Name, Status, etc.) vì PropertyNamingPolicy = null
+    // Filter các service có status = 'open' (theo database schema default)
     const mappedServices: ServiceItem[] = tours
-      .filter((tour) => {
-        // Chỉ lấy các tour có status 'open'
-        // Xử lý cả PascalCase và camelCase
-        const status = (tour.Status || tour.status || 'open') as string
-        const isOpen = status.toLowerCase() === 'open'
+      .filter((tour: ServiceComboResponse) => {
+        // Backend trả về Status với PascalCase, default = "open"
+        const status = (tour.Status || 'open').toLowerCase().trim()
+        const isOpen = status === 'open'
+        
         if (!isOpen) {
-          console.log(`Bỏ qua tour có status: ${status}`)
+          console.log(`⚠️ [ServicesPage] Bỏ qua service có status: "${tour.Status}" (ID: ${tour.Id}, Name: ${tour.Name})`)
         }
         return isOpen
       })
-      .map((tour) => {
-        // Xử lý cả PascalCase và camelCase
-        // API trả về PascalCase nên ưu tiên PascalCase trước
-        const id = tour.Id !== undefined ? tour.Id : tour.id !== undefined ? tour.id : null
-        const name = (tour.Name || tour.name || 'Tour chưa có tên') as string
-        const imagePath = (tour.Image || tour.image || '') as string
-        // Xử lý trường hợp có nhiều ảnh phân cách bởi dấu phẩy - lấy ảnh đầu tiên cho card
-        let firstImage = imagePath
+      .map((tour: ServiceComboResponse) => {
+        // Map từ PascalCase (backend) sang camelCase (frontend)
+        const id = tour.Id
+        const name = tour.Name || 'Tour chưa có tên'
+        
+        // Xử lý Image - có thể là string hoặc null
+        let imagePath = tour.Image || ''
+        // Nếu có nhiều ảnh phân cách bởi dấu phẩy, lấy ảnh đầu tiên
         if (imagePath && typeof imagePath === 'string' && imagePath.includes(',')) {
-          firstImage = imagePath.split(',')[0].trim()
+          imagePath = imagePath.split(',')[0].trim()
         }
-        // Sử dụng getImageUrl để xử lý đường dẫn ảnh từ database
-        const image = getImageUrl(firstImage, baNaHillImage)
-        const address = (tour.Address || tour.address || 'Đà Nẵng') as string
-        const price = parseFloat(String(tour.Price || tour.price || 0))
-        const availableSlots =
-          tour.AvailableSlots !== undefined
-            ? tour.AvailableSlots
-            : tour.availableSlots !== undefined
-              ? tour.availableSlots
-              : 0
-        const status = (tour.Status || tour.status || 'open') as string
-        const description = (tour.Description || tour.description || '') as string
+        const image = getImageUrl(imagePath, baNaHillImage)
+        
+        const address = tour.Address || 'Đà Nẵng'
+        const price = Number(tour.Price) || 0
+        const availableSlots = tour.AvailableSlots || 0
+        const status = tour.Status || 'open'
+        const description = tour.Description || ''
 
         // Lấy rating từ state, mặc định là 0 nếu chưa có
         const serviceRating = id !== null && ratings[id] !== undefined ? ratings[id] : 0
@@ -176,19 +180,23 @@ const ServicesPage = () => {
           name: name,
           slug: createSlug(name) || `service-${id}`,
           image: image,
-          rating: serviceRating, // Rating từ API
+          rating: serviceRating,
           price: price,
           address: address,
-          availableSlots: availableSlots as number,
+          availableSlots: availableSlots,
           status: status,
           description: description,
         }
 
-        console.log(`Mapped service:`, { id, name, price, status, image })
         return mappedService
       })
 
-    console.log(`ServicesPage: Mapped ${mappedServices.length} services`)
+    console.log(`✅ [ServicesPage] Đã map thành công ${mappedServices.length} service(s) từ ${tours.length} tour(s)`)
+    if (mappedServices.length === 0 && tours.length > 0) {
+      console.warn('⚠️ [ServicesPage] Cảnh báo: Có tours nhưng không có service nào được map')
+      console.warn('  - Có thể tất cả services đều có status khác "open"')
+      console.warn('  - Tours status:', tours.map(t => ({ id: t.Id, name: t.Name, status: t.Status })))
+    }
     return mappedServices
   }, [tours, ratings])
 
@@ -208,8 +216,25 @@ const ServicesPage = () => {
     }
 
     // Filter by price range
-    const [minPrice, maxPrice] = priceRange
-    filtered = filtered.filter((service) => service.price >= minPrice && service.price <= maxPrice)
+    if (selectedPriceRange !== 'all') {
+      filtered = filtered.filter((service) => {
+        const price = service.price
+        switch (selectedPriceRange) {
+          case 'under-500k':
+            return price < 500000
+          case '500k-1m':
+            return price >= 500000 && price < 1000000
+          case '1m-2m':
+            return price >= 1000000 && price < 2000000
+          case '2m-3m':
+            return price >= 2000000 && price < 3000000
+          case 'over-3m':
+            return price >= 3000000
+          default:
+            return true
+        }
+      })
+    }
 
     // Sort
     switch (sortBy) {
@@ -230,7 +255,7 @@ const ServicesPage = () => {
     }
 
     return filtered
-  }, [allServices, searchName, priceRange, sortBy])
+  }, [allServices, searchName, selectedPriceRange, sortBy])
 
   const toggleFavorite = (id: number | null) => {
     if (id === null) return
@@ -307,78 +332,93 @@ const ServicesPage = () => {
                 </button>
               </div>
 
-              {/* Search by Name */}
+              {/* Price Range */}
               <div className="filter-section">
-                <h3 className="filter-section-title">Tìm kiếm</h3>
-                <div className="filter-search-box">
-                  <SearchIcon className="filter-search-icon" />
-                  <input
-                    type="text"
-                    className="filter-search-input"
-                    placeholder="Tìm tour, địa điểm, mô tả..."
-                    value={searchName}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
-                    aria-label="Tìm kiếm tour du lịch"
-                  />
+                <h3 className="filter-section-title">Chọn mức giá</h3>
+                <div className="filter-radio-group">
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="all"
+                      checked={selectedPriceRange === 'all'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>Tất cả</span>
+                  </label>
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="under-500k"
+                      checked={selectedPriceRange === 'under-500k'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>Giá dưới 500.000đ</span>
+                  </label>
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="500k-1m"
+                      checked={selectedPriceRange === '500k-1m'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>500.000đ - 1 triệu</span>
+                  </label>
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="1m-2m"
+                      checked={selectedPriceRange === '1m-2m'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>1 - 2 triệu</span>
+                  </label>
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="2m-3m"
+                      checked={selectedPriceRange === '2m-3m'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>2 - 3 triệu</span>
+                  </label>
+                  <label className="filter-radio-option">
+                    <input
+                      type="radio"
+                      name="price-range"
+                      value="over-3m"
+                      checked={selectedPriceRange === 'over-3m'}
+                      onChange={(e) => setSelectedPriceRange(e.target.value as PriceRange)}
+                    />
+                    <span>Giá trên 3 triệu</span>
+                  </label>
                 </div>
               </div>
 
-              {/* Price Range */}
-              <div className="filter-section">
-                <h3 className="filter-section-title">Giá</h3>
-                <div className="price-range-filter">
-                  <div className="price-range-display">
-                    <span className="price-range-value">{formatPrice(priceRange[0])}</span>
-                    <span className="price-range-separator">-</span>
-                    <span className="price-range-value">{formatPrice(priceRange[1])}</span>
-                  </div>
-                  <div
-                    className="price-range-slider-wrapper"
-                    style={{
-                      '--min-percent': `${(priceRange[0] / maxPrice) * 100}`,
-                      '--max-percent': `${(priceRange[1] / maxPrice) * 100}`,
-                    } as React.CSSProperties}
-                  >
-                    <input
-                      type="range"
-                      min="0"
-                      max={maxPrice}
-                      step={Math.max(10000, Math.floor(maxPrice / 100))}
-                      value={priceRange[0]}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const newMin = parseInt(e.target.value)
-                        if (newMin <= priceRange[1]) {
-                          setPriceRange([newMin, priceRange[1]])
-                        }
-                      }}
-                      className="price-range-slider price-range-slider-min"
-                      aria-label="Giá tối thiểu"
-                    />
-                    <input
-                      type="range"
-                      min="0"
-                      max={maxPrice}
-                      step={Math.max(10000, Math.floor(maxPrice / 100))}
-                      value={priceRange[1]}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const newMax = parseInt(e.target.value)
-                        if (newMax >= priceRange[0]) {
-                          setPriceRange([priceRange[0], newMax])
-                        }
-                      }}
-                      className="price-range-slider price-range-slider-max"
-                      aria-label="Giá tối đa"
-                    />
-                  </div>
-                </div>
-              </div>
             </aside>
 
             {/* Right Content - Tour Listings */}
             <div className="services-main-content">
               {/* Results Header */}
               <div className="results-header">
-                <div className="results-count">{filteredAndSortedServices.length} kết quả</div>
+                <div className="results-header-left">
+                  <div className="results-search-box">
+                    <SearchIcon className="results-search-icon" />
+                    <input
+                      type="text"
+                      className="results-search-input"
+                      placeholder="Tìm tour, địa điểm, mô tả..."
+                      value={searchName}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
+                      aria-label="Tìm kiếm tour du lịch"
+                    />
+                  </div>
+                  <div className="results-count">{filteredAndSortedServices.length} kết quả</div>
+                </div>
                 <div className="results-controls">
                   <div className="sort-dropdown">
                     <select
@@ -414,19 +454,65 @@ const ServicesPage = () => {
 
               {/* Tour Cards */}
               {toursLoading ? (
-                <LoadingSpinner message="Đang tải danh sách tour..." />
+                <LoadingSpinner message="Đang tải danh sách dịch vụ..." />
               ) : toursError ? (
-                <div className="error-container" role="alert">
-                  <p className="error-message">Không thể tải danh sách tour từ server. {toursError}</p>
+                <div className="error-container" role="alert" style={{ 
+                  padding: '2rem', 
+                  textAlign: 'center',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #ef4444',
+                  borderRadius: '8px',
+                  margin: '2rem 0'
+                }}>
+                  <h3 style={{ color: '#dc2626', marginBottom: '0.5rem' }}>❌ Lỗi tải dữ liệu</h3>
+                  <p className="error-message" style={{ color: '#991b1b', whiteSpace: 'pre-line' }}>
+                    {toursError}
+                  </p>
+                  <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
+                    <p>🔍 Kiểm tra:</p>
+                    <ul style={{ textAlign: 'left', display: 'inline-block', marginTop: '0.5rem' }}>
+                      <li>Backend có đang chạy tại <code>https://localhost:7267</code> không?</li>
+                      <li>Kiểm tra Console để xem chi tiết lỗi</li>
+                      <li>Kiểm tra Network tab trong DevTools</li>
+                    </ul>
+                  </div>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    style={{
+                      marginTop: '1rem',
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Thử lại
+                  </button>
                 </div>
               ) : filteredAndSortedServices.length === 0 ? (
                 <div className="empty-state">
                   <p className="empty-state-title">Không tìm thấy tour nào</p>
                   <p className="empty-state-description">
-                    {searchName || priceRange[0] > 0 || priceRange[1] < 5000000
+                    {searchName || selectedPriceRange !== 'all'
                       ? 'Không có tour nào phù hợp với bộ lọc của bạn. Vui lòng thử lại.'
-                      : 'Hiện chưa có tour nào trong hệ thống.'}
+                      : allServices.length === 0
+                        ? 'Hiện chưa có tour nào trong hệ thống hoặc tất cả đều đã đóng.'
+                        : 'Không có tour nào phù hợp với bộ lọc của bạn.'}
                   </p>
+                  {allServices.length > 0 && (searchName || selectedPriceRange !== 'all') && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSearchName('')
+                        setSelectedPriceRange('all')
+                      }}
+                      style={{ marginTop: '1rem' }}
+                    >
+                      Xóa bộ lọc
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className={`tours-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
@@ -446,6 +532,7 @@ const ServicesPage = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   )
 }
@@ -543,4 +630,5 @@ const TourCard: React.FC<TourCardProps> = ({ tour, index, isFavorite, onToggleFa
 }
 
 export default ServicesPage
+
 

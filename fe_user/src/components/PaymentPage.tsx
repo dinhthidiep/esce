@@ -100,6 +100,7 @@ const PaymentPage = () => {
   const [originalTotal, setOriginalTotal] = useState(0)
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [couponError, setCouponError] = useState('')
+  const [additionalServices, setAdditionalServices] = useState<Array<{ Name?: string; Description?: string }>>([])
 
   const estimateBaseAmount = (bookingData: BookingData | null): number => {
     if (!bookingData) return 0
@@ -158,6 +159,39 @@ const PaymentPage = () => {
         }
 
         setBooking(bookingData)
+
+        // Parse Notes để lấy ghi chú và dịch vụ thêm
+        const notes = (bookingData.Notes || bookingData.notes || '') as string
+        const additionalServicesIdsMatch = notes.match(/\[ADDITIONAL_SERVICES_IDS:([^\]]+)\]/)
+        
+        if (additionalServicesIdsMatch) {
+          const serviceIds = additionalServicesIdsMatch[1].split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+          
+          if (serviceIds.length > 0) {
+            try {
+              // Fetch thông tin dịch vụ thêm
+              const serviceComboId = bookingData.ServiceComboId || bookingData.serviceComboId
+              if (serviceComboId) {
+                const comboDetailResponse = await axiosInstance.get(`${API_ENDPOINTS.SERVICE_COMBO_DETAIL}/combo/${serviceComboId}`)
+                const comboDetails = comboDetailResponse.data || []
+                
+                // Lọc các dịch vụ theo ID
+                const services = comboDetails
+                  .map((detail: any) => detail.Service || detail.service)
+                  .filter((service: any) => service && serviceIds.includes(service.Id || service.id))
+                
+                setAdditionalServices(services)
+              }
+            } catch (err) {
+              console.warn('Không thể lấy thông tin dịch vụ thêm:', err)
+              setAdditionalServices([])
+            }
+          } else {
+            setAdditionalServices([])
+          }
+        } else {
+          setAdditionalServices([])
+        }
 
         const bookingTotal = (bookingData.TotalAmount || bookingData.totalAmount || 0) as number
 
@@ -508,7 +542,7 @@ const PaymentPage = () => {
       ) {
         setError(
           'Không thể kết nối đến server. Vui lòng:\n\n' +
-            '1. Kiểm tra backend có đang chạy không (http://localhost:5002)\n' +
+            '1. Kiểm tra backend có đang chạy không (https://localhost:7267)\n' +
             '2. Kiểm tra kết nối mạng\n' +
             '3. Thử refresh trang và thử lại'
         )
@@ -664,12 +698,20 @@ const PaymentPage = () => {
                       </div>
                     )}
 
-                    {booking.Notes && (
-                      <div className="info-row">
-                        <span className="info-label">Ghi chú</span>
-                        <span className="info-value">{(booking.Notes || booking.notes) as string}</span>
-                      </div>
-                    )}
+                    {booking.Notes && (() => {
+                      const notes = (booking.Notes || booking.notes || '') as string
+                      // Tách phần ghi chú thực sự (bỏ phần ADDITIONAL_SERVICES_IDS)
+                      const notesWithoutIds = notes.replace(/\n?\[ADDITIONAL_SERVICES_IDS:[^\]]+\]/g, '').trim()
+                      
+                      return (
+                        <div className="info-row">
+                          <span className="info-label">Ghi chú</span>
+                          <div className="info-value" style={{ whiteSpace: 'pre-line', lineHeight: '1.6' }}>
+                            {notesWithoutIds}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Coupon Section */}
@@ -867,4 +909,5 @@ const PaymentPage = () => {
 }
 
 export default PaymentPage
+
 

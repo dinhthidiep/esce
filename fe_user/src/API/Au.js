@@ -1,4 +1,7 @@
-export const backend_url = "https://localhost:5001";
+// Import API_BASE_URL từ config để đảm bảo dùng đúng backend URL
+// Note: File này có thể không được sử dụng nữa, nhưng vẫn cập nhật để đồng bộ
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7267/api';
+const backend_url = API_BASE_URL.replace('/api', '');
 
 export const login = async (userEmail, password) => {
     try {

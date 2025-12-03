@@ -12,3 +12,8 @@ export const IMAGE_SIZES = {
   thumbnail: '200w',
 } as const
 
+
+
+
+
+

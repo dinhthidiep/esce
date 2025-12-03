@@ -6,19 +6,39 @@ import './Header.css'
 // Sử dụng đường dẫn public URL thay vì import
 const logoEsce = '/img/logo_esce.png'
 
+// UserInfo interface khớp với UserProfileDto từ backend (PascalCase)
+// Backend trả về: Id, Email, Name, Avatar, Phone, Dob, Gender, Address, RoleId
 interface UserInfo {
-  Avatar?: string
-  avatar?: string
-  Name?: string
-  name?: string
+  // Backend trả về PascalCase
+  Id?: number
+  id?: number
   Email?: string
   email?: string
+  Name?: string
+  name?: string
+  Avatar?: string
+  avatar?: string
+  Phone?: string
+  phone?: string
+  Dob?: string
+  dob?: string
+  Gender?: string
+  gender?: string
+  Address?: string
+  address?: string
+  RoleId?: number
+  roleId?: number
+  IsActive?: boolean
+  isActive?: boolean
+  CreatedAt?: string
+  createdAt?: string
+  UpdatedAt?: string
+  updatedAt?: string
+  // Có thể có từ API khác
   Role?: { Name?: string }
   role?: { name?: string }
   RoleName?: string
   roleName?: string
-  RoleId?: number
-  roleId?: number
   [key: string]: unknown
 }
 
@@ -40,7 +60,7 @@ const Header = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Kiểm tra trạng thái đăng nhập
+  // Kiểm tra trạng thái đăng nhập - cập nhật tự động
   useEffect(() => {
     const checkLoginStatus = () => {
       // Kiểm tra cả localStorage và sessionStorage
@@ -50,10 +70,19 @@ const Header = () => {
       if (token && userInfoStr) {
         try {
           const user = JSON.parse(userInfoStr) as UserInfo
+          // Chỉ log trong development mode để tránh spam console
+          if (import.meta.env.DEV && !isLoggedIn) {
+            console.log('🔍 [Header] Đã tìm thấy userInfo:', {
+              id: user.Id || user.id,
+              name: user.Name || user.name,
+              email: user.Email || user.email,
+              roleId: user.RoleId || user.roleId,
+            })
+          }
           setIsLoggedIn(true)
           setUserInfo(user)
         } catch (error) {
-          console.error('Error parsing userInfo:', error)
+          console.error('❌ [Header] Error parsing userInfo:', error)
           setIsLoggedIn(false)
           setUserInfo(null)
         }
@@ -63,22 +92,43 @@ const Header = () => {
       }
     }
 
+    // Kiểm tra ngay lập tức
     checkLoginStatus()
 
-    // Lắng nghe sự kiện storage để cập nhật khi login/logout
-    const handleStorageChange = () => {
-      checkLoginStatus()
+    // Tạo custom event để listen khi storage thay đổi trong cùng tab
+    const handleCustomStorageChange = () => {
+      if (import.meta.env.DEV) {
+        console.log('📢 [Header] Nhận được custom storage change event, đang cập nhật...')
+      }
+      setTimeout(checkLoginStatus, 100) // Delay nhỏ để đảm bảo storage đã được cập nhật
+    }
+
+    // Lắng nghe custom event từ cùng tab (khi login/logout)
+    window.addEventListener('userStorageChange', handleCustomStorageChange)
+
+    // Lắng nghe storage event (cho các tab khác)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' || e.key === 'userInfo') {
+        if (import.meta.env.DEV) {
+          console.log('📢 [Header] Nhận được storage change event từ tab khác')
+        }
+        checkLoginStatus()
+      }
     }
 
     window.addEventListener('storage', handleStorageChange)
 
-    // Kiểm tra lại mỗi khi location thay đổi (khi navigate)
-    checkLoginStatus()
+    // Polling: Kiểm tra mỗi 500ms để đảm bảo cập nhật kịp thời (không quá nặng)
+    const intervalId = setInterval(() => {
+      checkLoginStatus()
+    }, 500)
 
     return () => {
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('userStorageChange', handleCustomStorageChange)
+      clearInterval(intervalId)
     }
-  }, [location])
+  }, [location]) // Chỉ trigger khi location thay đổi
 
   // Xử lý click outside để đóng dropdown
   useEffect(() => {
@@ -103,11 +153,14 @@ const Header = () => {
     localStorage.removeItem('userInfo')
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('userInfo')
+    
+    // Trigger custom event để Header tự động cập nhật
+    window.dispatchEvent(new CustomEvent('userStorageChange'))
+    
     setIsLoggedIn(false)
     setUserInfo(null)
     setShowUserMenu(false)
     navigate('/')
-    window.location.reload() // Reload để cập nhật UI
   }
 
   const toggleUserMenu = () => {
@@ -136,27 +189,39 @@ const Header = () => {
     return <span className="user-avatar-initials">{initials}</span>
   }
 
-  // Lấy role name
+  // Lấy role name từ backend response
+  // Backend trả về UserProfileDto với RoleId (int), không có Role object
+  // Cần map RoleId sang role name theo database ROLES table
   const getRoleName = () => {
+    // Ưu tiên: Role object (nếu có - từ API khác)
     if (userInfo?.Role?.Name || userInfo?.role?.name) {
       const roleName = (userInfo.Role?.Name || userInfo.role?.name) as string
-      // Map "User" to "Tourist" for display
-      if (roleName === 'User') return 'Tourist'
+      // Map role names theo database
+      if (roleName === 'Customer' || roleName === 'Tourist') return 'Tourist'
+      if (roleName === 'Agency') return 'Agency'
+      if (roleName === 'Host') return 'Host'
+      if (roleName === 'Admin') return 'Admin'
       return roleName
     }
+    
+    // Thứ hai: RoleName field (nếu có)
     if (userInfo?.RoleName || userInfo?.roleName) {
       const roleName = (userInfo.RoleName || userInfo.roleName) as string
-      // Map "User" to "Tourist" for display
-      if (roleName === 'User') return 'Tourist'
+      if (roleName === 'Customer' || roleName === 'Tourist') return 'Tourist'
+      if (roleName === 'Agency') return 'Agency'
+      if (roleName === 'Host') return 'Host'
+      if (roleName === 'Admin') return 'Admin'
       return roleName
     }
-    // Default role names based on RoleId
-    // ID: 1 = Admin, ID: 2 = Host, ID: 3 = User (display as Tourist), ID: 4 = Agency
+    
+    // Cuối cùng: Map từ RoleId (theo database ROLES table)
+    // Database: ID 1=Admin, ID 2=Host, ID 3=Agency, ID 4=Tourist
     const roleId = userInfo?.RoleId || userInfo?.roleId
     if (roleId === 1) return 'Admin'
     if (roleId === 2) return 'Host'
-    if (roleId === 3) return 'Tourist' // User role displayed as Tourist
-    if (roleId === 4) return 'Agency'
+    if (roleId === 3) return 'Agency'
+    if (roleId === 4) return 'Tourist'
+    
     return 'User'
   }
 
@@ -206,16 +271,22 @@ const Header = () => {
             Dịch vụ
           </Link>
           <Link
-            to="/about"
-            className={`nav-link ${location.pathname === '/about' ? 'active' : ''}`}
+            to="/forum"
+            className={`nav-link ${location.pathname === '/forum' ? 'active' : ''}`}
           >
-            Giới thiệu
+            Diễn đàn
           </Link>
           <Link
-            to="/contact"
-            className={`nav-link ${location.pathname === '/contact' ? 'active' : ''}`}
+            to="/news"
+            className={`nav-link ${location.pathname === '/news' ? 'active' : ''}`}
           >
-            Liên hệ
+            Tin tức
+          </Link>
+          <Link
+            to="/policy"
+            className={`nav-link ${location.pathname === '/policy' ? 'active' : ''}`}
+          >
+            Chính sách
           </Link>
         </nav>
 
@@ -304,4 +375,5 @@ const Header = () => {
 }
 
 export default Header
+
 

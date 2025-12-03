@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import axiosInstance from '../utils/axiosInstance';
 import Header from './Header';
 import Button from './ui/Button';
@@ -21,7 +20,7 @@ import {
   CalendarIcon
 } from './icons/index';
 import { formatPrice, getImageUrl } from '../lib/utils';
-import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS } from '../config/api';
 import './ServiceDetail.css';
 
 // Sử dụng đường dẫn public URL thay vì import
@@ -201,26 +200,39 @@ const ServiceDetail = () => {
   const enrichReviews = useCallback(async (reviewsData) => {
     if (!reviewsData || reviewsData.length === 0) return [];
     
-    // Lấy tất cả AuthorIds unique
-    const authorIds = [...new Set(
+    // Backend Review model có UserId (không phải AuthorId)
+    // Lấy tất cả UserIds unique từ reviews
+    const userIds = [...new Set(
       reviewsData
-        .map(review => review.AuthorId || review.authorId)
+        .map(review => {
+          // Backend trả về UserId hoặc User.Id
+          const userId = review.UserId || review.userId;
+          const userFromInclude = review.User?.Id || review.User?.id || review.user?.Id || review.user?.id;
+          return userId || userFromInclude;
+        })
         .filter(id => id != null)
     )];
     
     // Batch load tất cả Users cùng lúc
     const userMap = new Map();
-    if (authorIds.length > 0) {
+    if (userIds.length > 0) {
       try {
-        const userPromises = authorIds.map(async (authorId) => {
+        const userPromises = userIds.map(async (userId) => {
           try {
-            const userResponse = await axiosInstance.get(`${API_ENDPOINTS.USER}/${authorId}`);
-            return { id: authorId, data: userResponse.data };
+            // Backend đã include User, nhưng có thể không đầy đủ, load lại để chắc chắn
+            const userResponse = await axiosInstance.get(`${API_ENDPOINTS.USER}/${userId}`);
+            return { id: userId, data: userResponse.data };
           } catch (err) {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn(` Không thể load user ${authorId}:`, err);
+            if (import.meta.env.DEV) {
+              console.warn(`⚠️ [ServiceDetail] Không thể load user ${userId}:`, err);
             }
-            return { id: authorId, data: null };
+            // Fallback: dùng User từ include nếu có
+            const reviewWithUser = reviewsData.find(r => 
+              (r.UserId || r.userId) === userId || 
+              (r.User?.Id || r.User?.id || r.user?.Id || r.user?.id) === userId
+            );
+            const userFromInclude = reviewWithUser?.User || reviewWithUser?.user;
+            return { id: userId, data: userFromInclude || null };
           }
         });
         
@@ -231,8 +243,8 @@ const ServiceDetail = () => {
           }
         });
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(' Lỗi khi batch load Users:', err);
+        if (import.meta.env.DEV) {
+          console.error('❌ [ServiceDetail] Lỗi khi batch load Users:', err);
         }
       }
     }
@@ -240,16 +252,16 @@ const ServiceDetail = () => {
     // Enrich reviews với data đã load
     return reviewsData.map(review => {
       const enrichedReview = { ...review };
-      const authorId = enrichedReview.AuthorId || enrichedReview.authorId;
+      const userId = enrichedReview.UserId || enrichedReview.userId || 
+                    enrichedReview.User?.Id || enrichedReview.User?.id ||
+                    enrichedReview.user?.Id || enrichedReview.user?.id;
       
-      if (authorId && userMap.has(authorId)) {
-        enrichedReview.User = userMap.get(authorId);
-      } else if (authorId) {
-        enrichedReview.User = null;
+      if (userId && userMap.has(userId)) {
+        enrichedReview.User = userMap.get(userId);
+      } else if (userId) {
+        // Fallback: dùng User từ include
+        enrichedReview.User = enrichedReview.User || enrichedReview.user || null;
       }
-      
-      // ServiceCombo đã có trong review hoặc không cần load lại
-      // (vì đây là reviews của cùng một service combo)
       
       return enrichedReview;
     });
@@ -262,15 +274,21 @@ const ServiceDetail = () => {
         setLoading(true);
         setError(null);
         // Gọi API ServiceCombo thay vì Service
-        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.SERVICE_COMBO}/${id}`);
-        if (process.env.NODE_ENV === 'development') {
-          console.log(' ServiceDetail: Nhận được dữ liệu:', response.data);
-        }
+        console.log('🔍 [ServiceDetail] Đang tải service với ID:', id);
+        const url = `${API_ENDPOINTS.SERVICE_COMBO}/${id}`;
+        console.log('🔍 [ServiceDetail] API URL:', url);
+        
+        const response = await axiosInstance.get(url);
+        console.log('✅ [ServiceDetail] Nhận được dữ liệu:', response.data);
+        console.log('  - Service ID:', response.data?.Id || response.data?.id);
+        console.log('  - Service Name:', response.data?.Name || response.data?.name);
+        console.log('  - Service Status:', response.data?.Status || response.data?.status);
+        
         setService(response.data);
         
         // Fetch average rating
         try {
-          const ratingResponse = await axios.get(`${API_BASE_URL}/Review/servicecombo/${id}/average-rating`);
+          const ratingResponse = await axiosInstance.get(`/Review/servicecombo/${id}/average-rating`);
           setAverageRating(ratingResponse.data.AverageRating || 0);
         } catch (ratingErr) {
           if (process.env.NODE_ENV === 'development') {
@@ -281,12 +299,23 @@ const ServiceDetail = () => {
           setRatingLoading(false);
         }
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(' Lỗi khi tải chi tiết dịch vụ:', err);
+        console.error('❌ [ServiceDetail] Lỗi khi tải chi tiết dịch vụ:', err);
+        console.error('  - Error message:', err?.message);
+        console.error('  - Error code:', err?.code);
+        console.error('  - Response status:', err?.response?.status);
+        console.error('  - Response data:', err?.response?.data);
+        
+        let errorMessage = 'Không thể tải thông tin dịch vụ. Vui lòng thử lại sau.';
+        
+        if (err?.response?.status === 404) {
+          errorMessage = `Không tìm thấy dịch vụ với ID: ${id}`;
+        } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy tại https://localhost:7267 không.';
+        } else if (err?.response?.status) {
+          errorMessage = `Lỗi ${err.response.status}: ${err.response.statusText || 'Không thể tải thông tin dịch vụ'}`;
         }
-        setError(err.response?.status === 404 
-          ? 'Không tìm thấy dịch vụ này' 
-          : 'Không thể tải thông tin dịch vụ. Vui lòng thử lại sau.');
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -305,7 +334,7 @@ const ServiceDetail = () => {
       try {
         setLoadingSimilarServices(true);
         // Lấy tất cả services
-        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.SERVICE_COMBO}`);
+        const response = await axiosInstance.get(API_ENDPOINTS.SERVICE_COMBO);
         const allServices = response.data || [];
         
         // Loại trừ service hiện tại và lấy 4 services khác
@@ -353,22 +382,33 @@ const ServiceDetail = () => {
       
       try {
         setLoadingReviews(true);
-        // Lấy tất cả reviews, sau đó filter theo service combo
-        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.REVIEW}`);
+        // Lấy tất cả reviews, backend đã include Booking
+        const response = await axiosInstance.get(API_ENDPOINTS.REVIEW);
         const allReviews = response.data || [];
         
-        // Filter reviews theo ComboId (database schema)
+        // Filter reviews theo ServiceComboId qua Booking (Review không có ComboId trực tiếp)
+        // Backend Review model: Review -> Booking -> ServiceComboId
         const serviceReviews = allReviews.filter(review => {
-          const comboId = review.ComboId || review.comboId;
+          const booking = review.Booking || review.booking;
+          if (!booking) return false;
+          const comboId = booking.ServiceComboId || booking.serviceComboId;
           return comboId === parseInt(id);
         });
         
-        // Enrich reviews với batch loading
+        if (import.meta.env.DEV) {
+          console.log('📝 [ServiceDetail] Reviews cho service combo:', {
+            totalReviews: allReviews.length,
+            serviceReviews: serviceReviews.length,
+            serviceComboId: id
+          });
+        }
+        
+        // Enrich reviews với batch loading (nếu cần)
         const enrichedReviews = await enrichReviews(serviceReviews);
         setReviews(enrichedReviews);
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(' Lỗi khi tải reviews:', err);
+        if (import.meta.env.DEV) {
+          console.error('❌ [ServiceDetail] Lỗi khi tải reviews:', err);
         }
         setReviews([]);
       } finally {
@@ -552,10 +592,14 @@ const ServiceDetail = () => {
     
     try {
       setLoadingReviews(true);
-      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.REVIEW}`);
+      const response = await axiosInstance.get(API_ENDPOINTS.REVIEW);
       const allReviews = response.data || [];
+      
+      // Filter reviews theo ServiceComboId qua Booking
       const serviceReviews = allReviews.filter(review => {
-        const comboId = review.ComboId || review.comboId;
+        const booking = review.Booking || review.booking;
+        if (!booking) return false;
+        const comboId = booking.ServiceComboId || booking.serviceComboId;
         return comboId === parseInt(id);
       });
       
@@ -564,11 +608,11 @@ const ServiceDetail = () => {
       setReviews(enrichedReviews);
       
       // Reload average rating
-      const ratingResponse = await axios.get(`${API_BASE_URL}/Review/servicecombo/${id}/average-rating`);
+      const ratingResponse = await axiosInstance.get(`/Review/servicecombo/${id}/average-rating`);
       setAverageRating(ratingResponse.data.AverageRating || 0);
     } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(' Lỗi khi reload reviews:', err);
+      if (import.meta.env.DEV) {
+        console.error('❌ [ServiceDetail] Lỗi khi reload reviews:', err);
       }
     } finally {
       setLoadingReviews(false);
@@ -595,18 +639,51 @@ const ServiceDetail = () => {
 
     try {
       setSubmittingReview(true);
-      // Gửi theo format database: ComboId, AuthorId, Content, Rating
+      
+      // Backend Review model cần: BookingId, UserId, Rating, Comment
+      // Cần tìm BookingId từ bookings của user cho service combo này
+      const userId = getUserId();
+      if (!userId) {
+        alert('Vui lòng đăng nhập để đánh giá');
+        navigate('/login', { state: { returnUrl: `/services/${id}` } });
+        setSubmittingReview(false);
+        return;
+      }
+      
+      // Lấy bookings của user cho service combo này
+      const bookingsResponse = await axiosInstance.get(`${API_ENDPOINTS.BOOKING}/user/${userId}`);
+      const userBookings = bookingsResponse.data || [];
+      
+      // Tìm booking có ServiceComboId = id và status = confirmed hoặc completed
+      const validBooking = userBookings.find((booking: any) => {
+        const comboId = booking.ServiceComboId || booking.serviceComboId;
+        const status = booking.Status || booking.status;
+        return comboId === parseInt(id) && (status === 'confirmed' || status === 'completed');
+      });
+      
+      if (!validBooking) {
+        alert('Bạn chưa có booking đã xác nhận cho dịch vụ này. Vui lòng đặt và thanh toán trước khi đánh giá.');
+        setSubmittingReview(false);
+        return;
+      }
+      
+      const bookingId = validBooking.Id || validBooking.id;
+      
+      // Gửi theo format database: BookingId, UserId, Rating, Comment
       const reviewData = {
-        ComboId: parseInt(id),
-        AuthorId: userId,
+        BookingId: bookingId,
+        UserId: userId,
         Rating: reviewForm.rating,
-        Content: reviewForm.comment || '',
-        ParentReviewId: null
+        Comment: reviewForm.comment || null // Backend dùng Comment, không phải Content
       };
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log(' Gửi review data:', reviewData);
+      if (import.meta.env.DEV) {
+        console.log('📤 [ServiceDetail] Gửi review data:', reviewData);
+        console.log('  - BookingId:', bookingId);
+        console.log('  - UserId:', userId);
+        console.log('  - Rating:', reviewForm.rating);
       }
+      
       await axiosInstance.post(`${API_ENDPOINTS.REVIEW}`, reviewData);
       
       // Reset form và reload reviews
@@ -633,7 +710,8 @@ const ServiceDetail = () => {
   const handleEditReview = (review) => {
     const reviewId = review.Id || review.id;
     const rating = review.Rating || review.rating || 5;
-    const comment = review.Content || review.content || review.Comment || review.comment || '';
+    // Backend dùng Comment, không phải Content
+    const comment = review.Comment || review.comment || '';
     
     setEditingReviewId(reviewId);
     setEditForm({ rating, comment });
@@ -653,9 +731,10 @@ const ServiceDetail = () => {
 
     try {
       setSubmittingReview(true);
+      // Backend dùng Comment, không phải Content
       const reviewData = {
         Rating: editForm.rating,
-        Content: editForm.comment || ''
+        Comment: editForm.comment || null
       };
 
       await axiosInstance.put(`${API_ENDPOINTS.REVIEW}/${editingReviewId}`, reviewData);
@@ -1196,12 +1275,15 @@ const ServiceDetail = () => {
                         const user = review.User || review.user;
                         const userName = user?.Name || user?.name || 'Khách hàng';
                         const userAvatar = user?.Avatar || user?.avatar || '';
-                        const authorId = review.AuthorId || review.authorId;
+                        // Backend dùng UserId, không phải AuthorId
+                        const userId = review.UserId || review.userId;
                         const rating = review.Rating || review.rating || 0;
-                        const comment = review.Content || review.content || review.Comment || review.comment || '';
-                        const createdAt = review.CreatedAt || review.createdAt || review.CreatedDate || review.createdDate;
+                        // Backend dùng Comment, không phải Content
+                        const comment = review.Comment || review.comment || '';
+                        // Backend dùng CreatedDate, không phải CreatedAt
+                        const createdAt = review.CreatedDate || review.createdDate;
                         const currentUserId = getUserId();
-                        const isOwnReview = currentUserId && authorId && parseInt(authorId.toString()) === parseInt(currentUserId.toString());
+                        const isOwnReview = currentUserId && userId && parseInt(userId.toString()) === parseInt(currentUserId.toString());
                         const isEditing = editingReviewId === reviewId;
                           
                         return (
@@ -1425,7 +1507,18 @@ const ServiceDetail = () => {
                       className="booking-button"
                       disabled={status.toLowerCase() !== 'open' || availableSlots === 0}
                       onClick={() => {
+                        // Debug log
+                        if (import.meta.env.DEV) {
+                          console.log('🔍 [ServiceDetail] Click "Đặt dịch vụ ngay"')
+                          console.log('  - Service ID:', id)
+                          console.log('  - Service Status:', status)
+                          console.log('  - Available Slots:', availableSlots)
+                        }
+                        
                         if (status.toLowerCase() !== 'open' || availableSlots === 0) {
+                          if (import.meta.env.DEV) {
+                            console.warn('  - Button disabled: status =', status, ', slots =', availableSlots)
+                          }
                           alert('Dịch vụ hiện không khả dụng để đặt');
                           return;
                         }
@@ -1434,8 +1527,16 @@ const ServiceDetail = () => {
                         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                         const userInfoStr = localStorage.getItem('userInfo') || sessionStorage.getItem('userInfo');
                         
+                        if (import.meta.env.DEV) {
+                          console.log('  - Has Token:', !!token)
+                          console.log('  - Has UserInfo:', !!userInfoStr)
+                        }
+                        
                         if (!token || !userInfoStr) {
                           // Chưa đăng nhập - chuyển đến trang đăng nhập với returnUrl
+                          if (import.meta.env.DEV) {
+                            console.log('  - Not logged in, redirecting to login')
+                          }
                           navigate('/login', { 
                             state: { returnUrl: `/booking/${id}` } 
                           });
@@ -1443,6 +1544,9 @@ const ServiceDetail = () => {
                         }
                         
                         // Đã đăng nhập - chuyển đến trang booking
+                        if (import.meta.env.DEV) {
+                          console.log('  - Navigating to booking page:', `/booking/${id}`)
+                        }
                         navigate(`/booking/${id}`);
                       }}
                     >

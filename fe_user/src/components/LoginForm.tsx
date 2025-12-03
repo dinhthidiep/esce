@@ -78,33 +78,55 @@ const LoginForm = () => {
     setGeneralError('')
 
     try {
+      if (import.meta.env.DEV) {
+        console.log('🔐 [LoginForm] Đang đăng nhập với:', { email: formData.email })
+      }
+      
       const response = await login(formData.email, formData.password)
+
+      if (import.meta.env.DEV) {
+        console.log('✅ [LoginForm] Login response:', response)
+      }
 
       // Chọn storage dựa trên "Ghi nhớ đăng nhập"
       const storage = rememberMe ? localStorage : sessionStorage
 
       // Lưu token vào storage (localStorage hoặc sessionStorage)
-      if (response.Token || (response as { token?: string }).token) {
-        storage.setItem('token', (response.Token as string) || ((response as { token: string }).token))
+      const token = (response as { Token?: string; token?: string }).Token || (response as { token?: string }).token
+      if (token) {
+        storage.setItem('token', token)
+        if (import.meta.env.DEV) {
+          console.log('✅ [LoginForm] Token đã được lưu vào', rememberMe ? 'localStorage' : 'sessionStorage')
+        }
         // Xóa token cũ từ storage khác nếu có
         if (rememberMe) {
           sessionStorage.removeItem('token')
         } else {
           localStorage.removeItem('token')
         }
+      } else {
+        console.warn('⚠️ [LoginForm] Không tìm thấy token trong response')
       }
 
       // Lưu thông tin user nếu có
       const userInfo = (response as { UserInfo?: unknown; userInfo?: unknown }).UserInfo || (response as { userInfo?: unknown }).userInfo
       if (userInfo) {
         storage.setItem('userInfo', JSON.stringify(userInfo))
+        if (import.meta.env.DEV) {
+          console.log('✅ [LoginForm] UserInfo đã được lưu:', userInfo)
+        }
         // Xóa userInfo cũ từ storage khác nếu có
         if (rememberMe) {
           sessionStorage.removeItem('userInfo')
         } else {
           localStorage.removeItem('userInfo')
         }
+      } else {
+        console.warn('⚠️ [LoginForm] Không tìm thấy UserInfo trong response')
       }
+
+      // Trigger custom event để Header tự động cập nhật
+      window.dispatchEvent(new CustomEvent('userStorageChange'))
 
       // Đăng nhập thành công - chuyển hướng hoặc hiển thị thông báo
       // Set flag để hiển thị welcome message trên landing page

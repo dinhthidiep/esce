@@ -88,7 +88,18 @@ const BookingPage = () => {
   // Fetch service data
   useEffect(() => {
     const fetchService = async () => {
-      if (!id || isNaN(parseInt(id))) return;
+      if (!id || isNaN(parseInt(id))) {
+        if (import.meta.env.DEV) {
+          console.error('❌ [BookingPage] ID không hợp lệ:', id)
+        }
+        setError('ID dịch vụ không hợp lệ');
+        setLoading(false);
+        return;
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log('🔍 [BookingPage] Đang tải service với ID:', id)
+      }
       
       try {
         setLoading(true);
@@ -96,34 +107,73 @@ const BookingPage = () => {
         setValidationError('');
         
         const response = await axiosInstance.get(`${API_ENDPOINTS.SERVICE_COMBO}/${id}`);
-        console.log(' BookingPage: Nhận được dữ liệu:', response.data);
+        
+        if (import.meta.env.DEV) {
+          console.log('✅ [BookingPage] Nhận được dữ liệu:', response.data);
+        }
         
         const serviceData = response.data;
         
         // Validate service exists
         if (!serviceData) {
+          if (import.meta.env.DEV) {
+            console.error('❌ [BookingPage] Service data không tồn tại')
+          }
           setError('Không tìm thấy dịch vụ này');
+          setLoading(false);
           return;
         }
 
         // Check service status
         const status = serviceData.Status || serviceData.status || 'open';
+        if (import.meta.env.DEV) {
+          console.log('  - Service Status:', status)
+          console.log('  - Service Data:', {
+            Id: serviceData.Id || serviceData.id,
+            Name: serviceData.Name || serviceData.name,
+            Price: serviceData.Price || serviceData.price,
+            AvailableSlots: serviceData.AvailableSlots || serviceData.availableSlots,
+            Status: status
+          })
+        }
+        
         if (status.toLowerCase() !== 'open') {
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [BookingPage] Service không có status "open":', status)
+          }
           setError('Dịch vụ này hiện không khả dụng để đặt');
+          setLoading(false);
           return;
         }
 
+        // Đảm bảo service được set trước khi tính toán
         setService(serviceData);
         
         // Tính toán tổng tiền ban đầu
         const price = serviceData.Price || serviceData.price || 0;
         setCalculatedTotal(price);
-      } catch (err) {
-        console.error(' Lỗi khi tải thông tin dịch vụ:', err);
+        
+        if (import.meta.env.DEV) {
+          console.log('✅ [BookingPage] Service loaded successfully')
+          console.log('  - Service set to state:', !!serviceData)
+          console.log('  - Calculated total:', price)
+        }
+      } catch (err: any) {
+        console.error('❌ [BookingPage] Lỗi khi tải thông tin dịch vụ:', err);
+        console.error('  - Error message:', err?.message);
+        console.error('  - Response status:', err?.response?.status);
+        console.error('  - Response data:', err?.response?.data);
+        
         if (err.response?.status === 404) {
           setError('Không tìm thấy dịch vụ này');
-        } else if (err.response?.status === 403) {
-          setError('Bạn không có quyền truy cập dịch vụ này');
+        } else if (err.response?.status === 401 || err.response?.status === 403) {
+          setError('Bạn không có quyền truy cập dịch vụ này. Vui lòng đăng nhập lại.');
+          // Redirect to login
+          setTimeout(() => {
+            navigate('/login', { state: { returnUrl: `/booking/${id}` } });
+          }, 2000);
+        } else if (err.response?.status === 500) {
+          setError('Lỗi server. Vui lòng thử lại sau.');
         } else {
           setError('Không thể tải thông tin dịch vụ. Vui lòng thử lại sau.');
         }
@@ -133,7 +183,7 @@ const BookingPage = () => {
     };
 
     fetchService();
-  }, [id]);
+  }, [id, navigate]);
 
   // Fetch available services for this combo
   useEffect(() => {
@@ -142,9 +192,11 @@ const BookingPage = () => {
       
       try {
         setLoadingServices(true);
+        
         // Lấy các ServiceComboDetail theo combo ID
-        const response = await axiosInstance.get(`${API_ENDPOINTS.SERVICE_COMBO_DETAIL}/combo/${id}`);
-        console.log(' BookingPage: Nhận được ServiceComboDetail:', response.data);
+        const url = `${API_ENDPOINTS.SERVICE_COMBO_DETAIL}/combo/${id}`;
+        
+        const response = await axiosInstance.get(url);
         
         if (response.data && Array.isArray(response.data)) {
           // Lấy các Service từ ServiceComboDetail
@@ -152,27 +204,28 @@ const BookingPage = () => {
             .map(detail => detail.Service || detail.service)
             .filter(service => service != null); // Loại bỏ null/undefined
           
-          console.log(' BookingPage: Danh sách dịch vụ thuộc combo:', services);
+          if (import.meta.env.DEV && services.length > 0) {
+            console.log(`✅ [BookingPage] Tìm thấy ${services.length} service(s) thuộc combo`);
+          }
           setAvailableServices(services);
         } else {
-          console.warn(' BookingPage: Không có dịch vụ nào thuộc combo này');
           setAvailableServices([]);
         }
-      } catch (err) {
-        console.error(' Lỗi khi tải danh sách dịch vụ:', err);
-        // Nếu lỗi, thử fallback về lấy tất cả service (cho backward compatibility)
-        try {
-          const fallbackResponse = await axiosInstance.get(`${API_ENDPOINTS.SERVICE}`);
-          if (fallbackResponse.data && Array.isArray(fallbackResponse.data)) {
-            console.warn(' BookingPage: Sử dụng fallback - lấy tất cả dịch vụ');
-            setAvailableServices(fallbackResponse.data);
+      } catch (err: any) {
+        // Backend có thể lỗi 500 do circular reference trong JSON serialization
+        // Đây là lỗi backend, nhưng không ảnh hưởng đến chức năng chính của BookingPage
+        // BookingPage vẫn hoạt động bình thường với chỉ ServiceCombo (không có dịch vụ thêm)
+        if (import.meta.env.DEV) {
+          const status = err?.response?.status;
+          if (status === 500) {
+            // Lỗi 500 thường do circular reference - không cần log chi tiết
+            console.warn('⚠️ [BookingPage] Backend lỗi khi lấy ServiceComboDetail (có thể do circular reference). Bỏ qua dịch vụ thêm.');
           } else {
-            setAvailableServices([]);
+            console.warn('⚠️ [BookingPage] Không thể tải dịch vụ thêm:', err?.message || 'Unknown error');
           }
-        } catch (fallbackErr) {
-          console.error(' Lỗi khi lấy tất cả dịch vụ:', fallbackErr);
-          setAvailableServices([]);
         }
+        // Đặt services = [] và tiếp tục (BookingPage chỉ cần ServiceCombo là đủ)
+        setAvailableServices([]);
       } finally {
         setLoadingServices(false);
       }
@@ -678,34 +731,56 @@ const BookingPage = () => {
         finalEndDate = endDate ? new Date(endDate).toISOString().split('T')[0] : null;
       }
 
-      const bookingData = {
-        // Không gửi UserId - backend sẽ lấy từ JWT token
-        ServiceComboId: parseInt(id),
-        // Không gửi ServiceId nếu null để tránh lỗi
-        Quantity: quantity,
-        UnitPrice: currentService.Price || currentService.price || 0,
-        TotalAmount: totalAfterDiscount, // Sử dụng total sau discount
-        ItemType: 'combo',
-        Status: 'pending',
-        Notes: bookingNotes || null,
-        BookingDate: new Date().toISOString(),
-        StartDate: finalStartDate,
-        EndDate: finalEndDate
-      };
-      
-      // Xóa ServiceId nếu null để tránh gửi null
-      if (bookingData.ServiceComboId === null || bookingData.ServiceComboId === undefined) {
-        delete bookingData.ServiceComboId;
+      // Lấy UserId từ storage (backend cần UserId để tạo booking)
+      const userId = getUserId();
+      if (!userId) {
+        setValidationError('Vui lòng đăng nhập để đặt dịch vụ');
+        navigate('/login', { state: { returnUrl: `/booking/${id}` } });
+        setSubmitting(false);
+        return;
       }
 
-      console.log(' BookingPage: Gửi dữ liệu booking:', bookingData);
+      // Chuẩn bị booking data - chỉ gửi các field backend cần (theo CreateBookingDto)
+      // Backend sẽ tự tính: BookingNumber, UnitPrice, TotalAmount, Status (mặc định "pending")
+      const bookingData: any = {
+        // Required fields
+        UserId: userId,
+        ServiceComboId: parseInt(id),
+        Quantity: quantity,
+        ItemType: 'combo', // Backend expect "combo" hoặc "service"
+        BookingDate: new Date().toISOString(),
+        // Optional fields
+        Notes: bookingNotes || null,
+      };
+      
+      // BookingNumber sẽ được backend tự động generate trong BookingService.CreateAsync
+      
+      // Validate ServiceComboId
+      if (!bookingData.ServiceComboId || isNaN(bookingData.ServiceComboId)) {
+        setValidationError('ServiceComboId không hợp lệ');
+        setSubmitting(false);
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('📤 [BookingPage] Gửi dữ liệu booking:', JSON.stringify(bookingData, null, 2));
+        console.log('  - UserId:', userId);
+        console.log('  - ServiceComboId:', bookingData.ServiceComboId);
+        console.log('  - Quantity:', quantity);
+        console.log('  - ItemType:', bookingData.ItemType);
+        console.log('  - BookingDate:', bookingData.BookingDate);
+        console.log('  - Notes:', bookingData.Notes ? 'Có' : 'Không');
+      }
 
       const response = await axiosInstance.post(
         `${API_ENDPOINTS.BOOKING}`,
         bookingData
       );
 
-      console.log(' BookingPage: Đặt dịch vụ thành công:', response.data);
+      if (import.meta.env.DEV) {
+        console.log('✅ [BookingPage] Đặt dịch vụ thành công:', response.data);
+        console.log('  - Booking ID:', response.data.Id || response.data.id);
+      }
 
       // Áp dụng coupon nếu có
       const bookingId = response.data.Id || response.data.id;
@@ -726,11 +801,14 @@ const BookingPage = () => {
         return;
       }
       navigate(`/payment/${bookingId}`, { replace: true });
-    } catch (err) {
-      console.error(' Lỗi khi đặt dịch vụ:', err);
+    } catch (err: any) {
+      console.error('❌ [BookingPage] Lỗi khi đặt dịch vụ:', err);
+      console.error('  - Error message:', err?.message);
+      console.error('  - Response status:', err?.response?.status);
+      console.error('  - Response data:', err?.response?.data);
       
       if (err.response?.status === 401 || err.response?.status === 403) {
-        console.error('🔒 BookingPage: Lỗi 401/403 - Token không hợp lệ hoặc đã hết hạn');
+        console.error('🔒 [BookingPage] Lỗi 401/403 - Token không hợp lệ hoặc đã hết hạn');
         setValidationError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         // Redirect ngay lập tức thay vì đợi 2 giây
         navigate('/login', { state: { returnUrl: `/booking/${id}` } });
@@ -738,19 +816,36 @@ const BookingPage = () => {
         const errorData = err.response?.data;
         let errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.';
         
+        if (import.meta.env.DEV) {
+          console.error('❌ [BookingPage] Chi tiết lỗi 400:', JSON.stringify(errorData, null, 2));
+        }
+        
+        // Xử lý các loại error message khác nhau
         if (errorData?.message) {
           errorMessage = errorData.message;
         } else if (errorData?.errors && Array.isArray(errorData.errors)) {
-          const errorList = errorData.errors.map(e => `${e.Field}: ${e.Message}`).join(', ');
-          errorMessage = `Lỗi validation: ${errorList}`;
+          // Model validation errors từ ASP.NET Core
+          const errorList = errorData.errors.map((e: any) => {
+            const field = e.Field || e.Key || e.PropertyName || 'Unknown';
+            const message = e.Message || e.ErrorMessage || 'Invalid';
+            return `${field}: ${message}`;
+          }).join('\n');
+          errorMessage = `Lỗi validation:\n${errorList}`;
+        } else if (errorData?.title) {
+          errorMessage = errorData.title;
         } else if (errorData?.error) {
           errorMessage = errorData.error;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
         }
         
-        console.error('Chi tiết lỗi 400:', errorData);
         setValidationError(errorMessage);
       } else if (err.response?.status === 409) {
         setValidationError('Dịch vụ này đã hết chỗ hoặc không còn khả dụng');
+      } else if (err.response?.status === 500) {
+        const errorData = err.response?.data;
+        const errorMessage = errorData?.message || errorData?.error || 'Lỗi server. Vui lòng thử lại sau.';
+        setValidationError(errorMessage);
       } else {
         setValidationError('Không thể đặt dịch vụ. Vui lòng thử lại sau.');
       }
@@ -771,6 +866,16 @@ const BookingPage = () => {
   }
 
   if (error || !service) {
+    // Debug log để hiểu tại sao không render được
+    if (import.meta.env.DEV) {
+      console.log('⚠️ [BookingPage] Render error state:', {
+        hasError: !!error,
+        errorMessage: error,
+        hasService: !!service,
+        serviceData: service
+      })
+    }
+    
     return (
       <div className="booking-page">
         <Header />
@@ -779,6 +884,14 @@ const BookingPage = () => {
             <div className="error-container" role="alert">
               <h2 className="error-title">Không thể đặt dịch vụ</h2>
               <p className="error-message">{error || 'Dịch vụ không tồn tại'}</p>
+              {import.meta.env.DEV && (
+                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '0.875rem' }}>
+                  <strong>Debug Info:</strong>
+                  <pre style={{ marginTop: '0.5rem', whiteSpace: 'pre-wrap' }}>
+                    {JSON.stringify({ error, hasService: !!service, serviceId: id }, null, 2)}
+                  </pre>
+                </div>
+              )}
               <Button variant="default" onClick={() => navigate('/services')}>
                 <ArrowLeftIcon className="button-icon" />
                 Quay lại danh sách dịch vụ
@@ -788,6 +901,21 @@ const BookingPage = () => {
         </main>
       </div>
     );
+  }
+
+  // Đảm bảo service tồn tại trước khi truy cập properties
+  if (!service) {
+    if (import.meta.env.DEV) {
+      console.error('❌ [BookingPage] Service is null/undefined in render, but passed error check')
+    }
+    return (
+      <div className="booking-page">
+        <Header />
+        <main className="booking-main">
+          <LoadingSpinner message="Đang tải thông tin dịch vụ..." />
+        </main>
+      </div>
+    )
   }
 
   const serviceName = service.Name || service.name || 'Dịch vụ';
@@ -804,6 +932,16 @@ const BookingPage = () => {
     : (service.availableSlots !== undefined ? service.availableSlots : 0);
   const status = service.Status || service.status || 'open';
   const isAvailable = status.toLowerCase() === 'open' && (availableSlots === 0 || availableSlots > 0);
+  
+  if (import.meta.env.DEV) {
+    console.log('✅ [BookingPage] Rendering booking form:', {
+      serviceName,
+      servicePrice,
+      availableSlots,
+      status,
+      isAvailable
+    })
+  }
 
   return (
     <div className="booking-page">

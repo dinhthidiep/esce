@@ -1,5 +1,28 @@
-const backend_url_https = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:7267'
-const backend_url_http = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:7267'
+// Backend mới chạy trên port 5002 (HTTP) hoặc 7267 (HTTPS)
+// Sử dụng biến môi trường VITE_API_URL nếu có, nếu không dùng default
+const getBaseUrl = (useHttps = false) => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    // Nếu có env URL, xử lý để lấy base URL (bỏ /api nếu có)
+    let baseUrl = envUrl.replace('/api', '');
+    // Nếu env URL là HTTPS và cần HTTP, hoặc ngược lại
+    if (!useHttps && baseUrl.startsWith('https://')) {
+      baseUrl = baseUrl.replace('https://', 'http://');
+      // Thay port 7267 thành 5002 cho HTTP
+      baseUrl = baseUrl.replace(':7267', ':5002');
+    } else if (useHttps && baseUrl.startsWith('http://')) {
+      baseUrl = baseUrl.replace('http://', 'https://');
+      // Thay port 5002 thành 7267 cho HTTPS
+      baseUrl = baseUrl.replace(':5002', ':7267');
+    }
+    return baseUrl;
+  }
+  // Default: dùng HTTP port 5002 hoặc HTTPS port 7267
+  return useHttps ? 'https://localhost:7267' : 'http://localhost:5002';
+};
+
+const backend_url_https = getBaseUrl(true)
+const backend_url_http = getBaseUrl(false)
 
 export const getAuthToken = () => {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
@@ -90,4 +113,5 @@ export const extractErrorMessage = async (response, fallbackMessage) => {
     return fallbackMessage
   }
 }
+
 

@@ -115,6 +115,9 @@ const OTPVerification = () => {
             sessionStorage.setItem('userInfo', JSON.stringify(userInfo))
             // Xóa userInfo cũ từ localStorage nếu có
             localStorage.removeItem('userInfo')
+            
+            // Trigger custom event để Header tự động cập nhật
+            window.dispatchEvent(new CustomEvent('userStorageChange'))
           }
 
           // Set flag để hiển thị welcome message trên landing page

@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import axios from 'axios'
+import axiosInstance from '~/utils/axiosInstance'
 import Header from '~/components/Header'
+import Footer from '~/components/Footer'
 import Button from '~/components/ui/Button'
 import { Card, CardContent } from '~/components/ui/Card'
 import Badge from '~/components/ui/Badge'
 import LazyImage from '~/components/LazyImage'
-import { ArrowRightIcon, UsersIcon, LeafIcon, ShieldIcon, GiftIcon, StarIcon } from '~/components/icons'
+import { ArrowRightIcon, UsersIcon, LeafIcon, ShieldIcon, GiftIcon, StarIcon, ChevronLeftIcon, ChevronRightIcon } from '~/components/icons'
 import { stats } from '~/data/stats'
 import { features } from '~/data/features'
 import { reviews } from '~/data/reviews'
 import { popularServices } from '~/data/services'
 import { formatPrice, createSlug, getImageUrl } from '~/lib/utils'
 import { useTours } from '~/hooks/useTours'
-import { API_BASE_URL } from '~/config/api'
+import type { ServiceComboResponse } from '~/types/serviceCombo'
+import { API_ENDPOINTS } from '~/config/api'
 import './LandingPage.css'
 
 // Sử dụng đường dẫn public URL thay vì import
@@ -60,6 +62,10 @@ const LandingPage = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [ratings, setRatings] = useState<Record<number, number>>({}) // Map serviceId -> rating
   const [ratingsLoaded, setRatingsLoaded] = useState(false) // Flag để biết ratings đã load xong
+  const [reviews, setReviews] = useState<any[]>([]) // Reviews từ API
+  const [loadingReviews, setLoadingReviews] = useState(false)
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0) // Index cho carousel
+  const [autoPlayPaused, setAutoPlayPaused] = useState(false) // Tạm dừng auto play khi user click
   const { tours, loading, error } = useTours()
   const location = useLocation()
 
@@ -111,12 +117,12 @@ const LandingPage = () => {
       if (!tours || tours.length === 0) return
 
       const ratingPromises = tours.map(async (tour) => {
-        const id = tour.Id !== undefined ? tour.Id : tour.id !== undefined ? tour.id : null
+        const id = tour.Id !== undefined ? tour.Id : null
         if (!id) return null
 
         try {
-          const response = await axios.get<{ AverageRating?: number }>(
-            `${API_BASE_URL}/Review/servicecombo/${id}/average-rating`
+          const response = await axiosInstance.get<{ AverageRating?: number }>(
+            `/Review/servicecombo/${id}/average-rating`
           )
           const rating = response.data.AverageRating || 0
           return { id, rating: parseFloat(String(rating)) || 0 }
@@ -142,20 +148,129 @@ const LandingPage = () => {
     fetchRatings()
   }, [tours])
 
+  // Fetch reviews from API
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        setLoadingReviews(true)
+        const response = await axiosInstance.get(`${API_ENDPOINTS.REVIEW}`)
+        const allReviews = response.data || []
+
+        // Lấy unique UserIds để fetch batch
+        const userIds = new Set<number>()
+        allReviews.forEach((review: any) => {
+          const userId = review.UserId || review.userId
+          if (userId && !review.User && !review.user) {
+            userIds.add(userId)
+          }
+        })
+
+        // Fetch User data batch nếu cần
+        const userMap = new Map<number, any>()
+        if (userIds.size > 0) {
+          try {
+            const userPromises = Array.from(userIds).map(async (userId) => {
+              try {
+                const userResponse = await axiosInstance.get(`${API_ENDPOINTS.USER}/${userId}`)
+                return { userId, user: userResponse.data }
+              } catch (error) {
+                console.warn(`Không thể lấy user data cho userId ${userId}:`, error)
+                return { userId, user: null }
+              }
+            })
+            const userResults = await Promise.all(userPromises)
+            userResults.forEach(({ userId, user }) => {
+              if (user) userMap.set(userId, user)
+            })
+          } catch (error) {
+            console.warn('Lỗi khi fetch batch user data:', error)
+          }
+        }
+
+        // Enrich reviews với User data
+        const enrichedReviews = allReviews.map((review: any) => {
+          // Nếu review đã có User data từ API, dùng luôn
+          if (review.User || review.user) {
+            return review
+          }
+
+          // Nếu chưa có, lấy từ userMap
+          const userId = review.UserId || review.userId
+          if (userId && userMap.has(userId)) {
+            return {
+              ...review,
+              User: userMap.get(userId),
+            }
+          }
+          return review
+        })
+
+        // Sắp xếp: rating cao nhất và mới nhất
+        const sortedReviews = enrichedReviews
+          .filter((review) => {
+            const rating = review.Rating || review.rating || 0
+            return rating >= 4 // Chỉ lấy reviews có rating >= 4
+          })
+          .sort((a, b) => {
+            const ratingA = a.Rating || a.rating || 0
+            const ratingB = b.Rating || b.rating || 0
+            const dateA = new Date(a.CreatedAt || a.createdAt || 0).getTime()
+            const dateB = new Date(b.CreatedAt || b.createdAt || 0).getTime()
+
+            // Ưu tiên rating cao hơn, nếu rating bằng nhau thì ưu tiên mới hơn
+            if (ratingB !== ratingA) {
+              return ratingB - ratingA
+            }
+            return dateB - dateA
+          })
+          .slice(0, 6) // Lấy 6 reviews tốt nhất
+
+        setReviews(sortedReviews)
+      } catch (error) {
+        console.error('Lỗi khi lấy reviews:', error)
+        setReviews([])
+      } finally {
+        setLoadingReviews(false)
+      }
+    }
+
+    fetchReviews()
+  }, [])
+
+  // Auto carousel cho reviews
+  useEffect(() => {
+    if (reviews.length <= 1 || autoPlayPaused) return
+
+    const interval = setInterval(() => {
+      setCurrentReviewIndex((prevIndex) => (prevIndex + 1) % reviews.length)
+    }, 5000) // Chuyển đổi mỗi 5 giây
+
+    return () => clearInterval(interval)
+  }, [reviews.length, autoPlayPaused])
+
+  // Handlers cho nút điều hướng
+  const handlePrevReview = () => {
+    setAutoPlayPaused(true)
+    setCurrentReviewIndex((prevIndex) => (prevIndex - 1 + reviews.length) % reviews.length)
+    // Resume auto play sau 10 giây
+    setTimeout(() => setAutoPlayPaused(false), 10000)
+  }
+
+  const handleNextReview = () => {
+    setAutoPlayPaused(true)
+    setCurrentReviewIndex((prevIndex) => (prevIndex + 1) % reviews.length)
+    // Resume auto play sau 10 giây
+    setTimeout(() => setAutoPlayPaused(false), 10000)
+  }
+
   // Map dữ liệu từ API sang format mà ServiceCard cần
-  // API trả về PascalCase (Id, Name, Price, etc.) nhưng có thể map tự động
+  // API trả về PascalCase (Id, Name, Price, etc.)
   const mapServiceComboToService = useMemo(() => {
-    return (serviceCombo: Record<string, unknown>): ServiceItem => {
-      // Xử lý cả PascalCase và camelCase - ưu tiên PascalCase vì API trả về PascalCase
-      const id =
-        serviceCombo.Id !== undefined
-          ? (serviceCombo.Id as number)
-          : serviceCombo.id !== undefined
-            ? (serviceCombo.id as number)
-            : null
-      const name = (serviceCombo.Name || serviceCombo.name || '') as string
-      // Ưu tiên PascalCase vì API trả về PascalCase
-      const imagePath = (serviceCombo.Image || serviceCombo.image || '') as string
+    return (serviceCombo: ServiceComboResponse): ServiceItem => {
+      // API trả về PascalCase (Id, Name, Price, etc.)
+      const id = serviceCombo.Id
+      const name = serviceCombo.Name || ''
+      const imagePath = serviceCombo.Image || ''
 
       // Xử lý trường hợp có nhiều ảnh phân cách bởi dấu phẩy - lấy ảnh đầu tiên cho card
       let firstImage = imagePath
@@ -173,15 +288,10 @@ const LandingPage = () => {
         console.log(`[LandingPage] Service ${id} (${name}): imagePath="${imagePath}" → image="${image}"`)
       }
 
-      const address = (serviceCombo.Address || serviceCombo.address || '') as string
-      const price = parseFloat(String(serviceCombo.Price || serviceCombo.price || 0))
-      const availableSlots =
-        serviceCombo.AvailableSlots !== undefined
-          ? (serviceCombo.AvailableSlots as number)
-          : serviceCombo.availableSlots !== undefined
-            ? (serviceCombo.availableSlots as number)
-            : 0
-      const status = (serviceCombo.Status || serviceCombo.status || 'open') as string
+      const address = serviceCombo.Address || ''
+      const price = serviceCombo.Price || 0
+      const availableSlots = serviceCombo.AvailableSlots || 0
+      const status = serviceCombo.Status || 'open'
 
       // Lấy rating từ state, mặc định là 0 nếu chưa có
       const serviceRating = id !== null && ratings[id] !== undefined ? ratings[id] : 0
@@ -223,14 +333,14 @@ const LandingPage = () => {
     // Kiểm tra dữ liệu từ API
     if (tours.length > 0) {
       console.log('[LandingPage] Sample tour từ API:', tours[0])
-      console.log('[LandingPage] Sample tour Image:', tours[0].Image || tours[0].image)
+      console.log('[LandingPage] Sample tour Image:', tours[0].Image)
     }
 
     // Lọc các service có status 'open' và map sang format cần thiết
-    // Xử lý cả PascalCase và camelCase - ưu tiên PascalCase
+    // API trả về PascalCase (Status)
     const activeServices = tours
       .filter((service) => {
-        const status = (service.Status || service.status || 'open') as string
+        const status = (service.Status || 'open') as string
         const isOpen = status.toLowerCase() === 'open'
         if (!isOpen) {
           console.log(`  [LandingPage] Bỏ qua service có status: ${status}`)
@@ -244,17 +354,7 @@ const LandingPage = () => {
         const ratingB = b.rating || 0
         return ratingB - ratingA // Giảm dần
       })
-      // Chỉ lấy các service có rating cao nhất (top 6)
-      // Chỉ filter rating > 0 khi ratings đã được load xong
-      .filter((service) => {
-        if (!ratingsLoaded) {
-          // Nếu ratings chưa load, hiển thị tất cả (sẽ được sắp xếp lại sau)
-          return true
-        }
-        // Nếu ratings đã load, chỉ lấy services có rating > 0
-        return service.rating > 0
-      })
-      .slice(0, 6) // Lấy 6 service có rating cao nhất
+      .slice(0, 6) // Chỉ lấy 6 service có rating cao nhất
 
     console.log('[LandingPage] Services sau khi map và sắp xếp theo rating:', activeServices)
     console.log('[LandingPage] Số lượng services sau khi map:', activeServices.length)
@@ -270,16 +370,22 @@ const LandingPage = () => {
       })
     })
 
-    // Nếu không đủ 6 service, bổ sung bằng dữ liệu tĩnh
-    if (activeServices.length < 6) {
-      const staticServices = popularServices.slice(0, 6 - activeServices.length)
-      return [...activeServices, ...staticServices]
+    // Đảm bảo chỉ trả về tối đa 6 services
+    return activeServices.slice(0, 6)
+  }, [tours, loading, error, mapServiceComboToService, ratings])
+
+  // Hiển thị reviews theo carousel (6 reviews, hiển thị 3 mỗi lần)
+  const displayReviews = useMemo(() => {
+    if (reviews.length === 0) return []
+    
+    // Hiển thị 3 reviews mỗi lần, bắt đầu từ currentReviewIndex
+    const visibleReviews = []
+    for (let i = 0; i < 3; i++) {
+      const index = (currentReviewIndex + i) % reviews.length
+      visibleReviews.push(reviews[index])
     }
-
-    return activeServices
-  }, [tours, loading, error, mapServiceComboToService, ratingsLoaded])
-
-  const displayReviews = useMemo(() => reviews.slice(0, 3), [])
+    return visibleReviews
+  }, [reviews, currentReviewIndex])
 
   return (
     <div className="landing-page">
@@ -318,18 +424,17 @@ const LandingPage = () => {
                 {/* Badge */}
                 <div className="hero-badge" role="banner">
                   <UsersIcon className="badge-icon" aria-hidden="true" />
-                  <span>Du lịch sinh thái bền vững</span>
+                  <span>Trải nghiệm thiên nhiên hoang sơ</span>
                 </div>
 
                 {/* Main Heading */}
                 <div className="hero-text">
                   <h1 className="hero-title">
-                    Khám phá Đà Nẵng
-                    <span className="hero-title-highlight"> cùng nhóm bạn</span>
+                    Khám phá thiên nhiên tại
+                    <span className="hero-title-highlight"> Đà Nẵng</span>
                   </h1>
                   <p className="hero-description">
-                    Đặt dịch vụ theo nhóm thông minh, tiết kiệm chi phí và tạo những kỷ niệm đáng nhớ với các dịch vụ
-                    du lịch sinh thái tại Đà Nẵng.
+                    Đặt dịch vụ theo nhóm thông minh, tiết kiệm chi phí và tạo những kỷ niệm đáng nhớ với công nghệ và dịch vụ hoàn hảo.
                   </p>
                 </div>
 
@@ -417,7 +522,7 @@ const LandingPage = () => {
                 <h2 id="services-title" className="section-title">
                   Dịch vụ được yêu thích nhất
                 </h2>
-                <p className="section-subtitle">Khám phá những điểm đến tuyệt vời nhất Đà Nẵng</p>
+                <p className="section-subtitle services-subtitle">Khám phá những điểm đến tuyệt vời nhất Đà Nẵng</p>
               </div>
 
               <Button size="lg" className="services-view-all" asChild>
@@ -492,46 +597,119 @@ const LandingPage = () => {
               </p>
             </div>
 
-            <div className="reviews-grid">
-              {displayReviews.map((review, index) => (
-                <article
-                  key={review.id}
-                  className={`review-card ${isVisible ? 'fade-in-up' : ''}`}
-                  style={{ animationDelay: `${0.3 + index * 0.1}s` }}
-                >
-                  <Card className="review-card-inner">
-                    <CardContent className="review-content">
-                      <div className="review-stars" aria-label={`Đánh giá ${review.rating} sao`}>
-                        {[...Array(5)].map((_, i) => (
-                          <StarIcon
-                            key={i}
-                            className="review-star"
-                            filled={i < review.rating}
-                            aria-hidden="true"
-                          />
-                        ))}
-                      </div>
-                      <div className="review-quote" aria-hidden="true">
-                        "
-                      </div>
-                      <blockquote className="review-text">{review.comment}</blockquote>
-                      <div className="review-divider"></div>
-                      <div className="review-author">
-                        <div className="review-avatar" aria-hidden="true">
-                          <span className="review-initials">{review.initials}</span>
-                        </div>
-                        <div className="review-author-info">
-                          <p className="review-author-name">{review.name}</p>
-                          <p className="review-author-meta">
-                            {review.service} • {review.timeAgo}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </article>
-              ))}
-            </div>
+            {loadingReviews ? (
+              <div className="reviews-grid">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="review-card-skeleton">
+                    <Card className="review-card-inner">
+                      <CardContent className="review-content">
+                        <div style={{ height: '20px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '1rem' }}></div>
+                        <div style={{ height: '100px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '1rem' }}></div>
+                        <div style={{ height: '40px', backgroundColor: '#e2e8f0', borderRadius: '4px' }}></div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            ) : displayReviews.length > 0 ? (
+              <div className="reviews-carousel-wrapper">
+                {reviews.length > 3 && (
+                  <>
+                    <button
+                      className="reviews-carousel-btn reviews-carousel-btn-prev"
+                      onClick={handlePrevReview}
+                      aria-label="Xem đánh giá trước"
+                    >
+                      <ChevronLeftIcon className="reviews-carousel-icon" />
+                    </button>
+                    <button
+                      className="reviews-carousel-btn reviews-carousel-btn-next"
+                      onClick={handleNextReview}
+                      aria-label="Xem đánh giá tiếp theo"
+                    >
+                      <ChevronRightIcon className="reviews-carousel-icon" />
+                    </button>
+                  </>
+                )}
+                <div className="reviews-grid">
+                  {displayReviews.map((review, index) => {
+                  const rating = review.Rating || review.rating || 0
+                  const comment = review.Comment || review.comment || ''
+                  const user = review.User || review.user || {}
+                  const userName = user.Name || user.name || 'Khách hàng'
+                  const userAvatar = user.Avatar || user.avatar || ''
+                  const createdAt = review.CreatedAt || review.createdAt || ''
+                  
+                  // Tạo initials từ tên
+                  const getInitials = (name: string) => {
+                    const parts = name.trim().split(' ')
+                    if (parts.length >= 2) {
+                      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+                    }
+                    return name.substring(0, 2).toUpperCase()
+                  }
+
+                  // Format thời gian
+                  const getTimeAgo = (dateString: string) => {
+                    if (!dateString) return 'Gần đây'
+                    const date = new Date(dateString)
+                    const now = new Date()
+                    const diffMs = now.getTime() - date.getTime()
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+                    
+                    if (diffDays === 0) return 'Hôm nay'
+                    if (diffDays === 1) return 'Hôm qua'
+                    if (diffDays < 7) return `${diffDays} ngày trước`
+                    if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`
+                    if (diffDays < 365) return `${Math.floor(diffDays / 30)} tháng trước`
+                    return `${Math.floor(diffDays / 365)} năm trước`
+                  }
+
+                  return (
+                    <article
+                      key={review.Id || review.id || index}
+                      className={`review-card ${isVisible ? 'fade-in-up' : ''}`}
+                      style={{ animationDelay: `${0.3 + index * 0.1}s` }}
+                    >
+                      <Card className="review-card-inner">
+                        <CardContent className="review-content">
+                          <div className="review-stars" aria-label={`Đánh giá ${rating} sao`}>
+                            {[...Array(5)].map((_, i) => (
+                              <StarIcon
+                                key={i}
+                                className="review-star"
+                                filled={i < rating}
+                                aria-hidden="true"
+                              />
+                            ))}
+                          </div>
+                          <blockquote className="review-text">{comment}</blockquote>
+                          <div className="review-divider"></div>
+                          <div className="review-author">
+                            <div className="review-avatar" aria-hidden="true">
+                              {userAvatar ? (
+                                <img src={userAvatar} alt={userName} className="review-avatar-img" />
+                              ) : (
+                                <span className="review-initials">{getInitials(userName)}</span>
+                              )}
+                            </div>
+                            <div className="review-author-info">
+                              <p className="review-author-name">{userName}</p>
+                              <p className="review-author-meta">{getTimeAgo(createdAt)}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </article>
+                  )
+                })}
+                </div>
+              </div>
+            ) : (
+              <div className="services-empty">
+                <p>Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá!</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -543,7 +721,7 @@ const LandingPage = () => {
                 Sẵn sàng khám phá cùng chúng tôi?
               </h2>
               <p className="cta-subtitle">
-                Hãy để chúng tôi mang đến cho bạn những trải nghiệm du lịch sinh thái tuyệt vời và ý nghĩa nhất.
+                Hãy để chúng tôi mang đến cho bạn những trải nghiệm du lịch sinh thái tuyệt vời nhất.
               </p>
               <div className="cta-buttons">
                 <Link
@@ -566,6 +744,7 @@ const LandingPage = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   )
 }
@@ -615,33 +794,31 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isVisible }) 
         <CardContent className="service-content">
           <h3 className="service-name">{service.name}</h3>
           {service.address && <p className="service-address">{service.address}</p>}
-          {service.rating !== undefined && service.rating !== null && (
-            <div className="service-rating">
-              <div className="stars" aria-label={`Đánh giá ${service.rating} sao`}>
-                {(() => {
-                  const rating = service.rating || 0
-                  const fullStars = Math.floor(rating)
-                  const hasHalfStar = rating % 1 >= 0.5
-                  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0)
+          <div className="service-rating">
+            <div className="stars" aria-label={`Đánh giá ${service.rating || 0} sao`}>
+              {(() => {
+                const rating = service.rating !== undefined && service.rating !== null ? service.rating : 0
+                const fullStars = Math.floor(rating)
+                const hasHalfStar = rating % 1 >= 0.5
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0)
 
-                  return [
-                    ...Array(fullStars).fill('full'),
-                    ...(hasHalfStar ? ['half'] : []),
-                    ...Array(emptyStars).fill('empty'),
-                  ].map((type, i) => (
-                    <StarIcon
-                      key={i}
-                      className="star-icon"
-                      filled={type === 'full'}
-                      half={type === 'half'}
-                      aria-hidden="true"
-                    />
-                  ))
-                })()}
-              </div>
-              <span className="rating-text">({service.rating?.toFixed(1) || '0.0'})</span>
+                return [
+                  ...Array(fullStars).fill('full'),
+                  ...(hasHalfStar ? ['half'] : []),
+                  ...Array(emptyStars).fill('empty'),
+                ].map((type, i) => (
+                  <StarIcon
+                    key={i}
+                    className="star-icon"
+                    filled={type === 'full'}
+                    half={type === 'half'}
+                    aria-hidden="true"
+                  />
+                ))
+              })()}
             </div>
-          )}
+            <span className="rating-text">({(service.rating !== undefined && service.rating !== null ? service.rating : 0).toFixed(1)})</span>
+          </div>
           <div className="service-price-wrapper">
             <div>
               <span className="service-price">{formatPrice(service.priceFrom)}</span>
@@ -662,4 +839,5 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isVisible }) 
 }
 
 export default LandingPage
+
 

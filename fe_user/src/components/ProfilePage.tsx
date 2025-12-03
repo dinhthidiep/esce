@@ -325,28 +325,57 @@ const ProfilePage = () => {
         }
         break;
       case 'phone':
-        if (value && value.trim() !== '') {
+        if (!value || value.trim() === '') {
+          errors.phone = 'Số điện thoại không được để trống';
+        } else {
           const phoneRegex = /^[0-9]{10,11}$/;
           if (!phoneRegex.test(value.trim())) {
             errors.phone = 'Số điện thoại phải có 10-11 chữ số';
           } else {
             delete errors.phone;
           }
+        }
+        break;
+      case 'address':
+        if (!value || value.trim() === '') {
+          errors.address = 'Địa chỉ không được để trống';
         } else {
-          delete errors.phone;
+          delete errors.address;
+        }
+        break;
+      case 'gender':
+        if (!value || value.trim() === '') {
+          errors.gender = 'Giới tính không được để trống';
+        } else {
+          delete errors.gender;
         }
         break;
       case 'dob':
-        if (value) {
+        if (!value || value.trim() === '') {
+          errors.dob = 'Ngày sinh không được để trống';
+        } else {
           const dobDate = new Date(value);
           const today = new Date();
+          
           if (dobDate > today) {
             errors.dob = 'Ngày sinh không thể trong tương lai';
           } else {
-            delete errors.dob;
+            // Kiểm tra 18 tuổi trở lên
+            const age = today.getFullYear() - dobDate.getFullYear();
+            const monthDiff = today.getMonth() - dobDate.getMonth();
+            const dayDiff = today.getDate() - dobDate.getDate();
+            
+            let actualAge = age;
+            if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+              actualAge = age - 1;
+            }
+            
+            if (actualAge < 18) {
+              errors.dob = 'Bạn phải từ 18 tuổi trở lên';
+            } else {
+              delete errors.dob;
+            }
           }
-        } else {
-          delete errors.dob;
         }
         break;
       default:
@@ -452,31 +481,66 @@ const ProfilePage = () => {
       setSuccess(null);
       setFieldErrors({});
 
-      // Validate all fields
+      // Validate all required fields
       validateField('name', formData.name);
       validateField('phone', formData.phone);
+      validateField('address', formData.address);
+      validateField('gender', formData.gender);
       validateField('dob', formData.dob);
       
       // Kiểm tra nếu có lỗi validation
       const newErrors: { [key: string]: string } = {};
+      
+      // Họ và tên (bắt buộc)
       if (!formData.name || formData.name.trim() === '') {
         newErrors.name = 'Họ và tên không được để trống';
       } else if (formData.name.trim().length < 2) {
         newErrors.name = 'Họ và tên phải có ít nhất 2 ký tự';
       }
       
-      if (formData.phone && formData.phone.trim() !== '') {
+      // Số điện thoại (bắt buộc)
+      if (!formData.phone || formData.phone.trim() === '') {
+        newErrors.phone = 'Số điện thoại không được để trống';
+      } else {
         const phoneRegex = /^[0-9]{10,11}$/;
         if (!phoneRegex.test(formData.phone.trim())) {
           newErrors.phone = 'Số điện thoại phải có 10-11 chữ số';
         }
       }
       
-      if (formData.dob) {
+      // Địa chỉ (bắt buộc)
+      if (!formData.address || formData.address.trim() === '') {
+        newErrors.address = 'Địa chỉ không được để trống';
+      }
+      
+      // Giới tính (bắt buộc)
+      if (!formData.gender || formData.gender.trim() === '') {
+        newErrors.gender = 'Giới tính không được để trống';
+      }
+      
+      // Ngày sinh (bắt buộc và phải từ 18 tuổi trở lên)
+      if (!formData.dob || formData.dob.trim() === '') {
+        newErrors.dob = 'Ngày sinh không được để trống';
+      } else {
         const dobDate = new Date(formData.dob);
         const today = new Date();
+        
         if (dobDate > today) {
           newErrors.dob = 'Ngày sinh không thể trong tương lai';
+        } else {
+          // Kiểm tra 18 tuổi trở lên
+          const age = today.getFullYear() - dobDate.getFullYear();
+          const monthDiff = today.getMonth() - dobDate.getMonth();
+          const dayDiff = today.getDate() - dobDate.getDate();
+          
+          let actualAge = age;
+          if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+            actualAge = age - 1;
+          }
+          
+          if (actualAge < 18) {
+            newErrors.dob = 'Bạn phải từ 18 tuổi trở lên';
+          }
         }
       }
       
@@ -512,31 +576,33 @@ const ProfilePage = () => {
       }
 
       // Build payload exactly matching UpdateProfileDto
-      // Backend expects: Name (required), Phone, Avatar, Gender, Address, DOB (all optional, nullable)
-      // Chỉ gửi các field có giá trị để tránh validation error
-      const updateData: any = {
-        Name: formData.name ? formData.name.trim() : ''
+      // Backend requires: Name, Phone, Gender, Address, DOB (all required)
+      // Lấy giá trị từ formData, nếu không có thì lấy từ userInfo hiện tại
+      // Nếu cả hai đều không có, gửi null (không phải empty string) để backend không báo lỗi validation
+      const getValue = (formValue: string | undefined, userValue: any) => {
+        const trimmed = formValue?.trim();
+        if (trimmed) return trimmed;
+        if (userValue) return String(userValue).trim() || null;
+        return null;
       };
       
-      // Chỉ thêm các field optional nếu có giá trị
-      if (formData.phone && formData.phone.trim()) {
-        updateData.Phone = formData.phone.trim() as string;
-      }
+      const currentPhone = getValue(formData.phone, userInfo?.Phone || userInfo?.phone);
+      const currentGender = getValue(formData.gender, userInfo?.Gender || userInfo?.gender);
+      const currentAddress = getValue(formData.address, userInfo?.Address || userInfo?.address);
+      const currentDOB = dobString || userInfo?.DOB || userInfo?.Dob || userInfo?.dob || null;
+      const currentAvatar = getValue(formData.avatar, userInfo?.Avatar || userInfo?.avatar);
       
-      if (dobString) {
-        updateData.DOB = dobString as string;
-      }
+      const updateData: any = {
+        Name: formData.name ? formData.name.trim() : (userInfo?.Name || userInfo?.name || ''),
+        Phone: currentPhone,
+        Gender: currentGender,
+        Address: currentAddress,
+        DOB: currentDOB
+      };
       
-      if (formData.gender && formData.gender.trim()) {
-        updateData.Gender = formData.gender.trim() as string;
-      }
-      
-      if (formData.address && formData.address.trim()) {
-        (updateData as any).Address = formData.address.trim() as string;
-      }
-      
-      if (formData.avatar && formData.avatar.trim()) {
-        updateData.Avatar = formData.avatar.trim() as string;
+      // Avatar là optional, chỉ thêm nếu có giá trị
+      if (currentAvatar) {
+        updateData.Avatar = currentAvatar;
       }
 
       // Log payload before sending
@@ -579,6 +645,9 @@ const ProfilePage = () => {
           if (sessionStorage.getItem('userInfo')) {
             sessionStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
           }
+          
+          // Trigger custom event để Header tự động cập nhật
+          window.dispatchEvent(new CustomEvent('userStorageChange'));
         } catch (err) {
           console.error('Error updating localStorage:', err);
         }
@@ -703,11 +772,13 @@ const ProfilePage = () => {
       return roleName;
     }
     
+    // Role mapping theo database ROLES table
+    // ID: 1 = Admin, ID: 2 = Host, ID: 3 = Agency, ID: 4 = Tourist
     const roleId = userInfo.RoleId || userInfo.roleId;
     if (roleId === 1) return 'Admin';
     if (roleId === 2) return 'Host';
-    if (roleId === 3) return 'Tourist';
-    if (roleId === 4) return 'Agency';
+    if (roleId === 3) return 'Agency';
+    if (roleId === 4) return 'Tourist';
     return 'User';
   };
 
@@ -1260,6 +1331,7 @@ const ProfilePage = () => {
                       onChange={handleInputChange}
                       onBlur={(e) => validateField('phone', e.target.value)}
                       disabled={!isEditing}
+                      required
                       placeholder="0901234567"
                       aria-invalid={!!(fieldErrors as { [key: string]: string }).phone}
                       aria-describedby={(fieldErrors as { [key: string]: string }).phone ? 'phone-error' : undefined}
@@ -1279,16 +1351,25 @@ const ProfilePage = () => {
                     <select
                       id="gender"
                       name="gender"
-                      className="form-input-compact"
+                      className={`form-input-compact ${(fieldErrors as { [key: string]: string }).gender ? 'input-error' : ''}`}
                       value={formData.gender}
                       onChange={handleInputChange}
+                      onBlur={(e) => validateField('gender', e.target.value)}
                       disabled={!isEditing}
+                      required
+                      aria-invalid={!!(fieldErrors as { [key: string]: string }).gender}
+                      aria-describedby={(fieldErrors as { [key: string]: string }).gender ? 'gender-error' : undefined}
                     >
                       <option value="">Chọn giới tính</option>
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
                       <option value="Khác">Khác</option>
                     </select>
+                    {(fieldErrors as { [key: string]: string }).gender && (
+                      <span id="gender-error" className="field-error" role="alert">
+                        {(fieldErrors as { [key: string]: string }).gender}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field-compact">
@@ -1303,12 +1384,21 @@ const ProfilePage = () => {
                       type="text"
                       id="address"
                       name="address"
-                      className="form-input-compact"
+                      className={`form-input-compact ${(fieldErrors as { [key: string]: string }).address ? 'input-error' : ''}`}
                       value={formData.address}
                       onChange={handleInputChange}
+                      onBlur={(e) => validateField('address', e.target.value)}
+                      required
+                      aria-invalid={!!(fieldErrors as { [key: string]: string }).address}
+                      aria-describedby={(fieldErrors as { [key: string]: string }).address ? 'address-error' : undefined}
                       disabled={!isEditing}
                       placeholder="123 Đường ABC, Quận 1, TP.HCM"
                     />
+                    {(fieldErrors as { [key: string]: string }).address && (
+                      <span id="address-error" className="field-error" role="alert">
+                        {(fieldErrors as { [key: string]: string }).address}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1345,9 +1435,22 @@ const ProfilePage = () => {
                       className={`form-input-compact ${(fieldErrors as { [key: string]: string }).dob ? 'input-error' : ''}`}
                       value={formData.dob}
                       onChange={handleInputChange}
+                      onFocus={(e) => {
+                        // Khi focus vào input, mở date picker ngay
+                        if (isEditing && e.target instanceof HTMLInputElement) {
+                          e.target.showPicker?.();
+                        }
+                      }}
                       onBlur={(e) => validateField('dob', e.target.value)}
                       disabled={!isEditing}
-                      max={new Date().toISOString().split('T')[0]}
+                      required
+                      max={(() => {
+                        // Max date là 18 năm trước từ hôm nay
+                        const today = new Date();
+                        const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                        return maxDate.toISOString().split('T')[0];
+                      })()}
+                      min="1900-01-01"
                       aria-invalid={!!(fieldErrors as { [key: string]: string }).dob}
                       aria-describedby={(fieldErrors as { [key: string]: string }).dob ? 'dob-error' : undefined}
                     />
