@@ -24,6 +24,7 @@ import PhoneIcon from '@mui/icons-material/Phone'
 import WcIcon from '@mui/icons-material/Wc'
 import HomeIcon from '@mui/icons-material/Home'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
+import { uploadImageToFirebase } from '~/firebaseClient'
 import { styled } from '@mui/material/styles'
 import { updateProfile as updateProfileApi } from '~/api/instances/UserApi'
 
@@ -191,7 +192,7 @@ const [isSaving, setIsSaving] = useState(false)
     fileInputRef.current?.click()
   }
 
-  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       // Validate file type
@@ -206,14 +207,19 @@ const [isSaving, setIsSaving] = useState(false)
         return
       }
 
-      // Create preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        setAvatarPreview(result)
-        setFormData({ ...formData, avatar: result })
+      try {
+        // Upload avatar lên Firebase và dùng URL trả về
+        const url = await uploadImageToFirebase(file, 'avatars')
+        setAvatarPreview(url)
+        setFormData({ ...formData, avatar: url })
+      } catch (error) {
+        console.error('Error uploading avatar to Firebase:', error)
+        setSnackbar({
+          open: true,
+          message: 'Không thể upload ảnh đại diện. Vui lòng thử lại.',
+          severity: 'error'
+        })
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -293,6 +299,9 @@ const [isSaving, setIsSaving] = useState(false)
         avatar: updatedUserInfo.avatar
       }))
       setAvatarPreview(updatedUserInfo.avatar || null)
+
+      // Dispatch custom event to notify other components (e.g., SocialMedia) that profile was updated
+      window.dispatchEvent(new CustomEvent('userProfileUpdated'))
 
       setSnackbar({
         open: true,

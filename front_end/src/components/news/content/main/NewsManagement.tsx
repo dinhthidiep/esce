@@ -35,6 +35,7 @@ import {
   Close as CloseIcon,
   Link as LinkIcon
 } from '@mui/icons-material'
+import { uploadImageToFirebase } from '~/firebaseClient'
 import {
   fetchAllNews,
   createNews,
@@ -79,27 +80,6 @@ const formatTimeAgo = (dateString?: string) => {
   } catch {
     return 'Vừa xong'
   }
-}
-
-// Convert File to Base64
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => {
-      const result = reader.result as string
-      // Ensure we have a valid data URL
-      if (result && result.startsWith('data:image/')) {
-        resolve(result)
-      } else {
-        reject(new Error('Invalid image format'))
-      }
-    }
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error)
-      reject(error)
-    }
-  })
 }
 
 export default function NewsManagement() {
@@ -233,6 +213,7 @@ export default function NewsManagement() {
     setNewSocialLink('')
     setNewImages([])
     setNewImagePreviews([])
+    setError(null) // Clear error when closing dialog
   }
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,15 +264,30 @@ export default function NewsManagement() {
   }
 
   const handleCreateNews = async () => {
-    if (!newContent.trim() && newImages.length === 0) {
+    // Backend requires Content to be non-empty (Required attribute)
+    if (!newContent.trim()) {
+      setError('Nội dung tin tức không được để trống')
+      return
+    }
+
+    // Validate content length
+    if (newContent.trim().length > 4000) {
+      setError('Nội dung tin tức tối đa 4000 ký tự')
+      return
+    }
+
+    // Validate social link length if provided
+    if (newSocialLink.trim().length > 500) {
+      setError('Link mạng xã hội tối đa 500 ký tự')
       return
     }
 
     try {
       setCreating(true)
+      setError(null) // Clear previous errors
       
-      // Convert images to base64 - ensure no duplicates
-      const imageBase64s: string[] = []
+      // Upload images to Firebase - ensure no duplicates
+      const imageUrls: string[] = []
       const processedFiles = new Set<string>() // Track processed file names to avoid duplicates
       
       for (const file of newImages) {
@@ -302,41 +298,41 @@ export default function NewsManagement() {
         }
         
         try {
-          const base64 = await fileToBase64(file)
-          // Validate base64 string
-          if (base64 && base64.startsWith('data:image/')) {
-            // Store the full data URL (includes data:image/...;base64, prefix)
-            imageBase64s.push(base64)
-            processedFiles.add(file.name)
-            console.log(`Successfully converted file: ${file.name}, base64 length: ${base64.length}`)
-          } else {
-            console.warn(`Invalid base64 for file: ${file.name}, base64: ${base64?.substring(0, 50)}`)
-          }
+          const url = await uploadImageToFirebase(file, 'news')
+          imageUrls.push(url)
+          processedFiles.add(file.name)
+          console.log(`Successfully uploaded file to Firebase: ${file.name}, url: ${url}`)
         } catch (fileError) {
-          console.error(`Error converting file ${file.name}:`, fileError)
-          setError(`Lỗi khi xử lý ảnh ${file.name}. Vui lòng thử lại.`)
+          console.error(`Error uploading file ${file.name} to Firebase:`, fileError)
+          setError(`Lỗi khi upload ảnh ${file.name} lên server. Vui lòng thử lại.`)
+          setCreating(false)
+          return
         }
       }
 
-      if (imageBase64s.length === 0 && newImages.length > 0) {
-        setError('Không thể xử lý ảnh. Vui lòng thử lại với ảnh khác.')
+      if (imageUrls.length === 0 && newImages.length > 0) {
+        setError('Không thể upload ảnh. Vui lòng thử lại với ảnh khác.')
         setCreating(false)
         return
       }
 
-      console.log(`Creating news with ${imageBase64s.length} images`)
+      console.log(`Creating news with ${imageUrls.length} images`)
 
       const dto: CreateNewsDto = {
         content: newContent.trim(),
         socialMediaLink: newSocialLink.trim() || undefined,
-        images: imageBase64s.length > 0 ? imageBase64s : undefined
+        images: imageUrls.length > 0 ? imageUrls : undefined
       }
 
       await createNews(dto)
       await loadNews()
       handleCloseCreateDialog()
+      
+      // Show success message (optional)
+      console.log('News created successfully')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể tạo tin tức')
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo tin tức'
+      setError(errorMessage)
       console.error('Error creating news:', err)
     } finally {
       setCreating(false)
@@ -393,16 +389,21 @@ export default function NewsManagement() {
 
     try {
       setUpdating(true)
+      setError(null)
       
-      // Convert new images to base64
-      const newImageBase64s: string[] = []
+      // Upload new images to Firebase
+      const newImageUrls: string[] = []
       for (const file of editNewImages) {
-        const base64 = await fileToBase64(file)
-        newImageBase64s.push(base64)
+        try {
+          const url = await uploadImageToFirebase(file, 'news')
+          newImageUrls.push(url)
+        } catch (fileError) {
+          console.error(`Error uploading edit image ${file.name} to Firebase:`, fileError)
+        }
       }
 
       // Combine existing and new images
-      const allImages = [...editImages, ...newImageBase64s]
+      const allImages = [...editImages, ...newImageUrls]
 
       const dto: UpdateNewsDto = {
         content: editContent.trim() || undefined,
@@ -849,13 +850,22 @@ export default function NewsManagement() {
           Tạo tin tức mới
         </DialogTitle>
         <DialogContent sx={{ bgcolor: 'background.default', pt: 3 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
           <TextField
             fullWidth
             multiline
             rows={6}
             placeholder="Nhập nội dung tin tức..."
             value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
+            onChange={(e) => {
+              setNewContent(e.target.value)
+              // Clear error when user starts typing
+              if (error) setError(null)
+            }}
             sx={{ 
               mb: 2, 
               mt: 1,
@@ -973,7 +983,7 @@ export default function NewsManagement() {
           <Button
             onClick={handleCreateNews}
             variant="contained"
-            disabled={creating || (!newContent.trim() && newImages.length === 0)}
+            disabled={creating || !newContent.trim()}
             sx={{
               bgcolor: 'primary.main',
               '&:hover': {
