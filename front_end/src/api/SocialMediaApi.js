@@ -307,18 +307,18 @@ export const createPost = async (postData) => {
       imageUrl = await uploadImageToFirebase(postData.image, 'posts');
     }
 
-    // Use JSON instead of FormData since we're sending URL, not file
-    // Title and Content are separate entities - don't generate title from content
+    // DỮ LIỆU PHÙ HỢP VỚI PostDto TRONG BACKEND
+    // PostDto: PostContent (string), Images (List<string>), PosterName (string), Hashtags (List<string>), ArticleTitle (string?)
     const text = (postData.text || '').trim();
     const postContent = text || (imageUrl ? ' ' : ' ');
-    const title = (postData.title || '').trim(); // Send title as-is, empty string if not provided
+    const title = (postData.title || '').trim();
     
     const requestBody = {
       PostContent: postContent,
+      Images: imageUrl ? [imageUrl] : [],
       PosterName: posterName,
-      PostTitle: title,
-      Hashtags: [], // Send as array, not JSON string
-      ImageUrl: imageUrl // Send Firebase Storage URL instead of file
+      Hashtags: [],
+      ArticleTitle: title || null
     };
 
     const response = await fetch(`${backend_url}/api/Post/CreatePost`, {
@@ -522,7 +522,8 @@ export const deletePost = async (postId) => {
       throw new Error('Authentication required. Please log in again.');
     }
 
-    const response = await fetch(`${backend_url}/api/Post/${postId}`, {
+    // Backend: [HttpDelete("DeletePost")] DeletePost(int id)
+    const response = await fetch(`${backend_url}/api/Post/DeletePost?id=${postId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -721,14 +722,25 @@ export const createReaction = async (reactionData) => {
       throw new Error('Authentication required. Please log in again.');
     }
 
+    // Validate và chuẩn hóa dữ liệu
+    if (!reactionData.targetType || !reactionData.targetId || !reactionData.reactionType) {
+      throw new Error('Thiếu thông tin reaction. Vui lòng thử lại.');
+    }
+
+    // Đảm bảo TargetId là số nguyên hợp lệ
+    const targetId = parseInt(String(reactionData.targetId), 10);
+    if (!targetId || isNaN(targetId) || targetId <= 0) {
+      throw new Error('ID không hợp lệ. Vui lòng thử lại.');
+    }
+
     // Prepare reaction data according to database schema
     // Schema: USER_ID, TARGET_TYPE, TARGET_ID, REACTION_TYPE
     // CREATED_AT is set by backend
     // USER_ID is set by backend from JWT token
     const reactionPayload = {
-      TargetType: reactionData.targetType, // 'POST' or 'COMMENT'
-      TargetId: reactionData.targetId,
-      ReactionType: reactionData.reactionType // 'like', 'love', 'haha', 'wow', 'dislike', etc.
+      TargetType: String(reactionData.targetType).toUpperCase(), // 'POST' or 'COMMENT'
+      TargetId: targetId, // Đảm bảo là số nguyên
+      ReactionType: String(reactionData.reactionType).toLowerCase() // 'like', 'love', 'haha', 'wow', 'dislike', etc.
     };
 
     const response = await fetch(`${backend_url}/api/Reaction`, {
@@ -789,6 +801,15 @@ export const createReaction = async (reactionData) => {
         } else if (errorDetails && errorDetails.message) {
           message = errorDetails.message;
         }
+      }
+
+      // Xử lý lỗi Entity Framework
+      if (message.includes('saving the entity changes') || 
+          message.includes('inner exception') ||
+          message.includes('database') ||
+          message.includes('constraint') ||
+          message.includes('foreign key')) {
+        message = 'Không thể lưu thay đổi. Vui lòng thử lại sau.';
       }
 
       const error = new Error(message);
@@ -1010,18 +1031,17 @@ export const updatePost = async (postId, postData) => {
       imageUrl = await uploadImageToFirebase(postData.image, 'posts');
     }
 
-    // Use JSON instead of FormData since we're sending URL, not file
-    // Title and Content are separate entities - don't generate title from content
+    // DỮ LIỆU PHÙ HỢP VỚI PostDto TRONG BACKEND KHI UPDATE
     const text = (postData.text || '').trim();
     const postContent = text || (imageUrl ? ' ' : ' ');
-    const title = (postData.title || '').trim(); // Send title as-is, empty string if not provided
+    const title = (postData.title || '').trim();
     
     const requestBody = {
       PostContent: postContent,
+      Images: imageUrl ? [imageUrl] : (Array.isArray(postData.images) ? postData.images : []),
       PosterName: posterName,
-      PostTitle: title,
-      Hashtags: [], // Send as array, not JSON string
-      ImageUrl: imageUrl // Send Firebase Storage URL (null if no new image)
+      Hashtags: [],
+      ArticleTitle: title || null
     };
 
     const response = await fetch(`${backend_url}/api/Post/UpdatePost?id=${postId}`, {

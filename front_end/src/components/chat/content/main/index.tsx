@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import {
   Typography,
@@ -39,6 +39,8 @@ import {
   type ChatUser,
   type ChatMessage
 } from '~/api/instances/ChatApi'
+import { onReceiveMessage, disconnectChat } from '~/api/instances/chatSignalR'
+import { uploadImageToFirebase } from '~/firebaseClient'
 
 type Reaction = {
   emoji: string
@@ -74,14 +76,74 @@ type Conversation = {
   isHistoryLoaded: boolean
 }
 
-const formatTimestamp = (value?: string) => {
-  if (!value) return 'Vừa xong'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Vừa xong'
+/**
+ * Parse và normalize timestamp từ backend
+ * Backend gửi UTC time, cần đảm bảo parse đúng
+ */
+const parseTimestamp = (value?: string): number => {
+  if (!value) return Date.now()
+  
+  try {
+    // Nếu là string, đảm bảo có timezone indicator
+    let timestampStr = value
+    if (typeof timestampStr === 'string') {
+      // Nếu không có timezone indicator, thêm 'Z' (UTC)
+      // Kiểm tra xem có phải là ISO format không (có T)
+      if (timestampStr.includes('T')) {
+        // Nếu không có timezone indicator (Z, +, hoặc - với offset)
+        if (!timestampStr.includes('Z') && !timestampStr.match(/[+-]\d{2}:\d{2}$/)) {
+          timestampStr = timestampStr + 'Z'
+        }
+      }
+    }
+    
+    const date = new Date(timestampStr)
+    const timeMs = date.getTime()
+    
+    if (Number.isNaN(timeMs)) {
+      console.warn('[parseTimestamp] Invalid date, using current time:', { value, timestampStr })
+      return Date.now()
+    }
+    
+    return timeMs
+  } catch (error) {
+    console.warn('[parseTimestamp] Error parsing timestamp, using current time:', { value, error })
+    return Date.now()
+  }
+}
 
-  const diffMs = Date.now() - date.getTime()
-  const minutes = Math.floor(diffMs / (60 * 1000))
-  if (minutes < 1) return 'Vừa xong'
+/**
+ * Format timestamp để hiển thị cho user
+ */
+const formatTimestamp = (value?: string): string => {
+  if (!value) return 'Vừa xong'
+  
+  const messageTime = parseTimestamp(value)
+  const now = Date.now()
+  const diffMs = now - messageTime
+  
+  // Nếu diffMs âm (tin nhắn trong tương lai), có thể do timezone issue
+  // Hoặc nếu chênh lệch quá lớn (> 1 ngày trong tương lai), có thể do lỗi
+  if (diffMs < -24 * 60 * 60 * 1000) {
+    console.warn('[formatTimestamp] Message time is too far in the future:', {
+      value,
+      messageTime: new Date(messageTime).toISOString(),
+      now: new Date(now).toISOString(),
+      diffMs,
+      diffHours: Math.floor(diffMs / (60 * 60 * 1000))
+    })
+    return 'Vừa xong'
+  }
+  
+  // Nếu tin nhắn trong tương lai nhưng < 1 ngày, có thể do clock skew nhỏ, vẫn hiển thị "Vừa xong"
+  if (diffMs < 0) {
+    return 'Vừa xong'
+  }
+  
+  const seconds = Math.floor(diffMs / 1000)
+  if (seconds < 60) return 'Vừa xong'
+  
+  const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes} phút trước`
 
   const hours = Math.floor(minutes / 60)
@@ -90,7 +152,14 @@ const formatTimestamp = (value?: string) => {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days} ngày trước`
 
-  return date.toLocaleString('vi-VN')
+  // Nếu > 7 ngày, hiển thị ngày tháng đầy đủ
+  return new Date(messageTime).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 const mapChatMessage = (
@@ -99,19 +168,53 @@ const mapChatMessage = (
   currentUserId: number,
   currentUserName: string
 ): Message => {
+  // Đảm bảo senderId và currentUserId đều là number để so sánh chính xác
+  const senderIdNum = Number(payload.senderId)
+  const currentUserIdNum = Number(currentUserId)
+  
+  // Validation: đảm bảo không có NaN
+  if (Number.isNaN(senderIdNum)) {
+    console.error('[mapChatMessage] Invalid senderId:', payload.senderId, payload)
+    throw new Error(`Invalid senderId: ${payload.senderId}`)
+  }
+  if (Number.isNaN(currentUserIdNum)) {
+    console.error('[mapChatMessage] Invalid currentUserId:', currentUserId)
+    throw new Error(`Invalid currentUserId: ${currentUserId}`)
+  }
+  
+  // Xác định senderName: nếu senderId === currentUserId thì là currentUser, ngược lại là participant
+  const isFromCurrentUser = senderIdNum === currentUserIdNum
+  const senderName = isFromCurrentUser ? currentUserName : participantName
+  
+  // Parse timestamp một cách nhất quán
   const createdAt = payload.createdAt ?? new Date().toISOString()
-  const createdAtMs = Date.parse(createdAt)
+  const createdAtMs = parseTimestamp(createdAt)
+  
+  // Debug log cho các trường hợp có vấn đề
+  if (senderIdNum !== payload.senderId || currentUserIdNum !== currentUserId) {
+    console.log('[mapChatMessage] Type conversion:', {
+      originalSenderId: payload.senderId,
+      convertedSenderId: senderIdNum,
+      originalCurrentUserId: currentUserId,
+      convertedCurrentUserId: currentUserIdNum,
+      isFromCurrentUser,
+      senderName,
+      participantName,
+      currentUserName
+    })
+  }
 
   return {
     id: payload.id,
-    senderId: payload.senderId,
-    senderName: payload.senderId === currentUserId ? currentUserName : participantName,
-        senderAvatar: '',
+    senderId: senderIdNum, // Đảm bảo là number
+    senderName: senderName, // Đã được xác định ở trên
+    senderAvatar: '',
     content: payload.content,
+    image: payload.imageUrl, // URL ảnh từ Firebase Storage
     timestamp: formatTimestamp(createdAt),
     isRead: payload.isRead ?? false,
     createdAt,
-    createdAtMs: Number.isNaN(createdAtMs) ? Date.now() : createdAtMs
+    createdAtMs // Đã được parse đúng
   }
 }
 
@@ -159,14 +262,34 @@ export default function ChatMainContent() {
   }
 
   const userInfo = getUserInfo()
+  // Đảm bảo currentUser.id luôn là number và hợp lệ
+  const currentUserId = Number(userInfo.id ?? userInfo.userId ?? 1)
+  if (Number.isNaN(currentUserId) || currentUserId <= 0) {
+    console.error('[ChatMainContent] Invalid currentUserId:', currentUserId, userInfo)
+  }
   const currentUser = {
-    id: Number(userInfo.id ?? userInfo.userId ?? 1),
+    id: currentUserId,
     name: userInfo.name || userInfo.fullName || 'Admin',
     email: userInfo.email || 'admin@example.com'
   }
+  
+  // Debug log để kiểm tra
+  console.log('[ChatMainContent] Current user:', {
+    id: currentUser.id,
+    idType: typeof currentUser.id,
+    name: currentUser.name
+  })
 
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
+  // Lưu selectedConversationId vào localStorage để persist qua reload
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('chat_selectedConversationId')
+      return saved ? Number(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [messageText, setMessageText] = useState('')
   const [searchText, setSearchText] = useState('')
   const messagesStartRef = useRef<HTMLDivElement>(null)
@@ -191,6 +314,8 @@ export default function ChatMainContent() {
   const [initialMessage, setInitialMessage] = useState('')
   const [isCreatingChat, setIsCreatingChat] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
 
   const mapApiMessageToUi = useCallback(
     (payload: ChatMessage, participantName: string) =>
@@ -210,15 +335,76 @@ export default function ChatMainContent() {
           }
 
           updated = true
-          const messages = [...conv.messages, formatted]
+          
+          // Kiểm tra xem message đã có chưa (tránh duplicate)
+          const messageExists = conv.messages.some((msg) => {
+            // Nếu cả hai đều có ID > 0, so sánh bằng ID
+            if (formatted.id > 0 && msg.id > 0) {
+              return msg.id === formatted.id
+            }
+            // Nếu không có ID, so sánh bằng content, senderId và timestamp (trong vòng 5 giây)
+            return (
+              msg.content === formatted.content &&
+              msg.senderId === formatted.senderId &&
+              Math.abs((msg.createdAtMs ?? 0) - (formatted.createdAtMs ?? 0)) < 5000
+            )
+          })
+          
+          if (messageExists) {
+            // Message đã có, cập nhật nếu cần (ví dụ: thay optimistic message bằng message có ID thật)
+            if (formatted.id > 0) {
+              const updatedMessages = conv.messages.map((msg) => {
+                // Nếu là optimistic message (id = 0) và match với formatted, thay thế
+                if (msg.id === 0 && 
+                    msg.content === formatted.content &&
+                    msg.senderId === formatted.senderId &&
+                    Math.abs((msg.createdAtMs ?? 0) - (formatted.createdAtMs ?? 0)) < 5000) {
+                  return formatted
+                }
+                return msg
+              })
+              
+              // Sắp xếp lại theo thời gian
+              updatedMessages.sort((a, b) => {
+                const timeA = a.createdAtMs ?? parseTimestamp(a.createdAt)
+                const timeB = b.createdAtMs ?? parseTimestamp(b.createdAt)
+                return timeA - timeB
+              })
+              
+              const lastMessage = updatedMessages[updatedMessages.length - 1]
+              return {
+                ...conv,
+                participantName: participantMeta.name,
+                participantRole: participantMeta.role,
+                messages: updatedMessages,
+                lastMessage: lastMessage?.content || formatted.content,
+                lastMessageTime: lastMessage?.timestamp || formatted.timestamp,
+                lastActivity: lastMessage?.createdAtMs ?? formatted.createdAtMs ?? Date.now(),
+                unreadCount: 0,
+                isHistoryLoaded: true
+              }
+            }
+            
+            // Message đã có và không cần update, giữ nguyên
+            return conv
+          }
+          
+          // Thêm message mới và sắp xếp lại theo thời gian
+          const messages = [...conv.messages, formatted].sort((a, b) => {
+            const timeA = a.createdAtMs ?? parseTimestamp(a.createdAt)
+            const timeB = b.createdAtMs ?? parseTimestamp(b.createdAt)
+            return timeA - timeB
+          })
+          
+          const lastMessage = messages[messages.length - 1]
           return {
             ...conv,
             participantName: participantMeta.name,
             participantRole: participantMeta.role,
             messages,
-            lastMessage: formatted.content,
-            lastMessageTime: formatted.timestamp,
-            lastActivity: formatted.createdAtMs ?? Date.now(),
+            lastMessage: lastMessage?.content || formatted.content,
+            lastMessageTime: lastMessage?.timestamp || formatted.timestamp,
+            lastActivity: lastMessage?.createdAtMs ?? formatted.createdAtMs ?? Date.now(),
             unreadCount: 0,
             isHistoryLoaded: true
           }
@@ -260,6 +446,7 @@ export default function ChatMainContent() {
           const participantId = Number(user.userId)
           const existing = prevMap.get(participantId)
           if (existing) {
+            // Giữ nguyên messages và lastActivity nếu đã có
             return {
               ...existing,
               participantName: user.fullName,
@@ -283,7 +470,40 @@ export default function ChatMainContent() {
 
         const incomingIds = new Set(mapped.map((conv) => conv.participantId))
         const preserved = prev.filter((conv) => !incomingIds.has(conv.participantId))
-        return [...mapped, ...preserved]
+        
+        // Sắp xếp ngay sau khi load để đảm bảo thứ tự đúng từ đầu
+        // QUAN TRỌNG: Sắp xếp theo thời gian tin nhắn cuối cùng, KHÔNG phải theo tên
+        // Conversation có tin nhắn mới nhất sẽ ở trên cùng
+        const allConversations = [...mapped, ...preserved]
+        allConversations.sort((a, b) => {
+          const scoreA = getConversationActivityScore(a)
+          const scoreB = getConversationActivityScore(b)
+          
+          // Nếu cả hai đều có score > 0, sắp xếp theo score (thời gian tin nhắn cuối cùng)
+          if (scoreA > 0 && scoreB > 0) {
+            return scoreB - scoreA // Giảm dần: mới nhất trước
+          }
+          
+          // Nếu một trong hai có score = 0 (chưa có tin nhắn hoặc chưa load), đặt nó xuống dưới
+          if (scoreA === 0 && scoreB > 0) return 1 // a xuống dưới
+          if (scoreB === 0 && scoreA > 0) return -1 // b xuống dưới
+          
+          // Nếu cả hai đều = 0 (chưa có tin nhắn), giữ nguyên thứ tự từ backend
+          // KHÔNG sắp xếp theo tên - giữ nguyên thứ tự
+          return 0
+        })
+        
+        console.log('[loadConversations] Sorted conversations by time (newest first):', 
+          allConversations.map(conv => ({
+            name: conv.participantName,
+            score: getConversationActivityScore(conv),
+            hasMessages: conv.messages.length > 0,
+            lastActivity: conv.lastActivity,
+            lastMessageTime: conv.messages[conv.messages.length - 1]?.createdAt
+          }))
+        )
+        
+        return allConversations
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Không thể tải danh sách đoạn chat.'
@@ -297,17 +517,314 @@ export default function ChatMainContent() {
     loadConversations()
   }, [loadConversations])
 
+  // Setup SignalR để nhận tin nhắn realtime (lazy initialization - chỉ khi cần)
+  useEffect(() => {
+    let isMounted = true
+    let unsubscribe: (() => void) | null = null
+
+    // Chỉ khởi tạo SignalR connection khi user đã đăng nhập và có token
+    const token = localStorage.getItem('token')
+    if (!token) {
+      console.log('[ChatMainContent] No token found, skipping SignalR setup')
+      return
+    }
+
+    // Khởi tạo SignalR listener (không throw error nếu fail)
+    try {
+      unsubscribe = onReceiveMessage((signalRMessage) => {
+        if (!isMounted) return
+        
+        console.log('[ChatMainContent] Received message via SignalR:', signalRMessage)
+        
+        // Parse message từ SignalR format: { senderId, receiverId, content, timestamp }
+        // senderId và receiverId từ SignalR có thể là string hoặc number, cần convert sang number
+        const senderId = Number(signalRMessage.senderId)
+        const receiverId = Number(signalRMessage.receiverId)
+        const currentUserIdNum = Number(currentUser.id)
+        
+        // Validation
+        if (Number.isNaN(senderId) || Number.isNaN(receiverId) || Number.isNaN(currentUserIdNum)) {
+          console.error('[ChatMainContent] Invalid IDs from SignalR:', {
+            senderId: signalRMessage.senderId,
+            receiverId: signalRMessage.receiverId,
+            currentUserId: currentUser.id,
+            convertedSenderId: senderId,
+            convertedReceiverId: receiverId,
+            convertedCurrentUserId: currentUserIdNum
+          })
+          return
+        }
+
+        // Xác định participant (người còn lại trong cuộc chat)
+        // Đảm bảo so sánh chính xác bằng cách dùng number
+        const participantId = senderId === currentUserIdNum ? receiverId : senderId
+        
+        // Kiểm tra xem tin nhắn này đã có trong conversation chưa (tránh duplicate)
+        // Nếu là tin nhắn từ chính mình gửi và đã có optimistic update, sẽ được cập nhật lại
+        
+        // Tìm conversation tương ứng từ state hiện tại
+        setConversations((prevConversations) => {
+          const conversation = prevConversations.find((conv) => conv.participantId === participantId)
+          
+          if (conversation) {
+            // Tạo ChatMessage từ SignalR message
+            // Xử lý timestamp: đảm bảo là ISO string format
+            let timestampStr: string
+            if (signalRMessage.timestamp) {
+              if (typeof signalRMessage.timestamp === 'string') {
+                timestampStr = signalRMessage.timestamp
+                // Đảm bảo timestamp là ISO format (có thể backend gửi UTC nhưng không có 'Z')
+                if (timestampStr.includes('T') && !timestampStr.includes('Z') && !timestampStr.match(/[+-]\d{2}:\d{2}$/)) {
+                  timestampStr = timestampStr + 'Z'
+                }
+              } else {
+                // Nếu timestamp là object hoặc number, convert sang ISO string
+                timestampStr = new Date(signalRMessage.timestamp).toISOString()
+              }
+            } else {
+              // Nếu không có timestamp, dùng thời gian hiện tại
+              timestampStr = new Date().toISOString()
+            }
+            
+            const apiMessage: ChatMessage = {
+              id: 0, // Backend sẽ có ID thật, nhưng SignalR message không có
+              senderId: senderId, // Đảm bảo là number
+              receiverId: receiverId, // Đảm bảo là number
+              content: signalRMessage.content,
+              imageUrl: signalRMessage.imageUrl ?? signalRMessage.image ?? undefined,
+              createdAt: timestampStr,
+              isRead: false
+            }
+            
+            console.log('[ChatMainContent] Processing SignalR message:', {
+              senderId,
+              receiverId,
+              currentUserId: currentUserIdNum,
+              participantId,
+              participantName: conversation.participantName,
+              isFromCurrentUser: senderId === currentUserIdNum
+            })
+
+            // Map message sang UI format với đúng tên người gửi
+            const formatted = mapApiMessageToUi(apiMessage, conversation.participantName)
+            
+            // Cập nhật conversation với tin nhắn mới
+            return prevConversations.map((conv) => {
+              if (conv.participantId !== participantId) {
+                return conv
+              }
+              
+              // Kiểm tra xem tin nhắn này đã có chưa (tránh duplicate khi nhận từ SignalR)
+              // So sánh bằng ID (nếu có), hoặc content + timestamp để tránh duplicate
+              const messageExists = conv.messages.some((msg) => {
+                // Nếu formatted có ID > 0 và message cũ cũng có ID > 0, so sánh bằng ID
+                if (formatted.id > 0 && msg.id > 0) {
+                  return msg.id === formatted.id
+                }
+                // Nếu không có ID, so sánh bằng content và timestamp (trong vòng 5 giây)
+                return (
+                  msg.content === formatted.content &&
+                  msg.senderId === formatted.senderId &&
+                  Math.abs((msg.createdAtMs ?? 0) - (formatted.createdAtMs ?? 0)) < 5000
+                )
+              })
+              
+              if (messageExists) {
+                // Tin nhắn đã có (từ optimistic update hoặc đã load từ API), cập nhật nếu cần
+                // Nếu formatted có ID > 0 và message cũ có ID = 0 (optimistic), thay thế
+                const existingIndex = conv.messages.findIndex((msg) => {
+                  if (formatted.id > 0 && msg.id === 0) {
+                    return (
+                      msg.content === formatted.content &&
+                      msg.senderId === formatted.senderId &&
+                      Math.abs((msg.createdAtMs ?? 0) - (formatted.createdAtMs ?? 0)) < 5000
+                    )
+                  }
+                  return false
+                })
+                
+                if (existingIndex >= 0 && formatted.id > 0) {
+                  // Thay thế optimistic message bằng message có ID thật
+                  const updatedMessages = [...conv.messages]
+                  updatedMessages[existingIndex] = formatted
+                  // Sắp xếp lại theo thời gian
+                  updatedMessages.sort((a, b) => {
+                    const timeA = a.createdAtMs ?? parseTimestamp(a.createdAt)
+                    const timeB = b.createdAtMs ?? parseTimestamp(b.createdAt)
+                    return timeA - timeB
+                  })
+                  return {
+                    ...conv,
+                    messages: updatedMessages,
+                    lastMessage: formatted.content,
+                    lastMessageTime: formatted.timestamp,
+                    lastActivity: formatted.createdAtMs ?? Date.now(),
+                    unreadCount: selectedConversationId === participantId ? 0 : conv.unreadCount
+                  }
+                }
+                
+                // Tin nhắn đã có và không cần update, giữ nguyên conversation
+                return conv
+              }
+              
+              // Thêm tin nhắn mới và sắp xếp lại theo thời gian
+              const messages = [...conv.messages, formatted].sort((a, b) => {
+                const timeA = a.createdAtMs ?? parseTimestamp(a.createdAt)
+                const timeB = b.createdAtMs ?? parseTimestamp(b.createdAt)
+                return timeA - timeB // Từ cũ đến mới
+              })
+              
+              return {
+                ...conv,
+                messages,
+                lastMessage: formatted.content,
+                lastMessageTime: formatted.timestamp,
+                lastActivity: formatted.createdAtMs ?? Date.now(),
+                unreadCount: selectedConversationId === participantId ? 0 : conv.unreadCount + 1
+              }
+            })
+          } else {
+            // Nếu chưa có conversation, reload danh sách conversations để có thông tin user mới
+            console.log('[ChatMainContent] New conversation detected, reloading conversations list')
+            setTimeout(() => {
+              if (isMounted) {
+                loadConversations()
+              }
+            }, 100)
+            return prevConversations
+          }
+        })
+
+        // Nếu đang xem conversation này, scroll xuống dưới
+        if (selectedConversationId === participantId && messagesContainerRef.current) {
+          setTimeout(() => {
+            if (messagesContainerRef.current && isMounted) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+            }
+          }, 100)
+        }
+      })
+      console.log('[ChatMainContent] SignalR listener registered')
+    } catch (error) {
+      // Không throw error để không làm crash component
+      console.warn('[ChatMainContent] Failed to setup SignalR listener (chat will still work, but not realtime):', error)
+    }
+
+    // Cleanup khi component unmount
+    return () => {
+      isMounted = false
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [currentUser.id, selectedConversationId, mapApiMessageToUi, loadConversations])
+
   const ensureConversationHistory = useCallback(
     async (participantId: number, participantName: string) => {
       setLoadingHistoryFor(participantId)
       try {
         const history = await getChatHistory(participantId.toString())
+        const currentUserIdNum = Number(currentUser.id)
+        const currentUserName = currentUser.name
+        
+        console.log('[ensureConversationHistory] Loading history:', {
+          participantId,
+          participantName,
+          currentUserId: currentUser.id,
+          currentUserIdNum,
+          currentUserName,
+          historyLength: history.length,
+          sampleMessages: history.slice(0, 3).map(msg => ({
+            id: msg.id,
+            senderId: msg.senderId,
+            senderIdType: typeof msg.senderId,
+            receiverId: msg.receiverId,
+            receiverIdType: typeof msg.receiverId,
+            content: msg.content?.substring(0, 20),
+            isFromCurrentUser: Number(msg.senderId) === currentUserIdNum
+          }))
+        })
+        
         setConversations((prev) =>
           prev.map((conv) => {
             if (conv.participantId !== participantId) {
               return conv
             }
-            const messages = history.map((msg) => mapApiMessageToUi(msg, participantName))
+            
+            // Map messages với đúng participantName
+            // participantName là tên của người đối diện trong conversation (không phải currentUser)
+            // Logic trong mapChatMessage sẽ tự động xác định senderName dựa trên senderId
+            
+            // Sắp xếp messages theo thời gian (từ cũ đến mới) để đảm bảo thứ tự đúng
+            // Backend đã sắp xếp theo OrderBy(m => m.CreatedAt), nhưng đảm bảo frontend cũng sắp xếp lại
+            const sortedHistory = [...history].sort((a, b) => {
+              const timeA = parseTimestamp(a.createdAt)
+              const timeB = parseTimestamp(b.createdAt)
+              return timeA - timeB // Từ cũ đến mới
+            })
+            
+            // Map messages và loại bỏ duplicate dựa trên id
+            const messageMap = new Map<number, Message>()
+            sortedHistory.forEach((msg) => {
+              const msgSenderId = Number(msg.senderId)
+              const msgReceiverId = Number(msg.receiverId)
+              
+              // Debug log cho từng message
+              const isFromCurrentUser = msgSenderId === currentUserIdNum
+              if (sortedHistory.indexOf(msg) < 3) {
+                console.log('[ensureConversationHistory] Mapping message:', {
+                  msgId: msg.id,
+                  msgSenderId,
+                  msgReceiverId,
+                  currentUserIdNum,
+                  isFromCurrentUser,
+                  participantName,
+                  currentUserName,
+                  expectedSenderName: isFromCurrentUser ? currentUserName : participantName,
+                  createdAt: msg.createdAt
+                })
+              }
+              
+              // Gọi mapApiMessageToUi với participantName (tên người đối diện)
+              // mapChatMessage sẽ tự động xác định senderName dựa trên senderId
+              const mappedMessage = mapApiMessageToUi(msg, participantName)
+              
+              // Chỉ thêm message nếu chưa có (tránh duplicate)
+              if (!messageMap.has(mappedMessage.id) || mappedMessage.id === 0) {
+                // Nếu id = 0 (optimistic update), vẫn thêm nhưng có thể bị ghi đè bởi message có id thật
+                messageMap.set(mappedMessage.id, mappedMessage)
+              } else if (mappedMessage.id !== 0) {
+                // Nếu đã có message với id này, giữ message cũ (không update)
+                console.log('[ensureConversationHistory] Duplicate message detected, keeping existing:', mappedMessage.id)
+              }
+            })
+            
+            // Chuyển Map thành Array và sắp xếp lại theo thời gian
+            const messages = Array.from(messageMap.values()).sort((a, b) => {
+              // Sử dụng createdAtMs nếu có, nếu không thì parse từ createdAt
+              const timeA = a.createdAtMs ?? parseTimestamp(a.createdAt)
+              const timeB = b.createdAtMs ?? parseTimestamp(b.createdAt)
+              return timeA - timeB // Từ cũ đến mới
+            })
+            
+            console.log('[ensureConversationHistory] Final messages:', {
+              totalMessages: messages.length,
+              firstMessage: messages[0] ? {
+                id: messages[0].id,
+                senderId: messages[0].senderId,
+                senderName: messages[0].senderName,
+                content: messages[0].content?.substring(0, 20),
+                createdAt: messages[0].createdAt
+              } : null,
+              lastMessage: messages[messages.length - 1] ? {
+                id: messages[messages.length - 1].id,
+                senderId: messages[messages.length - 1].senderId,
+                senderName: messages[messages.length - 1].senderName,
+                content: messages[messages.length - 1].content?.substring(0, 20),
+                createdAt: messages[messages.length - 1].createdAt
+              } : null
+            })
+            
             const lastMessage = messages[messages.length - 1]
             return {
               ...conv,
@@ -327,17 +844,47 @@ export default function ChatMainContent() {
         setLoadingHistoryFor((prev) => (prev === participantId ? null : prev))
       }
     },
-    [mapApiMessageToUi]
+    [mapApiMessageToUi, currentUser.id, currentUser.name]
   )
+
+  // Tự động load history khi có selectedConversationId và conversations đã được load
+  // Chỉ load khi component mount hoặc khi conversations list thay đổi (không load khi selectedConversationId thay đổi vì handleSelectConversation đã xử lý)
+  useEffect(() => {
+    if (selectedConversationId && conversations.length > 0) {
+      const selectedConv = conversations.find((conv) => conv.id === selectedConversationId)
+      if (selectedConv && (!selectedConv.isHistoryLoaded || selectedConv.messages.length === 0)) {
+        // Chỉ auto-load nếu chưa có history (ví dụ: khi reload page)
+        // Không load lại nếu đã có history (tránh load lại không cần thiết)
+        console.log('[ChatMainContent] Auto-loading history for selected conversation:', selectedConversationId)
+        ensureConversationHistory(selectedConv.participantId, selectedConv.participantName)
+          .then(() => {
+            // Scroll sau khi history đã load xong
+            setTimeout(() => {
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+              }
+            }, 100)
+          })
+          .catch((err) => {
+            console.error('[ChatMainContent] Failed to auto-load history:', err)
+          })
+      }
+    }
+    // Chỉ trigger khi conversations list thay đổi (load lần đầu), không trigger khi selectedConversationId thay đổi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations.length, ensureConversationHistory])
 
   const loadChatUsers = async () => {
     setIsLoadingChatUsers(true)
     setCreateChatError(null)
     try {
+      console.log('[ChatMainContent] Loading chat users...')
       const users = await getUsersForChat()
+      console.log('[ChatMainContent] Loaded chat users:', users.length)
       setAvailableChatUsers(users)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.'
+      console.error('[ChatMainContent] Error loading chat users:', error)
       setCreateChatError(message)
       setSnackbarSeverity('error')
       setSnackbarMessage(message)
@@ -436,99 +983,295 @@ export default function ChatMainContent() {
   const selectedConversation = conversations.find((conv) => conv.id === selectedConversationId)
   const isHistoryLoading =
     selectedConversation && loadingHistoryFor === selectedConversation.participantId
-  const canSendMessage = Boolean(messageText.trim() || imagePreview) && !isSendingMessage
+  const canSendMessage = Boolean(messageText.trim() || imagePreview) && !isSendingMessage && !uploadingImage
 
-  // Reset scroll position when conversation changes
+  // Reset scroll position when conversation changes (chỉ khi conversation thực sự thay đổi)
   useEffect(() => {
-    if (messagesContainerRef.current && selectedConversation) {
-      // Scroll to bottom (newest messages are at bottom)
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-      prevMessagesLengthRef.current = selectedConversation.messages.length
+    if (!selectedConversationId || !selectedConversation) {
+      return
     }
+    
     // Reset image preview when conversation changes
     setImagePreview(null)
+    setSelectedImageFile(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [selectedConversationId])
+    
+    // Chỉ scroll sau khi messages đã được load (tránh scroll khi messages đang loading)
+    if (selectedConversation.isHistoryLoaded && selectedConversation.messages.length > 0) {
+      // Sử dụng requestAnimationFrame để đảm bảo DOM đã render xong
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          prevMessagesLengthRef.current = selectedConversation.messages.length
+        }
+      })
+    } else {
+      // Nếu chưa load history, reset prevMessagesLengthRef
+      prevMessagesLengthRef.current = 0
+    }
+  }, [selectedConversationId, selectedConversation?.isHistoryLoaded])
 
-  // Scroll to bottom when new messages are added (newest messages are at bottom)
+  // Scroll to bottom when new messages are added (chỉ khi đang xem conversation này)
   useEffect(() => {
-    const currentLength = selectedConversation?.messages.length || 0
-    if (messagesContainerRef.current && currentLength > prevMessagesLengthRef.current) {
-      // Scroll to bottom to show newest message
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    if (!selectedConversationId || !selectedConversation) {
+      return
+    }
+    
+    const currentLength = selectedConversation.messages.length || 0
+    // Chỉ scroll nếu có message mới và đang xem conversation này
+    if (messagesContainerRef.current && currentLength > prevMessagesLengthRef.current && currentLength > 0) {
+      // Sử dụng requestAnimationFrame để đảm bảo DOM đã render xong
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current && selectedConversationId) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
+      })
     }
     prevMessagesLengthRef.current = currentLength
-  }, [selectedConversation?.messages])
+  }, [selectedConversation?.messages, selectedConversationId])
 
-  const getConversationActivityScore = (conv: Conversation) => {
-    if (conv.lastActivity) {
+  /**
+   * Tính điểm activity của conversation để sắp xếp
+   * Sử dụng thời gian của tin nhắn cuối cùng (gửi hoặc nhận)
+   * Conversation có tin nhắn mới nhất sẽ ở trên cùng
+   * 
+   * @returns Timestamp (milliseconds) của tin nhắn cuối cùng, hoặc 0 nếu không có tin nhắn
+   */
+  const getConversationActivityScore = (conv: Conversation): number => {
+    // Ưu tiên 1: Sử dụng thời gian của tin nhắn cuối cùng trong messages
+    if (conv.messages && conv.messages.length > 0) {
+      // Messages đã được sắp xếp từ cũ đến mới, nên message cuối cùng là mới nhất
+      const lastMessage = conv.messages[conv.messages.length - 1]
+      
+      if (lastMessage) {
+        // Ưu tiên createdAtMs (đã được parse sẵn)
+        if (lastMessage.createdAtMs && lastMessage.createdAtMs > 0) {
+          return lastMessage.createdAtMs
+        }
+        
+        // Nếu không có createdAtMs, parse từ createdAt
+        if (lastMessage.createdAt) {
+          const parsedTime = parseTimestamp(lastMessage.createdAt)
+          if (parsedTime > 0) {
+            return parsedTime
+          }
+        }
+      }
+    }
+    
+    // Ưu tiên 2: Sử dụng lastActivity nếu có (được cập nhật khi có tin nhắn mới)
+    if (conv.lastActivity && conv.lastActivity > 0) {
       return conv.lastActivity
     }
-    const lastMessage = conv.messages[conv.messages.length - 1]
-    return lastMessage ? lastMessage.createdAtMs ?? lastMessage.id : 0
+    
+    // Nếu không có tin nhắn nào, trả về 0 (sẽ ở cuối danh sách)
+    return 0
   }
 
   const conversationUserIds = new Set(conversations.map((conv) => conv.participantId.toString()))
 
   // Filter conversations by search text and sort by last activity (newest first)
-  const filteredConversations = conversations
-    .filter((conv) => conv.participantName.toLowerCase().includes(searchText.toLowerCase().trim()))
-    .sort((a, b) => getConversationActivityScore(b) - getConversationActivityScore(a))
+  // QUAN TRỌNG: Sắp xếp theo thời gian tin nhắn cuối cùng, KHÔNG phải theo tên
+  // Conversation có tin nhắn mới nhất (timestamp lớn nhất) sẽ ở trên cùng
+  // Lưu ý: conversations đã được sắp xếp trong loadConversations, nhưng vẫn sắp xếp lại ở đây
+  // để đảm bảo luôn đúng khi có tin nhắn mới hoặc khi filter
+  const filteredConversations = useMemo(() => {
+    const filtered = conversations.filter((conv) => 
+      conv.participantName.toLowerCase().includes(searchText.toLowerCase().trim())
+    )
+    
+    // Sắp xếp lại để đảm bảo thứ tự đúng (đặc biệt khi có tin nhắn mới)
+    // Sắp xếp theo thời gian tin nhắn cuối cùng, KHÔNG phải theo tên
+    return filtered.sort((a, b) => {
+      const scoreA = getConversationActivityScore(a)
+      const scoreB = getConversationActivityScore(b)
+      
+      // Nếu cả hai đều có score > 0, sắp xếp theo score (thời gian tin nhắn cuối cùng)
+      if (scoreA > 0 && scoreB > 0) {
+        return scoreB - scoreA // Giảm dần: mới nhất trước
+      }
+      
+      // Nếu một trong hai có score = 0 (chưa có tin nhắn), đặt nó xuống dưới
+      if (scoreA === 0 && scoreB > 0) return 1 // a xuống dưới
+      if (scoreB === 0 && scoreA > 0) return -1 // b xuống dưới
+      
+      // Nếu cả hai đều = 0 (chưa có tin nhắn), giữ nguyên thứ tự
+      // KHÔNG sắp xếp theo tên
+      return 0
+    })
+  }, [conversations, searchText])
 
   const handleSelectConversation = (conversationId: number) => {
-    setSelectedConversationId(conversationId)
-    const selected = conversations.find((conv) => conv.id === conversationId)
-    if (selected && !selected.isHistoryLoaded) {
-      ensureConversationHistory(selected.participantId, selected.participantName)
+    // Nếu đang chọn conversation đã được chọn, không làm gì
+    if (selectedConversationId === conversationId) {
+      return
     }
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id === conversationId) {
-          return {
-            ...conv,
-            unreadCount: 0,
-            messages: conv.messages.map((msg) => ({ ...msg, isRead: true }))
+    
+    // Set selectedConversationId trước
+    setSelectedConversationId(conversationId)
+    
+    // Lưu vào localStorage để persist qua reload
+    try {
+      localStorage.setItem('chat_selectedConversationId', conversationId.toString())
+    } catch (err) {
+      console.warn('[ChatMainContent] Failed to save selectedConversationId:', err)
+    }
+    
+    const selected = conversations.find((conv) => conv.id === conversationId)
+    if (selected) {
+      // Reset unread count ngay lập tức
+      // QUAN TRỌNG: Không cập nhật lastActivity khi click vào conversation
+      // lastActivity chỉ được cập nhật khi có tin nhắn mới (gửi hoặc nhận)
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv.id === conversationId) {
+            return {
+              ...conv,
+              unreadCount: 0,
+              messages: conv.messages.map((msg) => ({ ...msg, isRead: true }))
+              // KHÔNG cập nhật lastActivity ở đây
+            }
           }
-        }
-        return conv
-      })
-    )
+          return conv
+        })
+      )
+      
+      // Chỉ load history nếu chưa load hoặc chưa có messages
+      // Tránh load lại không cần thiết khi chuyển đổi giữa các conversation
+      if (!selected.isHistoryLoaded || selected.messages.length === 0) {
+        console.log('[ChatMainContent] Loading history for conversation:', conversationId)
+        ensureConversationHistory(selected.participantId, selected.participantName)
+          .then(() => {
+            // Scroll sau khi history đã load xong
+            setTimeout(() => {
+              if (messagesContainerRef.current && selectedConversationId === conversationId) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+              }
+            }, 100)
+          })
+          .catch((err) => {
+            console.error('[ChatMainContent] Failed to load history:', err)
+          })
+      } else {
+        // Nếu đã có messages, scroll ngay
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current && selectedConversationId === conversationId) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          }
+        })
+      }
+    }
   }
 
   const handleSendMessage = async () => {
     if ((!messageText.trim() && !imagePreview) || !selectedConversationId || isSendingMessage) return
 
-    if (imagePreview) {
-      setSnackbarSeverity('error')
-      setSnackbarMessage('Tính năng gửi ảnh sẽ được cập nhật sau.')
-      return
-    }
-
     const selected = conversations.find((conv) => conv.id === selectedConversationId)
     if (!selected) return
 
+    const content = messageText.trim()
     setIsSendingMessage(true)
-    try {
-      const apiMessage = await sendChatMessage({
-        receiverId: selected.participantId.toString(),
-        content: messageText.trim()
-      })
-      upsertConversationWithMessage(
-        { id: selected.participantId, name: selected.participantName, role: selected.participantRole },
-        apiMessage
-      )
+    setUploadingImage(true)
+    
+    let imageUrl: string | undefined = undefined
+    
+    // Upload ảnh lên Firebase nếu có
+    if (selectedImageFile) {
+      try {
+        console.log('[ChatMainContent] Uploading image to Firebase...', {
+          fileName: selectedImageFile.name,
+          fileSize: (selectedImageFile.size / 1024).toFixed(2) + ' KB'
+        })
+        
+        // Upload với compression để tăng tốc độ
+        imageUrl = await uploadImageToFirebase(selectedImageFile, 'chat', true)
+        console.log('[ChatMainContent] Image uploaded successfully:', imageUrl)
+      } catch (error) {
+        let errorMessage = 'Không thể upload ảnh'
+        if (error instanceof Error) {
+          if (error.message.includes('timeout')) {
+            errorMessage = 'Upload ảnh quá lâu. Vui lòng thử lại với ảnh nhỏ hơn.'
+          } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+            errorMessage = 'Không có quyền upload ảnh. Vui lòng kiểm tra cấu hình Firebase.'
+          } else {
+            errorMessage = error.message || errorMessage
+          }
+        }
+        console.error('[ChatMainContent] Failed to upload image:', error)
+        setSnackbarSeverity('error')
+        setSnackbarMessage(errorMessage)
+        setIsSendingMessage(false)
+        setUploadingImage(false)
+        return
+      }
+    }
+    
+    setUploadingImage(false)
+    
+    // Optimistic update: Cập nhật UI ngay với tin nhắn mới (trước khi gửi lên server)
+    const optimisticMessage: ChatMessage = {
+      id: 0, // Tạm thời, sẽ được cập nhật khi nhận từ SignalR
+      senderId: currentUser.id, // Đúng ID người gửi
+      receiverId: selected.participantId,
+      content: content || (imageUrl ? '[Ảnh]' : ''),
+      imageUrl: imageUrl,
+      createdAt: new Date().toISOString(),
+      isRead: false
+    }
+    
+    // Cập nhật UI ngay lập tức
+    upsertConversationWithMessage(
+      { id: selected.participantId, name: selected.participantName, role: selected.participantRole },
+      optimisticMessage
+    )
+    
+    // Clear input và image preview ngay
     setMessageText('')
+    setImagePreview(null)
+    setSelectedImageFile(null)
+    
+    // Scroll xuống dưới để hiển thị tin nhắn mới
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      }
+    }, 100)
+    
+    try {
+      // Gửi tin nhắn qua SignalR (realtime)
+      await sendChatMessage({
+        receiverId: selected.participantId.toString(),
+        content: content || '',
+        imageUrl: imageUrl
+      })
+      // SignalR sẽ tự động cập nhật lại UI khi nhận được ReceiveMessage event
+      // Nên không cần gọi upsertConversationWithMessage lại ở đây
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Không thể gửi tin nhắn.'
       setSnackbarSeverity('error')
       setSnackbarMessage(message)
+      
+      // Nếu gửi fail, xóa tin nhắn optimistic update
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv.participantId === selected.participantId) {
+            return {
+              ...conv,
+              messages: conv.messages.filter((msg) => 
+                msg.id !== 0 || msg.content !== (content || '[Ảnh]') || msg.image !== imageUrl
+              )
+            }
+          }
+          return conv
+        })
+      )
     } finally {
       setIsSendingMessage(false)
-    setImagePreview(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      setUploadingImage(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
       }
     }
   }
@@ -558,14 +1301,20 @@ export default function ChatMainContent() {
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         // 5MB limit
-        alert('Kích thước file phải nhỏ hơn 5MB')
+        setSnackbarSeverity('error')
+        setSnackbarMessage('Kích thước file phải nhỏ hơn 5MB')
         return
       }
       if (!file.type.startsWith('image/')) {
-        alert('Vui lòng chọn file ảnh')
+        setSnackbarSeverity('error')
+        setSnackbarMessage('Vui lòng chọn file ảnh')
         return
       }
 
+      // Lưu file để upload sau
+      setSelectedImageFile(file)
+
+      // Hiển thị preview
       const reader = new FileReader()
       reader.onload = (e) => {
         setImagePreview(e.target?.result as string)
@@ -576,6 +1325,7 @@ export default function ChatMainContent() {
 
   const handleRemoveImage = () => {
     setImagePreview(null)
+    setSelectedImageFile(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -1069,7 +1819,22 @@ export default function ChatMainContent() {
                   </Box>
                 ) : (
                   selectedConversation.messages.map((message, index) => {
-                  const isCurrentUser = message.senderId === currentUser.id
+                  // Đảm bảo so sánh chính xác bằng cách convert cả hai về number
+                  const messageSenderId = Number(message.senderId)
+                  const currentUserIdNum = Number(currentUser.id)
+                  const isCurrentUser = messageSenderId === currentUserIdNum
+                  
+                  // Debug log nếu có vấn đề
+                  if (messageSenderId !== message.senderId || currentUserIdNum !== currentUser.id) {
+                    console.log('[Message Display] Type conversion:', {
+                      messageSenderId: message.senderId,
+                      convertedMessageSenderId: messageSenderId,
+                      currentUserId: currentUser.id,
+                      convertedCurrentUserId: currentUserIdNum,
+                      isCurrentUser,
+                      messageSenderName: message.senderName
+                    })
+                  }
                   return (
                     <Box
                       key={message.id}
@@ -1526,7 +2291,7 @@ export default function ChatMainContent() {
                       }
                     }}
                   >
-                    <SendIcon />
+                    {uploadingImage ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                   </IconButton>
                 </Box>
 

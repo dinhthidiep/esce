@@ -13,12 +13,19 @@ export const fetchWithFallback = async (url, options = {}, useHttps = true) => {
   const fullUrl = `${baseUrl}${url}`;
 
   try {
-    return await fetch(fullUrl, options);
+    console.log('[httpClient] Fetching:', { url, fullUrl, method: options.method || 'GET' });
+    const response = await fetch(fullUrl, options);
+    console.log('[httpClient] Response:', { url, status: response.status, ok: response.ok });
+    return response;
   } catch (error) {
+    console.error('[httpClient] Fetch error:', { url, fullUrl, error: error.message, useHttps });
+    
     if (
       useHttps &&
       (error.message.includes("Failed to fetch") ||
-        error.message.includes("NetworkError"))
+        error.message.includes("NetworkError") ||
+        error.message.includes("Network request failed") ||
+        error.name === "TypeError")
     ) {
       console.warn("HTTPS failed, trying HTTP fallback...");
       return fetchWithFallback(url, options, false);

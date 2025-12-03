@@ -603,49 +603,87 @@ const SocialMedia = () => {
     }
   };
 
+  // Function to load user info from localStorage and API
+  const loadUserInfo = async (forceRefresh = false) => {
+    // First try to get from localStorage (fast)
+    const storedUserInfo = localStorage.getItem('userInfo');
+    if (storedUserInfo) {
+      try {
+        const user = JSON.parse(storedUserInfo);
+        console.log('Loaded userInfo from localStorage:', user);
+        setUserInfo(user);
+        if (user.Id || user.id) {
+          setUserId(user.Id || user.id);
+        }
+      } catch (err) {
+        console.error('Error parsing user info:', err);
+      }
+    } else {
+      console.log('No userInfo found in localStorage');
+    }
+
+    // Then fetch fresh data from API to ensure we have the latest avatar
+    // Only fetch if we don't have userInfo or if we want to refresh
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        console.log('Fetched current user:', currentUser);
+        console.log('Avatar value:', currentUser.Avatar || currentUser.avatar);
+        setUserInfo(currentUser);
+        if (currentUser.Id || currentUser.id) {
+          setUserId(currentUser.Id || currentUser.id);
+        }
+        // Update localStorage with fresh data
+        localStorage.setItem('userInfo', JSON.stringify(currentUser));
+      }
+    } catch (err) {
+      console.error('Error fetching current user:', err);
+      // If API fails, keep using localStorage data - don't throw, just log
+      // The component will continue to work with localStorage data
+    }
+  };
+
   // Load user info on component mount
   useEffect(() => {
-    const loadUserInfo = async () => {
-      // First try to get from localStorage (fast)
+    loadUserInfo();
+  }, []);
+
+  // Reload userInfo when window gets focus (user returns to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Reload from localStorage first (fast)
       const storedUserInfo = localStorage.getItem('userInfo');
       if (storedUserInfo) {
         try {
           const user = JSON.parse(storedUserInfo);
-          console.log('Loaded userInfo from localStorage:', user);
           setUserInfo(user);
           if (user.Id || user.id) {
             setUserId(user.Id || user.id);
           }
         } catch (err) {
-          console.error('Error parsing user info:', err);
+          console.error('Error parsing user info on focus:', err);
         }
-      } else {
-        console.log('No userInfo found in localStorage');
       }
+    };
 
-         // Then fetch fresh data from API to ensure we have the latest avatar
-         // Only fetch if we don't have userInfo or if we want to refresh
-         try {
-           const currentUser = await getCurrentUser();
-           if (currentUser) {
-             console.log('Fetched current user:', currentUser);
-             console.log('Avatar value:', currentUser.Avatar || currentUser.avatar);
-             setUserInfo(currentUser);
-             if (currentUser.Id || currentUser.id) {
-               setUserId(currentUser.Id || currentUser.id);
-             }
-             // Update localStorage with fresh data
-             localStorage.setItem('userInfo', JSON.stringify(currentUser));
-           }
-         } catch (err) {
-           console.error('Error fetching current user:', err);
-           // If API fails, keep using localStorage data - don't throw, just log
-           // The component will continue to work with localStorage data
-         }
-       };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
-       loadUserInfo();
-     }, []);
+  // Listen for custom event when profile is updated
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      console.log('Profile updated event received, reloading userInfo...');
+      loadUserInfo(true);
+    };
+
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   // Check Firebase Auth on component mount for users already logged in
   useEffect(() => {
@@ -823,11 +861,20 @@ const SocialMedia = () => {
         
         // Check if it's a unique constraint error (user already reacted)
         const errorMessage = err?.message || err?.details?.message || '';
-        if (errorMessage.includes('đã reaction') || errorMessage.includes('already') || errorMessage.includes('unique')) {
+        if (errorMessage.includes('đã reaction') || 
+            errorMessage.includes('already') || 
+            errorMessage.includes('unique') ||
+            errorMessage.includes('đã thích') ||
+            errorMessage.includes('already liked')) {
           // User already has a reaction - refresh to get current state
           fetchPosts().catch(refreshErr => {
             console.error('Error refreshing posts after reaction error:', refreshErr);
           });
+        } else if (errorMessage.includes('saving the entity changes') ||
+                   errorMessage.includes('inner exception') ||
+                   errorMessage.includes('database')) {
+          // Hiển thị thông báo lỗi thân thiện hơn
+          alert('Không thể lưu thay đổi. Vui lòng thử lại sau.');
         }
       });
   };
