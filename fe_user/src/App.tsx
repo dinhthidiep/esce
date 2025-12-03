@@ -17,6 +17,19 @@ import NewsPage from '~/components/NewsPage'
 import NewsDetailPage from '~/components/NewsDetailPage'
 import PolicyPage from '~/components/PolicyPage'
 import ForumPage from '~/components/ForumPage'
+import ServiceComboManager from '~/components/ServiceComboManager'
+import ServiceManager from '~/components/ServiceManager'
+import CreateService from '~/components/CreateService'
+import EditService from '~/components/EditService'
+import CreateServiceCombo from '~/components/CreateServiceCombo'
+import EditServiceCombo from '~/components/EditServiceCombo'
+import CreateCoupon from '~/components/CreateCoupon'
+import EditCoupon from '~/components/EditCoupon'
+import BookingManager from '~/components/BookingManager'
+import CouponManager from '~/components/CouponManager'
+import Revenue from '~/components/Revenue'
+import ReviewManager from '~/components/ReviewManager'
+import Notification from '~/components/Notification'
 
 // Log để debug
 if (import.meta.env.DEV) {
@@ -61,6 +74,19 @@ function App() {
             <Route path="/news/:id" element={<NewsDetailPage />} />
             <Route path="/policy" element={<PolicyPage />} />
             <Route path="/forum" element={<ForumPage />} />
+			<Route path="/service-combo-manager" element={<ServiceComboManager />} />
+            <Route path="/service-manager" element={<ServiceManager />} />
+            <Route path="/create-service" element={<CreateService />} />
+            <Route path="/edit-service" element={<EditService />} />
+            <Route path="/create-service-combo" element={<CreateServiceCombo />} />
+            <Route path="/edit-service-combo" element={<EditServiceCombo />} />
+            <Route path="/create-coupon" element={<CreateCoupon />} />
+            <Route path="/edit-coupon" element={<EditCoupon />} />
+            <Route path="/booking-manager" element={<BookingManager />} />
+            <Route path="/coupon-manager" element={<CouponManager />} />
+            <Route path="/revenue" element={<Revenue />} />
+            <Route path="/review-manager" element={<ReviewManager />} />
+            <Route path="/notification" element={<Notification />} />
             <Route path="*" element={
               <div style={{ 
                 padding: '2rem', 

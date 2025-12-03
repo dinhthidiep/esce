@@ -1,11 +1,10 @@
 // Import API_BASE_URL từ config để đảm bảo dùng đúng backend URL
 // Note: File này có thể không được sử dụng nữa, nhưng vẫn cập nhật để đồng bộ
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7267/api';
-const backend_url = API_BASE_URL.replace('/api', '');
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 export const login = async (userEmail, password) => {
     try {
-        const response = await fetch(`${backend_url}/api/Auth/login`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -58,7 +57,7 @@ export const forgotPassword = async (email, phoneNumber) => {
         };
 
         const response = await fetch(
-            `${backend_url}/api/Auth/RequestOtpForgetPassword`,
+            `${API_BASE_URL}/Auth/RequestOtpForgetPassword`,
             {
                 method: "POST",
                 headers: {
@@ -94,7 +93,7 @@ export const forgotPassword = async (email, phoneNumber) => {
 export const verifyOtp = async (email, otp) => {
     try {
         const response = await fetch(
-            `${backend_url}/api/Auth/VerifyOtpForgetPassword`,
+            `${API_BASE_URL}/Auth/VerifyOtpForgetPassword`,
             {
                 method: "POST",
                 headers: {
@@ -129,7 +128,7 @@ export const verifyOtp = async (email, otp) => {
 
 export const resetPassword = async (email, otp, newPassword) => {
     try {
-        const response = await fetch(`${backend_url}/api/Auth/ResetPassword`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/ResetPassword`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -167,7 +166,7 @@ export const resetPassword = async (email, otp, newPassword) => {
 // Registration OTP functions
 export const requestOtpForRegister = async (email, phoneNumber = "") => {
     try {
-        const response = await fetch(`${backend_url}/api/Auth/RequestOtp`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/RequestOtp`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -203,7 +202,7 @@ export const requestOtpForRegister = async (email, phoneNumber = "") => {
 
 export const verifyOtpForRegister = async (email, otp) => {
     try {
-        const response = await fetch(`${backend_url}/api/Auth/VerifyOtp`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/VerifyOtp`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -236,7 +235,7 @@ export const verifyOtpForRegister = async (email, otp) => {
 
 export const register = async (userEmail, password, fullName, phone = "") => {
     try {
-        const response = await fetch(`${backend_url}/api/Auth/register`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/register`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

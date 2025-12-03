@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';
-import Header from './Header';
+import Header from '~/components/Header';
 import Button from './ui/Button';
 import { Card, CardContent } from './ui/Card';
 import Badge from './ui/Badge';

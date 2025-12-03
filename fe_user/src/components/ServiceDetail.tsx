@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';
-import Header from './Header';
+import Header from '~/components/Header';
 import Button from './ui/Button';
 import { Card, CardContent } from './ui/Card';
 import Badge from './ui/Badge';
@@ -310,7 +310,7 @@ const ServiceDetail = () => {
         if (err?.response?.status === 404) {
           errorMessage = `Không tìm thấy dịch vụ với ID: ${id}`;
         } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
-          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy tại https://localhost:7267 không.';
+          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy tại http://localhost:5002 không.';
         } else if (err?.response?.status) {
           errorMessage = `Lỗi ${err.response.status}: ${err.response.statusText || 'Không thể tải thông tin dịch vụ'}`;
         }

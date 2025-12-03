@@ -542,7 +542,7 @@ const PaymentPage = () => {
       ) {
         setError(
           'Không thể kết nối đến server. Vui lòng:\n\n' +
-            '1. Kiểm tra backend có đang chạy không (https://localhost:7267)\n' +
+            '1. Kiểm tra backend có đang chạy không (http://localhost:5002)\n' +
             '2. Kiểm tra kết nối mạng\n' +
             '3. Thử refresh trang và thử lại'
         )
