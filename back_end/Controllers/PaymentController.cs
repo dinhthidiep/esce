@@ -28,11 +28,23 @@ namespace ESCE_SYSTEM.Controllers
         [HttpPost("create-intent")]
         public async Task<IActionResult> CreateIntent([FromBody] CreatePaymentRequest req)
         {
-            var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.Id == req.BookingId);
-            if (booking == null) return NotFound("Booking not found");
+            try
+            {
+                if (req.Amount <= 0)
+                {
+                    return BadRequest(new { message = "Amount must be greater than 0" });
+                }
 
-            var res = await _paymentService.CreatePaymentAsync(booking, req.Amount, req.Description);
-            return Ok(res);
+                var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.Id == req.BookingId);
+                if (booking == null) return NotFound(new { message = "Booking not found" });
+
+                var res = await _paymentService.CreatePaymentAsync(booking, req.Amount, req.Description);
+                return Ok(res);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to create payment intent", error = ex.Message });
+            }
         }
 
         [HttpPost("payos-webhook")]

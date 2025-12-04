@@ -21,6 +21,7 @@ namespace ESCE_SYSTEM.DTOs
         public List<PostLikeResponseDto> Likes { get; set; } = new List<PostLikeResponseDto>();
         public List<PostCommentResponseDto> Comments { get; set; } = new List<PostCommentResponseDto>();
         public List<string> Hashtags { get; set; } = new List<string>();
+        public bool IsLiked { get; set; } = false;
     }
 
     public class PostLikeResponseDto
