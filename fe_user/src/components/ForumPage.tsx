@@ -554,7 +554,8 @@ const ForumPage = () => {
         // Không refresh, chỉ dùng optimistic update
       } else {
         // Thêm hoặc thay đổi reaction
-        await axiosInstance.post(`${API_ENDPOINTS.POST_REACTION}/${postId}/${reactionTypeId}`)
+        // Backend chỉ hỗ trợ Like (reactionTypeId = 1), luôn gọi endpoint like
+        await axiosInstance.post(`${API_ENDPOINTS.POST_REACTION}/like/${postId}`)
         
         // Optimistic update - cập nhật state ngay lập tức
         setUserReactions((prev) => ({
