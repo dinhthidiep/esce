@@ -208,7 +208,7 @@ const mapChatMessage = (
     id: payload.id,
     senderId: senderIdNum, // Đảm bảo là number
     senderName: senderName, // Đã được xác định ở trên
-    senderAvatar: '',
+        senderAvatar: '',
     content: payload.content,
     image: payload.imageUrl, // URL ảnh từ Firebase Storage
     timestamp: formatTimestamp(createdAt),
@@ -1025,7 +1025,7 @@ export default function ChatMainContent() {
       // Sử dụng requestAnimationFrame để đảm bảo DOM đã render xong
       requestAnimationFrame(() => {
         if (messagesContainerRef.current && selectedConversationId) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
         }
       })
     }
@@ -1124,19 +1124,19 @@ export default function ChatMainContent() {
       // Reset unread count ngay lập tức
       // QUAN TRỌNG: Không cập nhật lastActivity khi click vào conversation
       // lastActivity chỉ được cập nhật khi có tin nhắn mới (gửi hoặc nhận)
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv.id === conversationId) {
-            return {
-              ...conv,
-              unreadCount: 0,
-              messages: conv.messages.map((msg) => ({ ...msg, isRead: true }))
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id === conversationId) {
+          return {
+            ...conv,
+            unreadCount: 0,
+            messages: conv.messages.map((msg) => ({ ...msg, isRead: true }))
               // KHÔNG cập nhật lastActivity ở đây
-            }
           }
-          return conv
-        })
-      )
+        }
+        return conv
+      })
+    )
       
       // Chỉ load history nếu chưa load hoặc chưa có messages
       // Tránh load lại không cần thiết khi chuyển đổi giữa các conversation
@@ -1222,10 +1222,10 @@ export default function ChatMainContent() {
     }
     
     // Cập nhật UI ngay lập tức
-    upsertConversationWithMessage(
-      { id: selected.participantId, name: selected.participantName, role: selected.participantRole },
+      upsertConversationWithMessage(
+        { id: selected.participantId, name: selected.participantName, role: selected.participantRole },
       optimisticMessage
-    )
+      )
     
     // Clear input và image preview ngay
     setMessageText('')
@@ -1270,8 +1270,8 @@ export default function ChatMainContent() {
     } finally {
       setIsSendingMessage(false)
       setUploadingImage(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
       }
     }
   }

@@ -1158,25 +1158,45 @@ export default function MainSupportsContent() {
         >
           <span>Chi tiết yêu cầu hỗ trợ</span>
           {isAdmin && selectedTicket && (
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <Select
-                value={updateStatus || selectedTicket.status || 'Pending'}
-                onChange={(e) => handleUpdateStatus(selectedTicket.id, e.target.value as SupportStatus)}
-                sx={{
-                  borderRadius: 2,
-                  fontSize: '1.4rem',
-                  bgcolor: 'grey.50',
-                  '&:hover': {
-                    bgcolor: 'white'
-                  }
-                }}
-              >
-                <MenuItem value="Pending">Chờ xử lý</MenuItem>
-                <MenuItem value="InProgress">Đang xử lý</MenuItem>
-                <MenuItem value="Resolved">Đã giải quyết</MenuItem>
-                <MenuItem value="Closed">Đã đóng</MenuItem>
-              </Select>
-            </FormControl>
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <Select
+                  value={updateStatus || selectedTicket.status || 'Pending'}
+                  onChange={(e) => handleUpdateStatus(selectedTicket.id, e.target.value as SupportStatus)}
+                  sx={{
+                    borderRadius: 2,
+                    fontSize: '1.4rem',
+                    bgcolor: 'grey.50',
+                    '&:hover': {
+                      bgcolor: 'white'
+                    }
+                  }}
+                >
+                  <MenuItem value="Pending">Chờ xử lý</MenuItem>
+                  <MenuItem value="InProgress">Đang xử lý</MenuItem>
+                  <MenuItem value="Resolved">Đã giải quyết</MenuItem>
+                  <MenuItem value="Closed">Đã đóng</MenuItem>
+                </Select>
+              </FormControl>
+              {(selectedTicket.status === 'Pending' || selectedTicket.status === 'pending') && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  onClick={() => handleUpdateStatus(selectedTicket.id, 'Resolved')}
+                  sx={{
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    fontSize: '1.3rem',
+                    fontWeight: 600,
+                    px: 2.5
+                  }}
+                  startIcon={<CheckCircleIcon />}
+                >
+                  Phê duyệt yêu cầu
+                </Button>
+              )}
+            </Box>
           )}
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>

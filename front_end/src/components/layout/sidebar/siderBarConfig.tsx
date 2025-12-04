@@ -6,6 +6,7 @@ import FeedIcon from '@mui/icons-material/Feed'
 import HeadphonesIcon from '@mui/icons-material/Headphones'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import type { SideBarConfigType } from '~/types/menu'
 export const sidebarConfig = [
   {
@@ -18,7 +19,7 @@ export const sidebarConfig = [
     title: 'Quản lý Users',
     path: '/users',
     icon: <People />,
-    badge: 2
+    badge: 0
   },
   {
     title: 'Bài viết',
@@ -31,7 +32,7 @@ export const sidebarConfig = [
     title: 'Chat',
     path: '/chat',
     icon: <ChatBubbleOutlineIcon />,
-    badge: 5
+    badge: 0
   },
   {
     title: 'Tin tức',
@@ -43,7 +44,13 @@ export const sidebarConfig = [
     title: 'Hỗ trợ',
     path: '/supports',
     icon: <HeadphonesIcon />,
-    badge: 3
+    badge: 0
+  },
+  {
+    title: 'Phê duyệt yêu cầu',
+    path: '/support-approvals',
+    icon: <CheckCircleIcon />,
+    badge: 0
   },
   {
     title: 'Nâng cấp vai trò',

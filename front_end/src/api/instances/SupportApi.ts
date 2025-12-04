@@ -19,7 +19,12 @@
  * - DELETE /api/support/responses/{id} - Xóa phản hồi
  */
 
-import { fetchWithFallback, extractErrorMessage, getAuthToken } from './httpClient'
+import { fetchWithFallback, extractErrorMessage, getAuthToken, DISABLE_BACKEND } from './httpClient'
+
+// ============================
+// MOCK DATA (không cần backend)
+// ============================
+const USE_MOCK_SUPPORT = true
 
 export type SupportStatus = 'Pending' | 'InProgress' | 'Resolved' | 'Closed' | string | null | undefined
 
@@ -72,8 +77,73 @@ export interface UpdateSupportRequestDto {
   image?: string | null
 }
 
+const MOCK_SUPPORT_REQUESTS: RequestSupportDto[] = [
+  {
+    id: 1,
+    userId: 10,
+    comboId: null,
+    supportType: 'Thanh toán',
+    content: 'Tôi đã thanh toán nhưng hệ thống chưa cập nhật trạng thái đơn hàng.',
+    image: null,
+    status: 'Pending',
+    createdAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+    updatedAt: null,
+    userName: 'Nguyễn Văn A',
+    userEmail: 'a@example.com',
+    comboName: null,
+    responsesCount: 1
+  },
+  {
+    id: 2,
+    userId: 11,
+    comboId: null,
+    supportType: 'Tài khoản',
+    content: 'Tôi quên mật khẩu và không nhận được email đặt lại.',
+    image: null,
+    status: 'InProgress',
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    updatedAt: null,
+    userName: 'Trần Thị B',
+    userEmail: 'b@example.com',
+    comboName: null,
+    responsesCount: 2
+  }
+]
+
+const MOCK_SUPPORT_RESPONSES: SupportResponseDto[] = [
+  {
+    id: 1,
+    supportId: 1,
+    responderId: 1,
+    content: 'Admin đã tiếp nhận yêu cầu, chúng tôi sẽ kiểm tra trong vòng 24h.',
+    image: null,
+    createdAt: new Date(Date.now() - 1800 * 1000).toISOString(),
+    responderName: 'Admin',
+    responderEmail: 'admin@example.com',
+    responderRole: 'Admin'
+  },
+  {
+    id: 2,
+    supportId: 2,
+    responderId: 1,
+    content: 'Bạn vui lòng kiểm tra lại hộp thư spam giúp mình nhé.',
+    image: null,
+    createdAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+    responderName: 'Admin',
+    responderEmail: 'admin@example.com',
+    responderRole: 'Admin'
+  }
+]
+
 const ensureAuthHeaders = () => {
   const token = getAuthToken()
+  // Khi đang dev UI với mock data hoặc backend tắt, cho phép không có token
+  if (!token && DISABLE_BACKEND) {
+    console.warn('[SupportApi] No token, but DISABLE_BACKEND=true -> dùng header không có Authorization')
+    return {
+      'Content-Type': 'application/json'
+    }
+  }
   if (!token) {
     throw new Error('Vui lòng đăng nhập để tiếp tục.')
   }
@@ -153,6 +223,13 @@ const normalizeSupportResponse = (payload: any): SupportResponseDto => {
  * @param status - Lọc theo trạng thái (Pending, InProgress, Resolved, Closed) hoặc undefined để lấy tất cả
  */
 export const getAllSupportRequests = async (status?: string): Promise<RequestSupportDto[]> => {
+  if (USE_MOCK_SUPPORT) {
+    console.warn('[SupportApi] Using MOCK_SUPPORT_REQUESTS (backend disabled)')
+    if (!status || status === 'All') return MOCK_SUPPORT_REQUESTS
+    const lower = status.toLowerCase()
+    return MOCK_SUPPORT_REQUESTS.filter(t => (t.status || '').toLowerCase() === lower)
+  }
+
   try {
     const query = status && status !== 'All' ? `?status=${encodeURIComponent(status)}` : ''
     const endpoint = `/api/support${query}`
@@ -238,6 +315,13 @@ export const getAllSupportRequests = async (status?: string): Promise<RequestSup
  * @param id - ID của yêu cầu hỗ trợ
  */
 export const getSupportRequestById = async (id: number): Promise<RequestSupportDto> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(id), 10)
+    const found = MOCK_SUPPORT_REQUESTS.find(t => t.id === validId)
+    if (!found) throw new Error('Không tìm thấy yêu cầu hỗ trợ (mock)')
+    return found
+  }
+
   try {
     const validId = parseInt(String(id), 10)
     if (!validId || isNaN(validId) || validId <= 0) {
@@ -274,6 +358,12 @@ export const getSupportRequestById = async (id: number): Promise<RequestSupportD
  * Requires: Authentication
  */
 export const getMySupportRequests = async (): Promise<RequestSupportDto[]> => {
+  if (USE_MOCK_SUPPORT) {
+    console.warn('[SupportApi] Using MOCK_SUPPORT_REQUESTS for current user (backend disabled)')
+    // Giả sử current user có userId = 10
+    return MOCK_SUPPORT_REQUESTS.filter(t => t.userId === 10)
+  }
+
   try {
     const endpoint = '/api/support/my-requests'
     console.log('[SupportApi] Fetching my support requests')
@@ -358,6 +448,36 @@ export const getMySupportRequests = async (): Promise<RequestSupportDto[]> => {
  * @param dto - Dữ liệu yêu cầu hỗ trợ
  */
 export const createSupportRequest = async (dto: CreateSupportRequestDto): Promise<RequestSupportDto> => {
+  if (USE_MOCK_SUPPORT) {
+    // Validate input
+    if (!dto.content || !dto.content.trim()) {
+      throw new Error('Nội dung yêu cầu hỗ trợ không được để trống')
+    }
+    
+    if (dto.content.trim().length > 1000) {
+      throw new Error('Nội dung yêu cầu hỗ trợ tối đa 1000 ký tự')
+    }
+
+    const newItem: RequestSupportDto = {
+      id: MOCK_SUPPORT_REQUESTS.length + 1,
+      userId: 10,
+      comboId: dto.comboId ?? null,
+      supportType: dto.supportType ?? null,
+      content: dto.content.trim(),
+      image: dto.image ?? null,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      userName: 'Người dùng mock',
+      userEmail: 'mock@example.com',
+      comboName: null,
+      responsesCount: 0
+    }
+    MOCK_SUPPORT_REQUESTS.unshift(newItem)
+    console.warn('[SupportApi] createSupportRequest using MOCK_SUPPORT_REQUESTS, new length =', MOCK_SUPPORT_REQUESTS.length)
+    return newItem
+  }
+
   try {
     // Validate input
     if (!dto.content || !dto.content.trim()) {
@@ -412,6 +532,32 @@ export const createSupportRequest = async (dto: CreateSupportRequestDto): Promis
  * @param dto - Dữ liệu cập nhật
  */
 export const updateSupportRequest = async (id: number, dto: UpdateSupportRequestDto): Promise<RequestSupportDto> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(id), 10)
+    if (!validId || isNaN(validId) || validId <= 0) {
+      throw new Error('ID yêu cầu hỗ trợ không hợp lệ')
+    }
+
+    if (dto.content && dto.content.trim().length > 1000) {
+      throw new Error('Nội dung yêu cầu hỗ trợ tối đa 1000 ký tự')
+    }
+
+    const index = MOCK_SUPPORT_REQUESTS.findIndex(t => t.id === validId)
+    if (index === -1) throw new Error('Không tìm thấy yêu cầu hỗ trợ để cập nhật (mock)')
+    const current = MOCK_SUPPORT_REQUESTS[index]
+    const updated: RequestSupportDto = {
+      ...current,
+      content: dto.content?.trim() ?? current.content,
+      supportType: dto.supportType ?? current.supportType,
+      image: dto.image ?? current.image,
+      status: dto.status ?? current.status,
+      updatedAt: new Date().toISOString()
+    }
+    MOCK_SUPPORT_REQUESTS[index] = updated
+    console.warn('[SupportApi] updateSupportRequest applied on MOCK_SUPPORT_REQUESTS')
+    return updated
+  }
+
   try {
     const validId = parseInt(String(id), 10)
     if (!validId || isNaN(validId) || validId <= 0) {
@@ -460,6 +606,21 @@ export const updateSupportRequest = async (id: number, dto: UpdateSupportRequest
  * @param id - ID của yêu cầu hỗ trợ
  */
 export const deleteSupportRequest = async (id: number): Promise<void> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(id), 10)
+    if (!validId || isNaN(validId) || validId <= 0) {
+      throw new Error('ID yêu cầu hỗ trợ không hợp lệ')
+    }
+
+    const before = MOCK_SUPPORT_REQUESTS.length
+    const idx = MOCK_SUPPORT_REQUESTS.findIndex(t => t.id === validId)
+    if (idx !== -1) {
+      MOCK_SUPPORT_REQUESTS.splice(idx, 1)
+    }
+    console.warn('[SupportApi] deleteSupportRequest on MOCK_SUPPORT_REQUESTS, before:', before, 'after:', MOCK_SUPPORT_REQUESTS.length)
+    return
+  }
+
   try {
     const validId = parseInt(String(id), 10)
     if (!validId || isNaN(validId) || validId <= 0) {
@@ -523,6 +684,15 @@ export const deleteSupportRequest = async (id: number): Promise<void> => {
  * @param supportId - ID của yêu cầu hỗ trợ
  */
 export const getSupportResponses = async (supportId: number): Promise<SupportResponseDto[]> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(supportId), 10)
+    if (!validId || isNaN(validId) || validId <= 0) {
+      throw new Error('ID yêu cầu hỗ trợ không hợp lệ')
+    }
+    console.warn('[SupportApi] Using MOCK_SUPPORT_RESPONSES for supportId =', validId)
+    return MOCK_SUPPORT_RESPONSES.filter(r => r.supportId === validId)
+  }
+
   try {
     const validId = parseInt(String(supportId), 10)
     if (!validId || isNaN(validId) || validId <= 0) {
@@ -613,6 +783,28 @@ export const getSupportResponses = async (supportId: number): Promise<SupportRes
  * @param dto - Dữ liệu phản hồi
  */
 export const createSupportResponse = async (supportId: number, dto: CreateSupportResponseDto): Promise<SupportResponseDto> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(supportId), 10)
+    if (!validId || isNaN(validId) || validId <= 0) {
+      throw new Error('ID yêu cầu hỗ trợ không hợp lệ')
+    }
+
+    const newResponse: SupportResponseDto = {
+      id: MOCK_SUPPORT_RESPONSES.length + 1,
+      supportId: validId,
+      responderId: 1,
+      content: dto.content,
+      image: dto.image ?? null,
+      createdAt: new Date().toISOString(),
+      responderName: 'Admin (mock)',
+      responderEmail: 'admin@example.com',
+      responderRole: 'Admin'
+    }
+    MOCK_SUPPORT_RESPONSES.push(newResponse)
+    console.warn('[SupportApi] createSupportResponse using MOCK_SUPPORT_RESPONSES, new length =', MOCK_SUPPORT_RESPONSES.length)
+    return newResponse
+  }
+
   try {
     const validId = parseInt(String(supportId), 10)
     if (!validId || isNaN(validId) || validId <= 0) {
@@ -659,6 +851,21 @@ export const createSupportResponse = async (supportId: number, dto: CreateSuppor
  * @param responseId - ID của phản hồi
  */
 export const deleteSupportResponse = async (responseId: number): Promise<void> => {
+  if (USE_MOCK_SUPPORT) {
+    const validId = parseInt(String(responseId), 10)
+    if (!validId || isNaN(validId) || validId <= 0) {
+      throw new Error('ID phản hồi không hợp lệ')
+    }
+
+    const before = MOCK_SUPPORT_RESPONSES.length
+    const idx = MOCK_SUPPORT_RESPONSES.findIndex(r => r.id === validId)
+    if (idx !== -1) {
+      MOCK_SUPPORT_RESPONSES.splice(idx, 1)
+    }
+    console.warn('[SupportApi] deleteSupportResponse on MOCK_SUPPORT_RESPONSES, before:', before, 'after:', MOCK_SUPPORT_RESPONSES.length)
+    return
+  }
+
   try {
     const validId = parseInt(String(responseId), 10)
     if (!validId || isNaN(validId) || validId <= 0) {

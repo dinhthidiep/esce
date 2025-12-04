@@ -1,4 +1,4 @@
-import { fetchWithFallback, extractErrorMessage, getAuthToken } from './httpClient'
+import { fetchWithFallback, extractErrorMessage, getAuthToken, DISABLE_BACKEND } from './httpClient'
 
 type CertificateStatus = 'Pending' | 'Approved' | 'Rejected' | 'Review' | string | null | undefined
 
@@ -35,8 +35,84 @@ export type HostCertificate = {
 
 export type CertificateType = 'Agency' | 'Host'
 
+// ============================
+// MOCK DATA (không cần backend)
+// ============================
+const USE_MOCK_ROLE_UPGRADE = true
+
+const MOCK_AGENCY_CERTIFICATES: AgencyCertificate[] = [
+  {
+    agencyId: 1,
+    accountId: 10,
+    companyName: 'Công ty Du lịch ABC',
+    licenseFile: 'Giấy phép kinh doanh số 0123456789',
+    phone: '0901234567',
+    email: 'abc@example.com',
+    website: 'https://abc-travel.vn',
+    status: 'Pending',
+    rejectComment: null,
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    updatedAt: undefined,
+    userName: 'Nguyễn Văn A',
+    userEmail: 'a@example.com'
+  },
+  {
+    agencyId: 2,
+    accountId: 11,
+    companyName: 'Công ty Du lịch XYZ',
+    licenseFile: 'Giấy phép số 987654321',
+    phone: '0912345678',
+    email: 'xyz@example.com',
+    website: null,
+    status: 'Approved',
+    rejectComment: null,
+    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    userName: 'Trần Thị B',
+    userEmail: 'b@example.com'
+  }
+]
+
+const MOCK_HOST_CERTIFICATES: HostCertificate[] = [
+  {
+    certificateId: 1,
+    hostId: 20,
+    businessLicenseFile: 'Giấy phép kinh doanh homestay 123',
+    businessName: 'Homestay Đà Lạt Xinh',
+    phone: '0987654321',
+    email: 'host1@example.com',
+    status: 'Pending',
+    rejectComment: null,
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    updatedAt: undefined,
+    hostName: 'Lê Văn C',
+    hostEmail: 'c@example.com'
+  },
+  {
+    certificateId: 2,
+    hostId: 21,
+    businessLicenseFile: 'Giấy phép villa biển',
+    businessName: 'Villa Biển Xanh',
+    phone: '0977777777',
+    email: 'host2@example.com',
+    status: 'Rejected',
+    rejectComment: 'Thiếu giấy tờ xác minh địa chỉ',
+    createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    hostName: 'Phạm Thị D',
+    hostEmail: 'd@example.com'
+  }
+]
+
 const ensureAuthHeaders = () => {
   const token = getAuthToken()
+  // Khi đang dev UI với mock data hoặc backend tắt, cho phép không có token
+  if (!token && DISABLE_BACKEND) {
+    console.warn('[RoleUpgradeApi] No token, but DISABLE_BACKEND=true -> dùng header không có Authorization')
+    return {
+      'Content-Type': 'application/json'
+    }
+  }
   if (!token) {
     throw new Error('Vui lòng đăng nhập để tiếp tục.')
   }
@@ -118,6 +194,10 @@ export const requestAgencyUpgrade = async (payload: {
   website?: string
 }): Promise<string> => {
   try {
+    if (USE_MOCK_ROLE_UPGRADE) {
+      console.warn('[RoleUpgradeApi] requestAgencyUpgrade MOCK only (backend disabled)', payload)
+      return 'Yêu cầu nâng cấp Agency (mock) đã được ghi nhận.'
+    }
     // Validate required fields
     if (!payload.companyName?.trim()) {
       throw new Error('Tên công ty không được để trống')
@@ -177,6 +257,10 @@ export const requestHostUpgrade = async (payload: {
   email: string
 }): Promise<string> => {
   try {
+    if (USE_MOCK_ROLE_UPGRADE) {
+      console.warn('[RoleUpgradeApi] requestHostUpgrade MOCK only (backend disabled)', payload)
+      return 'Yêu cầu nâng cấp Host (mock) đã được ghi nhận.'
+    }
     // Validate required fields
     if (!payload.businessName?.trim()) {
       throw new Error('Tên doanh nghiệp không được để trống')
@@ -231,6 +315,13 @@ const buildQuery = (status?: string) => (status && status !== 'All' ? `?status=$
  * @param status - Lọc theo trạng thái (Pending, Approved, Rejected, Review) hoặc undefined để lấy tất cả
  */
 export const getAgencyCertificates = async (status?: string): Promise<AgencyCertificate[]> => {
+  if (USE_MOCK_ROLE_UPGRADE) {
+    console.warn('[RoleUpgradeApi] Using MOCK_AGENCY_CERTIFICATES (backend disabled)')
+    if (!status || status === 'All') return MOCK_AGENCY_CERTIFICATES
+    const lower = status.toLowerCase()
+    return MOCK_AGENCY_CERTIFICATES.filter(c => (c.status || '').toLowerCase() === lower)
+  }
+
   try {
     const endpoint = `/api/user/agency-certificates${buildQuery(status)}`
     console.log('[RoleUpgradeApi] Fetching agency certificates:', { status })
@@ -313,6 +404,13 @@ export const getAgencyCertificates = async (status?: string): Promise<AgencyCert
  * @param status - Lọc theo trạng thái (Pending, Approved, Rejected, Review) hoặc undefined để lấy tất cả
  */
 export const getHostCertificates = async (status?: string): Promise<HostCertificate[]> => {
+  if (USE_MOCK_ROLE_UPGRADE) {
+    console.warn('[RoleUpgradeApi] Using MOCK_HOST_CERTIFICATES (backend disabled)')
+    if (!status || status === 'All') return MOCK_HOST_CERTIFICATES
+    const lower = status.toLowerCase()
+    return MOCK_HOST_CERTIFICATES.filter(c => (c.status || '').toLowerCase() === lower)
+  }
+
   try {
     const endpoint = `/api/user/host-certificates${buildQuery(status)}`
     console.log('[RoleUpgradeApi] Fetching host certificates:', { status })

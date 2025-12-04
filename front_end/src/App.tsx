@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Suspense } from 'react'
 import { MainLayout } from '~/components/layout'
-import { DashBoard, Users, Posts, Chat, News, Supports, Profile, RoleUpgrade } from '~/pages'
+import { DashBoard, Users, Posts, Chat, News, Supports, SupportApprovals, Profile, RoleUpgrade } from '~/pages'
 import LoginForm from './components/authenticate/login/LoginForm'
 import ForgotPassword from './components/authenticate/forgotPassword/ForgotPassword'
 import Register from './components/authenticate/register/Register'
@@ -44,6 +44,7 @@ function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/news" element={<News />} />
               <Route path="/supports" element={<Supports />} />
+              <Route path="/support-approvals" element={<SupportApprovals />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/role-upgrade" element={<RoleUpgrade />} />
               <Route path="/create-tour" element={<CreateTour />} />

@@ -15,6 +15,7 @@ import ListItemText from '@mui/material/ListItemText'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '~/utils/tailwind.utils'
+import { useAdminBadges } from '~/hooks/useAdminBadges'
 
 interface SideBarProps {
   open: boolean
@@ -23,6 +24,7 @@ interface SideBarProps {
 const SideBar = ({ open, setOpen }: SideBarProps) => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const badges = useAdminBadges()
 
   const handleLogout = () => {
     // Xóa token và userInfo từ localStorage
@@ -44,9 +46,10 @@ const SideBar = ({ open, setOpen }: SideBarProps) => {
           width: open ? theme.customLayout.openSideBarSide : theme.customLayout.closeSideBarSide,
           transition: (theme) => theme.transitions.create('width'),
           overflowX: 'hidden',
-          backgroundColor: 'common.white',
+          background: 'linear-gradient(180deg, #ecfdf5 0%, #f9fafb 40%, #ffffff 100%)',
           borderRight: '1px solid',
-          borderColor: 'grey.200',
+          borderColor: 'rgba(148, 163, 184, 0.3)',
+          boxShadow: '0 10px 30px rgba(15, 118, 110, 0.12)',
           display: 'flex',
           flexDirection: 'column'
         }
@@ -58,9 +61,29 @@ const SideBar = ({ open, setOpen }: SideBarProps) => {
       {/* LIST */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <List sx={{ px: pxToRem(16), pt: pxToRem(16), flex: 1, overflowY: 'auto' }}>
-          {sidebarConfig.map((item) => (
-            <SideBarItem key={item.path} data={item} open={open} />
-          ))}
+          {sidebarConfig.map((item) => {
+            let dynamicBadge = item.badge ?? 0
+            switch (item.path) {
+              case '/chat':
+                dynamicBadge = badges.chat
+                break
+              case '/supports':
+                dynamicBadge = badges.supports
+                break
+              case '/support-approvals':
+                dynamicBadge = badges.supportApprovals
+                break
+              case '/role-upgrade':
+                dynamicBadge = badges.roleUpgrade
+                break
+              case '/users':
+                dynamicBadge = badges.users
+                break
+              default:
+                break
+            }
+            return <SideBarItem key={item.path} data={{ ...item, badge: dynamicBadge }} open={open} />
+          })}
         </List>
 
         {/* LOGOUT BUTTON - Fixed at bottom */}

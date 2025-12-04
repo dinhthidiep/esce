@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import SummaryCard from '~/components/common/SummaryCard'
-import { fetchDashboardData, DashboardDto } from '~/api/instances/DashboardApi'
+import { fetchDashboardData } from '~/api/instances/DashboardApi'
+import type { DashboardDto } from '~/api/instances/DashboardApi'
 import LegendToggleIcon from '@mui/icons-material/LegendToggle'
 import EmailIcon from '@mui/icons-material/Email'
 import HeadphonesIcon from '@mui/icons-material/Headphones'

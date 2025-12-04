@@ -1,4 +1,4 @@
-import { fetchWithFallback, extractErrorMessage, getAuthToken } from './httpClient'
+import { fetchWithFallback, extractErrorMessage, getAuthToken, DISABLE_BACKEND } from './httpClient'
 
 export type ChatUser = {
   userId: string
@@ -24,8 +24,54 @@ export type SendChatPayload = {
   imageUrl?: string
 }
 
+// ============================
+// MOCK DATA (không cần backend)
+// ============================
+const USE_MOCK_CHAT = true
+
+const MOCK_USERS: ChatUser[] = [
+  {
+    userId: '2',
+    fullName: 'Nguyễn Văn B',
+    role: 'Customer',
+    roleId: 3,
+    email: 'b@example.com'
+  },
+  {
+    userId: '3',
+    fullName: 'Trần Thị C',
+    role: 'Host',
+    roleId: 2,
+    email: 'c@example.com'
+  }
+]
+
+let MOCK_MESSAGES: ChatMessage[] = [
+  {
+    id: 1,
+    senderId: 1,
+    receiverId: 2,
+    content: 'Chào bạn, mình là Admin (mock). Bạn có thể chỉnh giao diện chat ở đây.',
+    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    isRead: true
+  },
+  {
+    id: 2,
+    senderId: 2,
+    receiverId: 1,
+    content: 'Dạ vâng ạ, em đang test giao diện.',
+    createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    isRead: true
+  }
+]
+
 const ensureToken = () => {
   const token = getAuthToken()
+  // Khi dev UI với mock / backend tắt thì không bắt buộc phải đăng nhập
+  if (!token && DISABLE_BACKEND) {
+    console.warn('[ChatApi] No token, but DISABLE_BACKEND=true -> dùng token mock')
+    return 'MOCK_TOKEN'
+  }
   if (!token) {
     throw new Error('Vui lòng đăng nhập để tiếp tục trò chuyện.')
   }
@@ -101,6 +147,11 @@ const normalizeChatMessage = (payload: any): ChatMessage => {
  * Requires: Authentication (Bearer token)
  */
 export const getUsersForChat = async (): Promise<ChatUser[]> => {
+  if (USE_MOCK_CHAT) {
+    console.warn('[ChatApi] Using MOCK_USERS for getUsersForChat (backend disabled)')
+    return MOCK_USERS
+  }
+
   try {
     const token = ensureToken()
     const endpoint = '/api/chat/GetUserForChat'
@@ -144,6 +195,11 @@ export const getUsersForChat = async (): Promise<ChatUser[]> => {
  * Requires: Authentication (Bearer token)
  */
 export const getChattedUsers = async (): Promise<ChatUser[]> => {
+  if (USE_MOCK_CHAT) {
+    console.warn('[ChatApi] Using MOCK_USERS for getChattedUsers (backend disabled)')
+    return MOCK_USERS
+  }
+
   try {
     const token = ensureToken()
     const endpoint = '/api/chat/GetChattedUser'
@@ -188,6 +244,19 @@ export const getChattedUsers = async (): Promise<ChatUser[]> => {
  * @param toUserId - ID của người dùng muốn xem lịch sử chat (string)
  */
 export const getChatHistory = async (toUserId: string): Promise<ChatMessage[]> => {
+  if (USE_MOCK_CHAT) {
+    const toId = parseInt(toUserId, 10)
+    if (!toId || Number.isNaN(toId)) {
+      throw new Error('ID người dùng không hợp lệ')
+    }
+    console.warn('[ChatApi] Using MOCK_MESSAGES for getChatHistory (backend disabled)')
+    return MOCK_MESSAGES.filter(
+      m =>
+        (m.senderId === 1 && m.receiverId === toId) ||
+        (m.senderId === toId && m.receiverId === 1)
+    )
+  }
+
   try {
     if (!toUserId || !toUserId.trim()) {
       throw new Error('ID người dùng không hợp lệ')
@@ -235,6 +304,22 @@ export const getChatHistory = async (toUserId: string): Promise<ChatMessage[]> =
  * @returns Promise<ChatMessage> - Tin nhắn đã gửi
  */
 export const sendChatMessage = async (payload: SendChatPayload): Promise<ChatMessage> => {
+  if (USE_MOCK_CHAT) {
+    const receiverIdNum = parseInt(payload.receiverId, 10)
+    const newMessage: ChatMessage = {
+      id: MOCK_MESSAGES.length + 1,
+      senderId: 1,
+      receiverId: receiverIdNum,
+      content: payload.content,
+      imageUrl: payload.imageUrl,
+      createdAt: new Date().toISOString(),
+      isRead: false
+    }
+    MOCK_MESSAGES.push(newMessage)
+    console.warn('[ChatApi] sendChatMessage using MOCK_MESSAGES (no SignalR), length =', MOCK_MESSAGES.length)
+    return newMessage
+  }
+
   const { sendChatMessageViaSignalR } = await import('./chatSignalR')
   return sendChatMessageViaSignalR(payload.receiverId, payload.content, payload.imageUrl)
 }

@@ -41,19 +41,72 @@ export interface UpdatePostDto {
   posterName?: string
 }
 
+// ============================
+// MOCK DATA (không cần backend)
+// ============================
+const USE_MOCK_POSTS = true
+
+const MOCK_POSTS: PostDto[] = [
+  {
+    postId: 1,
+    title: 'Trải nghiệm du lịch Đà Nẵng 3 ngày 2 đêm',
+    content:
+      'Chia sẻ lịch trình chi tiết, chi phí và những lưu ý khi du lịch Đà Nẵng tự túc. Đây là bài viết mock để bạn chỉnh giao diện.',
+    images: [],
+    authorId: 1,
+    authorName: 'Admin',
+    authorAvatar: undefined,
+    authorRole: 'Admin',
+    status: 'Approved',
+    rejectComment: undefined,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 5).toISOString(),
+    publicDate: new Date().toISOString(),
+    likesCount: 12,
+    commentsCount: 3,
+    isLiked: false,
+    hashtags: ['Đà Nẵng', 'Kinh nghiệm', 'Tự túc'],
+    likes: []
+  },
+  {
+    postId: 2,
+    title: 'Top 5 bãi biển đẹp nhất miền Trung',
+    content:
+      'Danh sách các bãi biển đẹp, nước trong, cát trắng để bạn tham khảo cho chuyến đi sắp tới.',
+    images: [],
+    authorId: 2,
+    authorName: 'Nguyễn Văn B',
+    authorAvatar: undefined,
+    authorRole: 'Customer',
+    status: 'Pending',
+    rejectComment: undefined,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
+    publicDate: undefined,
+    likesCount: 5,
+    commentsCount: 1,
+    isLiked: false,
+    hashtags: ['Biển', 'Miền Trung'],
+    likes: []
+  }
+]
+
 const authorizedRequest = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const token = getAuthToken()
-  if (!token) {
-    throw new Error('Vui lòng đăng nhập để tiếp tục.')
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(init.headers || {})
+  }
+
+  if (token) {
+    ;(headers as any).Authorization = `Bearer ${token}`
+  } else {
+    // Cho phép không có token khi đang làm UI với mock / backend tắt
+    console.warn('[PostsApi] authorizedRequest without token (dev/mock mode)')
   }
 
   const response = await fetchWithFallback(input as string, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(init.headers || {})
-    }
+    headers
   })
 
   if (!response.ok) {
@@ -184,6 +237,11 @@ const normalizePost = (payload: any): PostDto => {
 }
 
 export const fetchAllPosts = async (): Promise<PostDto[]> => {
+  if (USE_MOCK_POSTS) {
+    console.warn('[PostsApi] Using MOCK_POSTS data (backend disabled)')
+    return MOCK_POSTS
+  }
+
   try {
     // Use fetchWithFallback for anonymous access (to get isLiked correctly)
     const token = getAuthToken()
@@ -217,6 +275,14 @@ export const fetchAllPosts = async (): Promise<PostDto[]> => {
 }
 
 export const fetchPostById = async (postId: number): Promise<PostDto> => {
+  if (USE_MOCK_POSTS) {
+    const found = MOCK_POSTS.find(p => p.postId === postId)
+    if (!found) {
+      throw new Error('Không tìm thấy bài viết (mock)')
+    }
+    return found
+  }
+
   const data = await authorizedRequest(`/api/Post/GetPostById?id=${postId}`, {
     method: 'GET'
   })
@@ -224,6 +290,31 @@ export const fetchPostById = async (postId: number): Promise<PostDto> => {
 }
 
 export const createPost = async (dto: CreatePostDto): Promise<PostDto> => {
+  if (USE_MOCK_POSTS) {
+    const newPost: PostDto = {
+      postId: MOCK_POSTS.length + 1,
+      title: dto.title,
+      content: dto.content,
+      images: dto.images || [],
+      authorId: 1,
+      authorName: 'Admin (mock)',
+      authorAvatar: undefined,
+      authorRole: 'Admin',
+      status: 'Pending',
+      rejectComment: undefined,
+      createdAt: new Date().toISOString(),
+      publicDate: undefined,
+      likesCount: 0,
+      commentsCount: 0,
+      isLiked: false,
+      hashtags: [],
+      likes: []
+    }
+    MOCK_POSTS.unshift(newPost)
+    console.warn('[PostsApi] createPost using MOCK_POSTS, new length =', MOCK_POSTS.length)
+    return newPost
+  }
+
   const data = await authorizedRequest('/api/Post/CreatePost', {
     method: 'POST',
     body: JSON.stringify({
@@ -250,6 +341,20 @@ export const createPost = async (dto: CreatePostDto): Promise<PostDto> => {
 }
 
 export const updatePost = async (postId: number, dto: UpdatePostDto): Promise<void> => {
+  if (USE_MOCK_POSTS) {
+    const index = MOCK_POSTS.findIndex(p => p.postId === postId)
+    if (index !== -1) {
+      MOCK_POSTS[index] = {
+        ...MOCK_POSTS[index],
+        title: dto.title ?? MOCK_POSTS[index].title,
+        content: dto.content ?? MOCK_POSTS[index].content,
+        images: dto.images ?? MOCK_POSTS[index].images
+      }
+    }
+    console.warn('[PostsApi] updatePost applied on MOCK_POSTS')
+    return
+  }
+
   await authorizedRequest(`/api/Post/UpdatePost?id=${postId}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -263,6 +368,16 @@ export const updatePost = async (postId: number, dto: UpdatePostDto): Promise<vo
 }
 
 export const deletePost = async (postId: number): Promise<void> => {
+  if (USE_MOCK_POSTS) {
+    const before = MOCK_POSTS.length
+    const idx = MOCK_POSTS.findIndex(p => p.postId === postId)
+    if (idx !== -1) {
+      MOCK_POSTS.splice(idx, 1)
+    }
+    console.warn('[PostsApi] deletePost on MOCK_POSTS, before:', before, 'after:', MOCK_POSTS.length)
+    return
+  }
+
   const token = getAuthToken()
   if (!token) {
     throw new Error('Vui lòng đăng nhập để tiếp tục.')

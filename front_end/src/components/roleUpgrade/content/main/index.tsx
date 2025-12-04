@@ -152,10 +152,25 @@ export default function MainRoleUpgradeContent() {
 
   return (
     <Stack spacing={3}>
-      <Card sx={{ borderRadius: '1.6rem' }}>
+      <Card
+        sx={{
+          borderRadius: '1.6rem',
+          boxShadow: '0 18px 45px rgba(15, 118, 110, 0.12)',
+          border: '1px solid rgba(148, 163, 184, 0.35)',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,253,250,0.98))'
+        }}
+      >
         <CardHeader
-          title="Danh sách yêu cầu nâng cấp vai trò"
-          subheader="Phê duyệt hoặc từ chối các yêu cầu chờ xử lý."
+          title={
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              Danh sách yêu cầu nâng cấp vai trò
+            </Typography>
+          }
+          subheader={
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Phê duyệt hoặc từ chối các yêu cầu chờ xử lý.
+            </Typography>
+          }
           action={
             <Stack direction="row" spacing={1}>
               {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((status) => (
@@ -165,6 +180,11 @@ export default function MainRoleUpgradeContent() {
                   color={adminStatusFilter === status ? 'primary' : 'default'}
                   variant={adminStatusFilter === status ? 'filled' : 'outlined'}
                   onClick={() => setAdminStatusFilter(status)}
+                  sx={{
+                    borderRadius: '999px',
+                    fontWeight: adminStatusFilter === status ? 600 : 500,
+                    px: 1.5
+                  }}
                 />
               ))}
             </Stack>
@@ -172,7 +192,11 @@ export default function MainRoleUpgradeContent() {
         />
         <CardContent>
           {adminLoading ? (
-            <Skeleton variant="rectangular" height={220} sx={{ borderRadius: '1.6rem' }} />
+            <Skeleton
+              variant="rectangular"
+              height={220}
+              sx={{ borderRadius: '1.6rem', bgcolor: 'rgba(148,163,184,0.25)' }}
+            />
           ) : adminError ? (
             <Alert severity="error" sx={{ borderRadius: '1.2rem' }}>
               {adminError}
@@ -189,7 +213,16 @@ export default function MainRoleUpgradeContent() {
                   <Card
                     key={`${request.type}-${request.certificateId}`}
                     variant="outlined"
-                    sx={{ borderRadius: '1.2rem', borderColor: meta.bg }}
+                    sx={{
+                      borderRadius: '1.4rem',
+                      borderColor: meta.bg,
+                      backgroundColor: 'rgba(255,255,255,0.96)',
+                      '&:hover': {
+                        boxShadow: 4,
+                        transform: 'translateY(-2px)',
+                        transition: 'all 0.15s ease-in-out'
+                      }
+                    }}
                   >
                     <CardContent>
                       <Grid container spacing={2}>

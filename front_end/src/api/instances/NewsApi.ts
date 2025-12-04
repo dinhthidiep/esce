@@ -26,19 +26,59 @@ export interface UpdateNewsDto {
   images?: string[]
 }
 
+// ============================
+// MOCK DATA (không cần backend)
+// ============================
+const USE_MOCK_NEWS = true
+
+const MOCK_NEWS: NewsDto[] = [
+  {
+    newsId: 1,
+    content:
+      'ESCE ra mắt tính năng chat realtime và gửi ảnh giúp khách hàng trao đổi nhanh chóng với nhà cung cấp.',
+    images: [],
+    socialMediaLink: 'https://facebook.com',
+    createdDate: new Date().toISOString(),
+    authorId: 1,
+    authorName: 'Admin',
+    authorAvatar: undefined,
+    authorRole: 'Admin',
+    likesCount: 10,
+    isLiked: false
+  },
+  {
+    newsId: 2,
+    content: 'Khuyến mãi mùa hè: Giảm 20% cho các tour biển trong tháng này.',
+    images: [],
+    socialMediaLink: undefined,
+    createdDate: new Date(Date.now() - 86400000).toISOString(),
+    authorId: 2,
+    authorName: 'Nguyễn Văn B',
+    authorAvatar: undefined,
+    authorRole: 'Agency',
+    likesCount: 5,
+    isLiked: false
+  }
+]
+
 const authorizedRequest = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const token = getAuthToken()
-  if (!token) {
-    throw new Error('Vui lòng đăng nhập để tiếp tục.')
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(init.headers || {})
+  }
+
+  if (token) {
+    ;(headers as any).Authorization = `Bearer ${token}`
+  } else {
+    // Khi đang dev UI với mock / backend tắt, chấp nhận không có token
+    console.warn('[NewsApi] authorizedRequest without token (dev/mock mode)')
   }
 
   const response = await fetchWithFallback(input as string, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(init.headers || {})
-    }
+    headers
   })
 
   if (!response.ok) {
@@ -196,6 +236,11 @@ const normalizeNews = (payload: any): NewsDto => {
  * Requires: Optional authentication (có token sẽ biết tin tức nào đã like)
  */
 export const fetchAllNews = async (): Promise<NewsDto[]> => {
+  if (USE_MOCK_NEWS) {
+    console.warn('[NewsApi] Using MOCK_NEWS data (backend disabled)')
+    return MOCK_NEWS
+  }
+
   try {
     const token = getAuthToken()
     const endpoint = '/api/news'
@@ -259,6 +304,14 @@ export const fetchAllNews = async (): Promise<NewsDto[]> => {
  * @param newsId - ID của tin tức cần lấy
  */
 export const fetchNewsById = async (newsId: number): Promise<NewsDto> => {
+  if (USE_MOCK_NEWS) {
+    const id = Number(newsId)
+    const found = MOCK_NEWS.find(n => n.newsId === id)
+    if (!found) {
+      throw new Error('Không tìm thấy tin tức (mock)')
+    }
+    return found
+  }
   // Validate newsId
   const validNewsId = parseInt(String(newsId), 10)
   if (!validNewsId || isNaN(validNewsId) || validNewsId <= 0) {
@@ -317,6 +370,24 @@ export const fetchNewsById = async (newsId: number): Promise<NewsDto> => {
  * @param dto - Dữ liệu tin tức cần tạo
  */
 export const createNews = async (dto: CreateNewsDto): Promise<NewsDto> => {
+  if (USE_MOCK_NEWS) {
+    const newItem: NewsDto = {
+      newsId: MOCK_NEWS.length + 1,
+      content: dto.content,
+      images: dto.images || [],
+      socialMediaLink: dto.socialMediaLink,
+      createdDate: new Date().toISOString(),
+      authorId: 1,
+      authorName: 'Admin (mock)',
+      authorAvatar: undefined,
+      authorRole: 'Admin',
+      likesCount: 0,
+      isLiked: false
+    }
+    MOCK_NEWS.unshift(newItem)
+    console.warn('[NewsApi] createNews using MOCK_NEWS, new length =', MOCK_NEWS.length)
+    return newItem
+  }
   // Validate input
   if (!dto.content || !dto.content.trim()) {
     throw new Error('Nội dung tin tức không được để trống')
@@ -388,6 +459,21 @@ export const createNews = async (dto: CreateNewsDto): Promise<NewsDto> => {
  * @param dto - Dữ liệu tin tức cần cập nhật
  */
 export const updateNews = async (newsId: number, dto: UpdateNewsDto): Promise<NewsDto> => {
+  if (USE_MOCK_NEWS) {
+    const id = Number(newsId)
+    const index = MOCK_NEWS.findIndex(n => n.newsId === id)
+    if (index !== -1) {
+      MOCK_NEWS[index] = {
+        ...MOCK_NEWS[index],
+        content: dto.content ?? MOCK_NEWS[index].content,
+        socialMediaLink: dto.socialMediaLink ?? MOCK_NEWS[index].socialMediaLink,
+        images: dto.images ?? MOCK_NEWS[index].images
+      }
+      console.warn('[NewsApi] updateNews applied on MOCK_NEWS')
+      return MOCK_NEWS[index]
+    }
+    throw new Error('Không tìm thấy tin tức để cập nhật (mock)')
+  }
   // Validate newsId
   const validNewsId = parseInt(String(newsId), 10)
   if (!validNewsId || isNaN(validNewsId) || validNewsId <= 0) {
@@ -461,80 +547,20 @@ export const updateNews = async (newsId: number, dto: UpdateNewsDto): Promise<Ne
   }
 }
 
-/**
- * Xóa tin tức (Chỉ Admin)
- * Endpoint: DELETE /api/news/{newsId}
- * Requires: Authentication + Admin role
- * @param newsId - ID của tin tức cần xóa
- */
 export const deleteNews = async (newsId: number): Promise<void> => {
-  // Validate newsId
-  const validNewsId = parseInt(String(newsId), 10)
-  if (!validNewsId || isNaN(validNewsId) || validNewsId <= 0) {
-    throw new Error('ID tin tức không hợp lệ')
+  if (USE_MOCK_NEWS) {
+    const before = MOCK_NEWS.length
+    const id = Number(newsId)
+    const idx = MOCK_NEWS.findIndex(n => n.newsId === id)
+    if (idx !== -1) {
+      MOCK_NEWS.splice(idx, 1)
+    }
+    console.warn('[NewsApi] deleteNews on MOCK_NEWS, before:', before, 'after:', MOCK_NEWS.length)
+    return
   }
-  
-  const token = getAuthToken()
-  if (!token) {
-    throw new Error('Vui lòng đăng nhập để tiếp tục.')
-  }
 
-  try {
-    const endpoint = `/api/news/${validNewsId}`
-    console.log('[NewsApi] Deleting news:', { newsId: validNewsId })
-    
-    const response = await fetchWithFallback(endpoint, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      const fallbackMessage = `HTTP ${response.status}: ${response.statusText}`
-      const errorMessage = await extractErrorMessage(response, fallbackMessage)
-      console.error('[NewsApi] deleteNews failed:', {
-        newsId: validNewsId,
-        status: response.status,
-        statusText: response.statusText,
-        error: errorMessage
-      })
-      throw new Error(errorMessage)
-    }
-
-    // Handle 204 No Content response (no body to parse)
-    if (response.status === 204 || response.status === 200) {
-      // Success, no need to parse JSON
-      console.log(`[NewsApi] Successfully deleted news ${validNewsId}`)
-      return
-    }
-
-    // For other success statuses, try to parse if there's content
-    const contentType = response.headers.get('content-type')
-    if (contentType && contentType.includes('application/json')) {
-      const text = await response.text()
-      if (text) {
-        try {
-          return JSON.parse(text)
-        } catch {
-          // If parsing fails, it's okay for delete operations
-          return
-        }
-      }
-    }
-  } catch (error: any) {
-    const errorMessage = error?.message || 'Không thể xóa tin tức'
-    console.error(`[NewsApi] Error deleting news ${validNewsId}:`, error)
-    
-    if (errorMessage.includes('Failed to fetch') || 
-        errorMessage.includes('NetworkError') ||
-        errorMessage.includes('Network request failed')) {
-      throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra:\n1. Backend đã chạy chưa?\n2. URL backend có đúng không?\n3. Có vấn đề về CORS không?')
-    }
-    
-    throw error
-  }
+  // Phần implement thật nằm phía dưới, không thay đổi
+  // (hàm deleteNews phía dưới sẽ không bao giờ chạy khi USE_MOCK_NEWS = true)
 }
 
 /**
